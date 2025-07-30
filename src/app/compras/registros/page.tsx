@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Calendar as CalendarIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,8 +16,12 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { Combobox } from "@/components/ui/command";
+
 
 type Item = {
   productoId: string;
@@ -45,7 +50,7 @@ type OrdenCompra = {
   fechaOrden: string;
   estado: "Pendiente de Recepción" | "Recibido Parcial" | "Recibido Completo" | "Cancelada";
   total: number;
-  items: (Item & { cantidadRecibida?: undefined })[]; // OC items don't have this
+  items: (Omit<Item, 'cantidadRecibida'>)[];
 };
 
 
@@ -63,7 +68,7 @@ export default function ComprasPage() {
   // Form state
   const [selectedOCId, setSelectedOCId] = useState('');
   const [numeroFactura, setNumeroFactura] = useState('');
-  const [fechaFactura, setFechaFactura] = useState(new Date().toISOString().split('T')[0]);
+  const [fechaFactura, setFechaFactura] = useState<Date | undefined>(new Date());
   const [items, setItems] = useState<Item[]>([]);
   
   const ordenesPendientes = ordenes.filter(oc => oc.estado === 'Pendiente de Recepción' || oc.estado === 'Recibido Parcial');
@@ -91,15 +96,8 @@ export default function ComprasPage() {
   }, []);
 
   useEffect(() => {
-    if (compras.length === 0 && !localStorage.getItem("compras")) return;
-    try {
-        const storedData = localStorage.getItem("compras");
-        const currentData = JSON.stringify(compras);
-        if (storedData !== currentData) {
-            localStorage.setItem("compras", currentData);
-        }
-    } catch (error) {
-        console.error("Failed to stringify or set compras in localStorage:", error);
+    if (compras.length > 0 || localStorage.getItem("compras")) {
+      localStorage.setItem("compras", JSON.stringify(compras));
     }
   }, [compras]);
 
@@ -134,7 +132,7 @@ export default function ComprasPage() {
   const resetForm = () => {
     setSelectedOCId('');
     setNumeroFactura('');
-    setFechaFactura(new Date().toISOString().split('T')[0]);
+    setFechaFactura(new Date());
     setItems([]);
   }
 
@@ -154,7 +152,7 @@ export default function ComprasPage() {
         id: `COM-${String(compras.length + 1).padStart(3, '0')}`,
         ordenCompraId: selectedOCId,
         proveedor: selectedOC?.proveedor || 'N/A',
-        fechaFactura,
+        fechaFactura: format(fechaFactura, "yyyy-MM-dd"),
         numeroFactura,
         total: parseFloat(calcularTotal()),
         items,
@@ -204,14 +202,15 @@ export default function ComprasPage() {
                  <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="oc" className="text-right">Orden de Compra</Label>
-                        <Select value={selectedOCId} onValueChange={setSelectedOCId}>
-                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Seleccione una OC pendiente de recepción" /></SelectTrigger>
-                            <SelectContent>
-                                {ordenesPendientes.map(oc => (
-                                    <SelectItem key={oc.id} value={oc.id}>{oc.id} - {oc.proveedor}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="col-span-3">
+                            <Combobox
+                                options={ordenesPendientes.map(oc => ({ value: oc.id, label: `${oc.id} - ${oc.proveedor}` }))}
+                                value={selectedOCId}
+                                onChange={setSelectedOCId}
+                                placeholder="Seleccione una OC pendiente"
+                                searchPlaceholder="Buscar OC..."
+                            />
+                        </div>
                     </div>
 
                     {selectedOC && (
@@ -222,7 +221,28 @@ export default function ComprasPage() {
                             </div>
                              <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="factura-fecha" className="text-right">Fecha Factura</Label>
-                                <Input id="factura-fecha" type="date" value={fechaFactura} onChange={e => setFechaFactura(e.target.value)} className="col-span-3" />
+                                 <Popover>
+                                    <PopoverTrigger asChild>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                        "col-span-3 justify-start text-left font-normal",
+                                        !fechaFactura && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {fechaFactura ? format(fechaFactura, "PPP") : <span>Seleccione una fecha</span>}
+                                    </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={fechaFactura}
+                                        onSelect={setFechaFactura}
+                                        initialFocus
+                                    />
+                                    </PopoverContent>
+                                </Popover>
                             </div>
 
                             <Card className="col-span-4">

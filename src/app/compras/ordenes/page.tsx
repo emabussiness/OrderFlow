@@ -15,9 +15,9 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Combobox } from "@/components/ui/command";
 
 type Item = {
   productoId: string;
@@ -127,17 +127,14 @@ export default function OrdenesCompraPage() {
   }, []);
 
   useEffect(() => {
-    if (ordenes.length === 0 && !localStorage.getItem("ordenes_compra")) return;
-    try {
-        const storedData = localStorage.getItem("ordenes_compra");
-        const currentData = JSON.stringify(ordenes);
-        if (storedData !== currentData) {
-            localStorage.setItem("ordenes_compra", currentData);
+    if (ordenes.length > 0 || localStorage.getItem("ordenes_compra")) {
+        try {
+            localStorage.setItem("ordenes_compra", JSON.stringify(ordenes));
+        } catch (error) {
+            console.error("Failed to set ordenes in localStorage:", error);
         }
-    } catch (error) {
-        console.error("Failed to stringify or set ordenes in localStorage:", error);
     }
-  }, [ordenes]);
+}, [ordenes]);
 
 
    useEffect(() => {
@@ -274,26 +271,30 @@ export default function OrdenesCompraPage() {
                     {creationMode === 'manual' && (
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="proveedor" className="text-right">Proveedor</Label>
-                            <Select value={selectedProveedorId} onValueChange={setSelectedProveedorId}>
-                                <SelectTrigger className="col-span-3"><SelectValue placeholder="Seleccione un proveedor" /></SelectTrigger>
-                                <SelectContent>
-                                    {proveedores.map(p => (<SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>))}
-                                </SelectContent>
-                            </Select>
+                             <div className="col-span-3">
+                                <Combobox
+                                    options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
+                                    value={selectedProveedorId}
+                                    onChange={setSelectedProveedorId}
+                                    placeholder="Seleccione un proveedor"
+                                    searchPlaceholder="Buscar proveedor..."
+                                />
+                            </div>
                         </div>
                     )}
 
                     {creationMode === 'pedido' && (
                          <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="pedido" className="text-right">Pedido de Compra</Label>
-                            <Select value={selectedPedidoId} onValueChange={setSelectedPedidoId}>
-                                <SelectTrigger className="col-span-3"><SelectValue placeholder="Seleccione un pedido pendiente" /></SelectTrigger>
-                                <SelectContent>
-                                    {pedidosSinPresupuesto.map(p => (
-                                       <SelectItem key={p.id} value={p.id}>{p.id} - {p.proveedor}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="col-span-3">
+                                <Combobox
+                                    options={pedidosSinPresupuesto.map(p => ({ value: p.id, label: `${p.id} - ${p.proveedor}` }))}
+                                    value={selectedPedidoId}
+                                    onChange={setSelectedPedidoId}
+                                    placeholder="Seleccione un pedido pendiente"
+                                    searchPlaceholder="Buscar pedido..."
+                                />
+                            </div>
                         </div>
                     )}
                     
@@ -314,14 +315,14 @@ export default function OrdenesCompraPage() {
                                     {items.map((item, index) => (
                                         <TableRow key={index}>
                                             <TableCell>
-                                                <Select value={item.productoId} onValueChange={(value) => handleItemChange(index, 'productoId', value)} disabled={creationMode === 'pedido'}>
-                                                    <SelectTrigger><SelectValue placeholder="Seleccione producto" /></SelectTrigger>
-                                                    <SelectContent>
-                                                        {productos.map(p => (
-                                                            <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id && i.productoId !== item.productoId)}>{p.nombre}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <Combobox
+                                                    options={productos.map(p => ({ value: p.id, label: p.nombre }))}
+                                                    value={item.productoId}
+                                                    onChange={(value) => handleItemChange(index, 'productoId', value)}
+                                                    disabled={creationMode === 'pedido' || items.some(i => i.productoId === item.productoId && i !== index)}
+                                                    placeholder="Seleccione producto"
+                                                    searchPlaceholder="Buscar producto..."
+                                                />
                                             </TableCell>
                                             <TableCell><Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" disabled={creationMode === 'pedido'}/></TableCell>
                                             <TableCell><Input type="number" value={item.precio} onChange={(e) => handleItemChange(index, 'precio', e.target.value)} min="0"/></TableCell>

@@ -15,10 +15,10 @@ import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { Combobox } from "@/components/ui/command";
 
 type ItemPedido = {
   productoId: string;
@@ -116,15 +116,12 @@ export default function PedidosPage() {
   }, []);
 
   useEffect(() => {
-    if (pedidos.length === 0 && !localStorage.getItem("pedidos")) return;
-    try {
-        const storedData = localStorage.getItem("pedidos");
-        const currentData = JSON.stringify(pedidos);
-        if (storedData !== currentData) {
-            localStorage.setItem("pedidos", currentData);
+    if (pedidos.length > 0 || localStorage.getItem("pedidos")) {
+        try {
+            localStorage.setItem("pedidos", JSON.stringify(pedidos));
+        } catch (error) {
+            console.error("Failed to set pedidos in localStorage:", error);
         }
-    } catch (error) {
-        console.error("Failed to stringify or set pedidos in localStorage:", error);
     }
   }, [pedidos]);
 
@@ -274,16 +271,15 @@ export default function PedidosPage() {
                 <Label htmlFor="proveedor" className="text-right">
                   Proveedor
                 </Label>
-                <Select value={proveedorId} onValueChange={setProveedorId}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Seleccione un proveedor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {proveedores.map(p => (
-                       <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                 <div className="col-span-3">
+                    <Combobox
+                        options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
+                        value={proveedorId}
+                        onChange={setProveedorId}
+                        placeholder="Seleccione un proveedor"
+                        searchPlaceholder="Buscar proveedor..."
+                    />
+                </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="observaciones" className="text-right">
@@ -311,18 +307,14 @@ export default function PedidosPage() {
                             {items.map((item, index) => (
                                 <TableRow key={index}>
                                     <TableCell>
-                                        <Select value={item.productoId} onValueChange={(value) => handleItemChange(index, 'productoId', value)}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Seleccione un producto" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {productos.map(p => (
-                                                    <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id && i !== index)}>
-                                                        {p.nombre}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Combobox
+                                            options={productos.map(p => ({ value: p.id, label: p.nombre }))}
+                                            value={item.productoId}
+                                            onChange={(value) => handleItemChange(index, 'productoId', value)}
+                                            disabled={items.some(i => i.productoId === item.productoId && i.productoId !== item.productoId)}
+                                            placeholder="Seleccione producto"
+                                            searchPlaceholder="Buscar producto..."
+                                        />
                                     </TableCell>
                                     <TableCell>
                                         <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1"/>

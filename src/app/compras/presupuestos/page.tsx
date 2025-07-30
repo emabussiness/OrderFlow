@@ -16,9 +16,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Combobox } from "@/components/ui/command";
 
 type Item = {
   productoId: string;
@@ -112,15 +112,12 @@ export default function PresupuestosProveedorPage() {
   }, []);
 
   useEffect(() => {
-    if (presupuestos.length === 0 && !localStorage.getItem("presupuestos")) return;
-    try {
-        const storedData = localStorage.getItem("presupuestos");
-        const currentData = JSON.stringify(presupuestos);
-        if (storedData !== currentData) {
-            localStorage.setItem("presupuestos", currentData);
+    if (presupuestos.length > 0 || localStorage.getItem("presupuestos")) {
+        try {
+            localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
+        } catch (error) {
+            console.error("Failed to set presupuestos in localStorage:", error);
         }
-    } catch (error) {
-        console.error("Failed to stringify or set presupuestos in localStorage:", error);
     }
   }, [presupuestos]);
 
@@ -195,6 +192,15 @@ export default function PresupuestosProveedorPage() {
         description: "Debe seleccionar un pedido y tener al menos un item."
       });
       return;
+    }
+
+    if (pedidosConPresupuesto.includes(selectedPedidoId)) {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Ya existe un presupuesto para el pedido seleccionado."
+        });
+        return;
     }
 
     const nuevoPresupuesto: Presupuesto = {
@@ -298,18 +304,15 @@ export default function PresupuestosProveedorPage() {
                 <Label htmlFor="pedido" className="text-right">
                   Pedido de Compra
                 </Label>
-                <Select value={selectedPedidoId} onValueChange={setSelectedPedidoId}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Seleccione un pedido pendiente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pedidosPendientes.map(p => (
-                       <SelectItem key={p.id} value={p.id}>
-                        {p.id} - {p.proveedor}
-                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="col-span-3">
+                    <Combobox
+                        options={pedidosPendientes.map(p => ({ value: p.id, label: `${p.id} - ${p.proveedor}` }))}
+                        value={selectedPedidoId}
+                        onChange={setSelectedPedidoId}
+                        placeholder="Seleccione un pedido pendiente"
+                        searchPlaceholder="Buscar pedido..."
+                    />
+                </div>
               </div>
                <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="observaciones" className="text-right">
@@ -338,18 +341,14 @@ export default function PresupuestosProveedorPage() {
                                 {items.map((item, index) => (
                                     <TableRow key={index}>
                                         <TableCell>
-                                             <Select value={item.productoId} onValueChange={(value) => handleItemChange(index, 'productoId', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Seleccione un producto" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {productos.map(p => (
-                                                        <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id && i !== index)}>
-                                                            {p.nombre}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                             <Combobox
+                                                options={productos.map(p => ({ value: p.id, label: p.nombre }))}
+                                                value={item.productoId}
+                                                onChange={(value) => handleItemChange(index, 'productoId', value)}
+                                                disabled={items.some(i => i.productoId === item.productoId && i.productoId !== item.productoId)}
+                                                placeholder="Seleccione producto"
+                                                searchPlaceholder="Buscar producto..."
+                                            />
                                         </TableCell>
                                         <TableCell>
                                             <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" />
