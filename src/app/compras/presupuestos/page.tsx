@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/command";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 type Item = {
   productoId: string;
@@ -44,6 +45,7 @@ type Presupuesto = {
   id: string;
   pedidoId: string;
   proveedor: string;
+  proveedorId: string;
   fecha: string;
   total: number;
   estado: "Recibido" | "Aprobado" | "Rechazado";
@@ -70,6 +72,7 @@ const initialPresupuestos: Presupuesto[] = [
     id: "PRE-001",
     pedidoId: "PED-001",
     proveedor: "Proveedor A",
+    proveedorId: "1",
     fecha: "2024-07-31",
     total: 1480.0,
     estado: "Aprobado",
@@ -79,6 +82,12 @@ const initialPresupuestos: Presupuesto[] = [
     usuario: "Admin",
     fechaCreacion: "2024-07-31T09:00:00Z"
   },
+];
+
+const proveedores = [
+    { id: "1", nombre: "Proveedor A" },
+    { id: "2", nombre: "Proveedor B" },
+    { id: "3", nombre: "Proveedor C" },
 ];
 
 const productos = [
@@ -95,7 +104,10 @@ export default function PresupuestosProveedorPage() {
   const [openCreate, setOpenCreate] = useState(false);
   const { toast } = useToast();
 
+  // Form state
+  const [creationMode, setCreationMode] = useState<"pedido" | "manual">("pedido");
   const [selectedPedidoId, setSelectedPedidoId] = useState('');
+  const [selectedProveedorId, setSelectedProveedorId] = useState('');
   const [items, setItems] = useState<Item[]>([]);
   const [observaciones, setObservaciones] = useState('');
   
@@ -112,27 +124,25 @@ export default function PresupuestosProveedorPage() {
   }, []);
 
   useEffect(() => {
-    if (presupuestos.length > 0 || localStorage.getItem("presupuestos")) {
-        try {
-            localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
-        } catch (error) {
-            console.error("Failed to set presupuestos in localStorage:", error);
-        }
+    if (presupuestos.length > 0 && JSON.stringify(presupuestos) !== JSON.stringify(initialPresupuestos)) {
+      localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
     }
   }, [presupuestos]);
 
 
   useEffect(() => {
-    if (selectedPedido) {
+    if (creationMode === 'pedido' && selectedPedido) {
       const newItems = selectedPedido.items.map(item => ({
         ...item,
         precio: item.precio
       }));
       setItems(newItems);
+      setSelectedProveedorId(selectedPedido.proveedorId);
     } else {
       setItems([]);
+      setSelectedProveedorId('');
     }
-  }, [selectedPedidoId, pedidos, selectedPedido]); 
+  }, [creationMode, selectedPedidoId, selectedPedido]); 
   
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
@@ -179,13 +189,15 @@ export default function PresupuestosProveedorPage() {
   }
 
   const resetForm = () => {
+    setCreationMode('pedido');
     setSelectedPedidoId('');
+    setSelectedProveedorId('');
     setItems([]);
     setObservaciones('');
   }
 
   const handleCreatePresupuesto = () => {
-    if(!selectedPedidoId || items.length === 0) {
+    if (creationMode === 'pedido' && (!selectedPedidoId || items.length === 0)) {
       toast({
         variant: "destructive",
         title: "Error de validación",
@@ -193,8 +205,12 @@ export default function PresupuestosProveedorPage() {
       });
       return;
     }
+     if (creationMode === 'manual' && (!selectedProveedorId || items.length === 0 || items.some(i => !i.productoId))) {
+      toast({ variant: "destructive", title: "Error de validación", description: "Proveedor y al menos un producto son requeridos." });
+      return;
+    }
 
-    if (pedidosConPresupuesto.includes(selectedPedidoId)) {
+    if (creationMode === 'pedido' && pedidosConPresupuesto.includes(selectedPedidoId)) {
         toast({
             variant: "destructive",
             title: "Error",
@@ -202,11 +218,14 @@ export default function PresupuestosProveedorPage() {
         });
         return;
     }
+    
+    const proveedor = proveedores.find(p => p.id === (creationMode === 'pedido' ? selectedPedido?.proveedorId : selectedProveedorId));
 
     const nuevoPresupuesto: Presupuesto = {
       id: `PRE-${String(presupuestos.length + 1).padStart(3, '0')}`,
-      pedidoId: selectedPedidoId,
-      proveedor: selectedPedido?.proveedor || 'N/A',
+      pedidoId: creationMode === 'pedido' ? selectedPedidoId : 'N/A (Manual)',
+      proveedor: proveedor?.nombre || 'N/A',
+      proveedorId: proveedor?.id || '',
       fecha: new Date().toISOString().split('T')[0],
       total: parseFloat(calcularTotal()),
       estado: 'Recibido',
@@ -219,7 +238,7 @@ export default function PresupuestosProveedorPage() {
     setPresupuestos([nuevoPresupuesto, ...presupuestos]);
     toast({
       title: "Presupuesto Registrado",
-      description: `El presupuesto ${nuevoPresupuesto.id} para el pedido ${nuevoPresupuesto.pedidoId} ha sido creado.`,
+      description: `El presupuesto ${nuevoPresupuesto.id} ha sido creado.`,
     });
     setOpenCreate(false);
   }
@@ -296,24 +315,55 @@ export default function PresupuestosProveedorPage() {
             <DialogHeader>
               <DialogTitle>Registrar Nuevo Presupuesto</DialogTitle>
               <DialogDescription>
-                Seleccione un pedido y registre los precios del proveedor.
+                Seleccione un pedido y registre los precios del proveedor, o registre manualmente.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="pedido" className="text-right">
-                  Pedido de Compra
-                </Label>
-                <div className="col-span-3">
-                    <Combobox
-                        options={pedidosPendientes.map(p => ({ value: p.id, label: `${p.id} - ${p.proveedor}` }))}
-                        value={selectedPedidoId}
-                        onChange={setSelectedPedidoId}
-                        placeholder="Seleccione un pedido pendiente"
-                        searchPlaceholder="Buscar pedido..."
-                    />
+               <RadioGroup value={creationMode} onValueChange={(value) => setCreationMode(value as any)} className="grid grid-cols-2 gap-4">
+                  <div>
+                      <RadioGroupItem value="pedido" id="r1" className="peer sr-only" />
+                      <Label htmlFor="r1" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                          Basado en Pedido
+                      </Label>
+                  </div>
+                  <div>
+                      <RadioGroupItem value="manual" id="r2" className="peer sr-only" />
+                      <Label htmlFor="r2" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                          Registro Manual
+                      </Label>
+                  </div>
+              </RadioGroup>
+
+              {creationMode === 'pedido' ? (
+                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="pedido" className="text-right">
+                    Pedido de Compra
+                  </Label>
+                  <div className="col-span-3">
+                      <Combobox
+                          options={pedidosPendientes.map(p => ({ value: p.id, label: `${p.id} - ${p.proveedor}` }))}
+                          value={selectedPedidoId}
+                          onChange={setSelectedPedidoId}
+                          placeholder="Seleccione un pedido pendiente"
+                          searchPlaceholder="Buscar pedido..."
+                      />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="proveedor" className="text-right">Proveedor</Label>
+                   <div className="col-span-3">
+                      <Combobox
+                          options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
+                          value={selectedProveedorId}
+                          onChange={setSelectedProveedorId}
+                          placeholder="Seleccione un proveedor"
+                          searchPlaceholder="Buscar proveedor..."
+                      />
+                  </div>
+                </div>
+              )}
+             
                <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="observaciones" className="text-right">
                   Observaciones
@@ -321,7 +371,7 @@ export default function PresupuestosProveedorPage() {
                 <Textarea id="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} className="col-span-3" placeholder="Añadir observaciones..."/>
               </div>
 
-              {selectedPedido && (
+              {(selectedPedido || creationMode === 'manual') && (
                  <Card className="col-span-4">
                     <CardHeader>
                         <CardTitle>Productos del Presupuesto</CardTitle>
@@ -345,13 +395,13 @@ export default function PresupuestosProveedorPage() {
                                                 options={productos.map(p => ({ value: p.id, label: p.nombre }))}
                                                 value={item.productoId}
                                                 onChange={(value) => handleItemChange(index, 'productoId', value)}
-                                                disabled={items.some(i => i.productoId === item.productoId && i.productoId !== item.productoId)}
+                                                disabled={creationMode === 'pedido' && !!item.productoId}
                                                 placeholder="Seleccione producto"
                                                 searchPlaceholder="Buscar producto..."
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" />
+                                            <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" disabled={creationMode === 'pedido'}/>
                                         </TableCell>
                                         <TableCell>
                                             <Input type="number" value={item.precio} onChange={(e) => handleItemChange(index, 'precio', e.target.value)} min="0"/>
@@ -360,7 +410,7 @@ export default function PresupuestosProveedorPage() {
                                           ${(item.cantidad * item.precio).toFixed(2)}
                                         </TableCell>
                                         <TableCell>
-                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
+                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={creationMode === 'pedido'}>
                                                 <Trash2 className="h-4 w-4 text-red-500" />
                                             </Button>
                                         </TableCell>
@@ -369,7 +419,7 @@ export default function PresupuestosProveedorPage() {
                             </TableBody>
                         </Table>
                          <div className="flex justify-between items-center mt-4">
-                            <Button variant="outline" size="sm" onClick={handleAddItem}>
+                            <Button variant="outline" size="sm" onClick={handleAddItem} disabled={creationMode === 'pedido'}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Añadir Producto
                             </Button>
@@ -384,7 +434,7 @@ export default function PresupuestosProveedorPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
-              <Button onClick={handleCreatePresupuesto} disabled={!selectedPedidoId}>Registrar</Button>
+              <Button onClick={handleCreatePresupuesto} disabled={creationMode === 'pedido' && !selectedPedidoId}>Registrar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -555,3 +605,5 @@ export default function PresupuestosProveedorPage() {
     </>
   );
 }
+
+    
