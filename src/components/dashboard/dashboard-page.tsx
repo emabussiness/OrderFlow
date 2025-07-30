@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -11,8 +12,10 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Home, ShoppingCart, Settings, User } from "lucide-react";
+import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
 
 export function DashboardPage() {
   return (
@@ -32,6 +35,108 @@ export function DashboardPage() {
                 Dashboard
               </SidebarMenuButton>
             </SidebarMenuItem>
+
+            <Collapsible>
+              <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShoppingBasket />
+                        <span>Compras</span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+              </SidebarMenuItem>
+              <CollapsibleContent>
+                <Collapsible className="ml-4">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton className="justify-between">
+                        <div className="flex items-center gap-2">
+                          <FileText />
+                          <span>Referenciales</span>
+                        </div>
+                        <ChevronDown className="h-4 w-4" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                  </SidebarMenuItem>
+                  <CollapsibleContent className="ml-4">
+                    <SidebarMenu>
+                      <SidebarMenuItem><SidebarMenuButton href="#"><Package />Productos</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><SidebarMenuButton href="#"><Boxes />Categoría</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><SidebarMenuButton href="#"><Truck />Proveedor</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><SidebarMenuButton href="#"><Warehouse />Depósitos</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><SidebarMenuButton href="#"><Building />Sucursal</SidebarMenuButton></SidebarMenuItem>
+                    </SidebarMenu>
+                  </CollapsibleContent>
+                </Collapsible>
+                <Collapsible className="ml-4">
+                   <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton className="justify-between">
+                        <div className="flex items-center gap-2">
+                          <ClipboardList />
+                          <span>Movimientos</span>
+                        </div>
+                        <ChevronDown className="h-4 w-4" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                  </SidebarMenuItem>
+                  <CollapsibleContent className="ml-4">
+                    <SidebarMenu>
+                      <SidebarMenuItem><SidebarMenuButton href="#">Pedido</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><SidebarMenuButton href="#">Presupuesto proveedor</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><SidebarMenuButton href="#">Orden de compra</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><SidebarMenuButton href="#">Compra</SidebarMenuButton></SidebarMenuItem>
+                    </SidebarMenu>
+                  </CollapsibleContent>
+                </Collapsible>
+              </CollapsibleContent>
+            </Collapsible>
+
+             <Collapsible>
+              <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="justify-between">
+                      <div className="flex items-center gap-2">
+                        <Wrench />
+                        <span>Servicios</span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+              </SidebarMenuItem>
+            </Collapsible>
+
+            <Collapsible>
+              <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="justify-between">
+                      <div className="flex items-center gap-2">
+                        <DollarSign />
+                        <span>Ventas</span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+              </SidebarMenuItem>
+            </Collapsible>
+
+            <Collapsible>
+              <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="justify-between">
+                      <div className="flex items-center gap-2">
+                        <Receipt />
+                        <span>Facturación</span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+              </SidebarMenuItem>
+            </Collapsible>
+
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
