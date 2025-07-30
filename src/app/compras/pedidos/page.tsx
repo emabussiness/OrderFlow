@@ -96,7 +96,7 @@ type ItemPedido = {
 
 export default function PedidosPage() {
   const { toast } = useToast();
-  const [pedidos, setPedidos] = useState<Pedido[]>(initialPedidos);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [openCreate, setOpenCreate] = useState(false);
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
@@ -104,6 +104,21 @@ export default function PedidosPage() {
   const [items, setItems] = useState<ItemPedido[]>([]);
   const [proveedorId, setProveedorId] = useState('');
   const [observaciones, setObservaciones] = useState('');
+
+  useEffect(() => {
+    const storedPedidos = localStorage.getItem("pedidos");
+    if (storedPedidos) {
+      setPedidos(JSON.parse(storedPedidos));
+    } else {
+      setPedidos(initialPedidos);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pedidos.length > 0) {
+        localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    }
+  }, [pedidos]);
 
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status.toLowerCase()) {
@@ -127,7 +142,7 @@ export default function PedidosPage() {
     setItems(newItems);
   };
   
-  const handleItemChange = (index: number, field: keyof ItemPedido, value: string | number) => {
+ const handleItemChange = (index: number, field: keyof ItemPedido, value: string | number) => {
     const newItems = [...items];
     const currentItem = newItems[index];
 
@@ -138,14 +153,10 @@ export default function PedidosPage() {
         const existingItemIndex = items.findIndex((item, i) => item.productoId === productoId && i !== index);
 
         if (existingItemIndex !== -1) {
-            const existingItem = items[existingItemIndex];
-            const updatedItems = [...items];
-            updatedItems[existingItemIndex].cantidad += currentItem.cantidad;
-            updatedItems.splice(index, 1);
-            setItems(updatedItems);
             toast({
-                title: "Producto ya existente", 
-                description: `Se ha actualizado la cantidad para ${existingItem.nombre}.`
+                variant: "destructive",
+                title: "Producto duplicado", 
+                description: `El producto ${producto?.nombre} ya está en la lista. No se puede añadir de nuevo.`
             });
         } else {
             currentItem.productoId = productoId;
@@ -297,7 +308,7 @@ export default function PedidosPage() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {productos.map(p => (
-                                                    <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id)}>
+                                                    <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id && i !== index)}>
                                                         {p.nombre}
                                                     </SelectItem>
                                                 ))}
@@ -434,7 +445,7 @@ export default function PedidosPage() {
                         </div>
                         <div>
                             <p className="font-semibold">Estado:</p>
-                            <div><Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge></div>
+                            <Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge>
                         </div>
                         <div>
                             <p className="font-semibold">Registrado por:</p>

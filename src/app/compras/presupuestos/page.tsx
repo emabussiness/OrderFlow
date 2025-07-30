@@ -20,13 +20,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-// Tipos del componente Pedidos para reutilizar
-type ItemPedido = {
+type Item = {
   productoId: string;
   nombre: string;
   cantidad: number;
   precio: number;
 };
+
 type Pedido = {
   id: string;
   proveedor: string;
@@ -34,48 +34,11 @@ type Pedido = {
   fechaPedido: string;
   estado: "Pendiente" | "Completado" | "Cancelado";
   total: number;
-  items: ItemPedido[];
+  items: Item[];
   observaciones?: string;
   usuario: string;
   fechaCreacion: string;
 };
-
-// Pedidos de ejemplo que podrían venir de una API
-const initialPedidos: Pedido[] = [
-    {
-    id: "PED-001",
-    proveedor: "Proveedor A",
-    proveedorId: "1",
-    fechaPedido: "2024-07-30",
-    estado: "Pendiente",
-    total: 1500.00,
-    items: [
-        { productoId: '101', nombre: 'Producto X', cantidad: 10, precio: 150 },
-    ],
-    usuario: "Usuario Demo",
-    fechaCreacion: "2024-07-30T10:00:00Z"
-  },
-   {
-    id: "PED-002",
-    proveedor: "Proveedor B",
-    proveedorId: "2",
-    fechaPedido: "2024-07-29",
-    estado: "Pendiente",
-    total: 750.50,
-    items: [
-        { productoId: '102', nombre: 'Producto Y', cantidad: 30, precio: 25.50 },
-    ],
-    usuario: "Usuario Demo",
-    fechaCreacion: "2024-07-29T11:30:00Z"
-  },
-];
-
-const productos = [
-    { id: "101", nombre: "Producto X", precio: 100 },
-    { id: "102", nombre: "Producto Y", precio: 25.50 },
-    { id: "103", nombre: "Producto Z", precio: 50 },
-];
-
 
 type Presupuesto = {
   id: string;
@@ -84,8 +47,20 @@ type Presupuesto = {
   fecha: string;
   total: number;
   estado: "Recibido" | "Aprobado" | "Rechazado";
-  items: { productoId: string; nombre: string; cantidad: number; precio: number }[];
+  items: Item[];
   observaciones?: string;
+  usuario: string;
+  fechaCreacion: string;
+};
+
+type OrdenCompra = {
+  id: string;
+  presupuestoId: string;
+  proveedor: string;
+  fechaOrden: string;
+  estado: "Pendiente de Recepción" | "Recibido Parcial" | "Recibido Completo" | "Cancelada";
+  total: number;
+  items: Item[];
   usuario: string;
   fechaCreacion: string;
 };
@@ -106,38 +81,58 @@ const initialPresupuestos: Presupuesto[] = [
   },
 ];
 
-type ItemPresupuesto = {
-  productoId: string;
-  nombre: string;
-  cantidad: number;
-  precio: number;
-}
+const productos = [
+    { id: "101", nombre: "Producto X", precio: 100 },
+    { id: "102", nombre: "Producto Y", precio: 25.50 },
+    { id: "103", nombre: "Producto Z", precio: 50 },
+];
 
 export default function PresupuestosProveedorPage() {
-  const [presupuestos, setPresupuestos] = useState<Presupuesto[]>(initialPresupuestos);
+  const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [selectedPresupuesto, setSelectedPresupuesto] = useState<Presupuesto | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
   const [openCreate, setOpenCreate] = useState(false);
   const { toast } = useToast();
 
   const [selectedPedidoId, setSelectedPedidoId] = useState('');
-  const [items, setItems] = useState<ItemPresupuesto[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [observaciones, setObservaciones] = useState('');
   
-  const selectedPedido = initialPedidos.find(p => p.id === selectedPedidoId);
+  const selectedPedido = pedidos.find(p => p.id === selectedPedidoId);
   const pedidosConPresupuesto = presupuestos.map(p => p.pedidoId);
+
+  useEffect(() => {
+    const storedPresupuestos = localStorage.getItem("presupuestos");
+    if (storedPresupuestos) {
+      setPresupuestos(JSON.parse(storedPresupuestos));
+    } else {
+      setPresupuestos(initialPresupuestos);
+    }
+    const storedPedidos = localStorage.getItem("pedidos");
+     if (storedPedidos) {
+      setPedidos(JSON.parse(storedPedidos));
+    }
+  }, []);
+
+  useEffect(() => {
+     if(presupuestos.length > 0) {
+        localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
+     }
+  }, [presupuestos]);
+
 
   useEffect(() => {
     if (selectedPedido) {
       const newItems = selectedPedido.items.map(item => ({
         ...item,
-        precio: item.precio // Inicialmente el precio es el estimado del pedido
+        precio: item.precio
       }));
       setItems(newItems);
     } else {
       setItems([]);
     }
-  }, [selectedPedidoId]);
+  }, [selectedPedidoId, pedidos]); // Depend on pedidos as well
   
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
@@ -161,13 +156,17 @@ export default function PresupuestosProveedorPage() {
     setItems(newItems);
   };
 
-  const handleItemChange = (index: number, field: keyof ItemPresupuesto, value: string | number) => {
+  const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
     const newItems = [...items];
     const currentItem = newItems[index];
 
     if (field === 'productoId') {
       const productoId = value as string;
       const producto = productos.find(p => p.id === productoId);
+       if (items.some(item => item.productoId === productoId && item.productoId !== currentItem.productoId)) {
+            toast({ variant: "destructive", title: "Producto duplicado", description: "Este producto ya ha sido añadido." });
+            return;
+       }
       currentItem.productoId = productoId;
       currentItem.precio = producto ? producto.precio : 0;
       currentItem.nombre = producto ? producto.nombre : '';
@@ -179,7 +178,6 @@ export default function PresupuestosProveedorPage() {
     setItems(newItems);
   }
   
-
   const calcularTotal = () => {
      return items.reduce((total, item) => total + (item.cantidad * item.precio), 0).toFixed(2);
   }
@@ -234,14 +232,48 @@ export default function PresupuestosProveedorPage() {
   }
 
   const handleUpdateStatus = (presupuestoId: string, newStatus: "Aprobado" | "Rechazado") => {
-     setPresupuestos(presupuestos.map(p => 
-        p.id === presupuestoId ? { ...p, estado: newStatus } : p
-    ));
-    toast({
-        title: `Presupuesto ${newStatus}`,
-        description: `El presupuesto ${presupuestoId} ha sido marcado como ${newStatus.toLowerCase()}.`,
-        variant: newStatus === 'Rechazado' ? 'destructive' : 'default',
+    let presupuestoAprobado: Presupuesto | undefined;
+    const updatedPresupuestos = presupuestos.map(p => {
+        if (p.id === presupuestoId) {
+            presupuestoAprobado = { ...p, estado: newStatus };
+            return presupuestoAprobado;
+        }
+        return p;
     });
+
+    setPresupuestos(updatedPresupuestos);
+
+    if (newStatus === 'Aprobado' && presupuestoAprobado) {
+        // Generar Orden de Compra
+        const storedOrdenes = localStorage.getItem("ordenes_compra") || "[]";
+        const ordenes: OrdenCompra[] = JSON.parse(storedOrdenes);
+        
+        const nuevaOrden: OrdenCompra = {
+            id: `OC-${String(ordenes.length + 1).padStart(3, '0')}`,
+            presupuestoId: presupuestoAprobado.id,
+            proveedor: presupuestoAprobado.proveedor,
+            fechaOrden: new Date().toISOString().split('T')[0],
+            estado: "Pendiente de Recepción",
+            total: presupuestoAprobado.total,
+            items: presupuestoAprobado.items,
+            usuario: "Usuario", // Hardcoded
+            fechaCreacion: new Date().toISOString(),
+        };
+
+        const nuevasOrdenes = [nuevaOrden, ...ordenes];
+        localStorage.setItem("ordenes_compra", JSON.stringify(nuevasOrdenes));
+
+        toast({
+            title: "Presupuesto Aprobado y Orden de Compra Generada",
+            description: `La OC ${nuevaOrden.id} ha sido creada.`,
+        });
+    } else {
+        toast({
+            title: `Presupuesto ${newStatus}`,
+            description: `El presupuesto ${presupuestoId} ha sido marcado como ${newStatus.toLowerCase()}.`,
+            variant: newStatus === 'Rechazado' ? 'destructive' : 'default',
+        });
+    }
   }
 
   return (
@@ -272,7 +304,7 @@ export default function PresupuestosProveedorPage() {
                     <SelectValue placeholder="Seleccione un pedido pendiente" />
                   </SelectTrigger>
                   <SelectContent>
-                    {initialPedidos.filter(p => p.estado === 'Pendiente').map(p => (
+                    {pedidos.filter(p => p.estado === 'Pendiente').map(p => (
                        <SelectItem key={p.id} value={p.id} disabled={pedidosConPresupuesto.includes(p.id)}>
                         {p.id} - {p.proveedor} {pedidosConPresupuesto.includes(p.id) && "(Presupuestado)"}
                        </SelectItem>

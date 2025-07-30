@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -51,9 +51,42 @@ const initialOrdenes: OrdenCompra[] = [
 
 
 export default function OrdenesCompraPage() {
-  const [ordenes] = useState<OrdenCompra[]>(initialOrdenes);
+  const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
   const [selectedOrden, setSelectedOrden] = useState<OrdenCompra | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
+
+  useEffect(() => {
+    const storedOrdenes = localStorage.getItem("ordenes_compra");
+    if (storedOrdenes) {
+      setOrdenes(JSON.parse(storedOrdenes));
+    } else {
+      setOrdenes(initialOrdenes);
+    }
+  }, []);
+
+  useEffect(() => {
+    // This effect ensures that if another page updates localStorage, this page reflects the changes.
+    const handleStorageChange = () => {
+        const storedOrdenes = localStorage.getItem("ordenes_compra");
+        if (storedOrdenes) {
+            setOrdenes(JSON.parse(storedOrdenes));
+        }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+        window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (ordenes.length > 0) {
+        // We might not want to overwrite initial data if it's the first load and localStorage is empty.
+        // A more complex logic can be added here if needed.
+        if (localStorage.getItem("ordenes_compra") || ordenes.length > initialOrdenes.length) {
+             localStorage.setItem("ordenes_compra", JSON.stringify(ordenes));
+        }
+    }
+  }, [ordenes]);
 
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
@@ -160,7 +193,7 @@ export default function OrdenesCompraPage() {
                         </div>
                         <div>
                             <p className="font-semibold">Estado:</p>
-                            <div><Badge variant={getStatusVariant(selectedOrden.estado)}>{selectedOrden.estado}</Badge></div>
+                            <Badge variant={getStatusVariant(selectedOrden.estado)}>{selectedOrden.estado}</Badge>
                         </div>
                         <div>
                             <p className="font-semibold">Generado por:</p>
@@ -210,3 +243,5 @@ export default function OrdenesCompraPage() {
     </>
   );
 }
+
+    
