@@ -471,7 +471,7 @@ export default function PresupuestosProveedorPage() {
                         </div>
                         <div>
                             <p className="font-semibold">Estado:</p>
-                            <p><Badge variant={getStatusVariant(selectedPresupuesto.estado)}>{selectedPresupuesto.estado}</Badge></p>
+                            <div><Badge variant={getStatusVariant(selectedPresupuesto.estado)}>{selectedPresupuesto.estado}</Badge></div>
                         </div>
                         <div>
                             <p className="font-semibold">Registrado por:</p>
@@ -525,3 +525,5 @@ export default function PresupuestosProveedorPage() {
     </>
   );
 }
+
+    

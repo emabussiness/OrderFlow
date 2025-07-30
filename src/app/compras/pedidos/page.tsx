@@ -434,7 +434,7 @@ export default function PedidosPage() {
                         </div>
                         <div>
                             <p className="font-semibold">Estado:</p>
-                            <p><Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge></p>
+                            <div><Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge></div>
                         </div>
                         <div>
                             <p className="font-semibold">Registrado por:</p>
@@ -488,3 +488,5 @@ export default function PedidosPage() {
     </>
   );
 }
+
+    
