@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3 } from "lucide-react";
+import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export function DashboardPage() {
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton href="#" isActive>
+              <SidebarMenuButton href="/" isActive>
                 <Home />
                 Dashboard
               </SidebarMenuButton>
@@ -89,6 +89,8 @@ export function DashboardPage() {
                       <SidebarMenuItem><SidebarMenuButton href="/compras/presupuestos">Presupuesto proveedor</SidebarMenuButton></SidebarMenuItem>
                       <SidebarMenuItem><SidebarMenuButton href="/compras/ordenes">Orden de compra</SidebarMenuButton></SidebarMenuItem>
                       <SidebarMenuItem><SidebarMenuButton href="/compras/registros">Compra</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><SidebarMenuButton href="#">Notas Crédito/Débito</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><SidebarMenuButton href="#">Ajustes de Stock</SidebarMenuButton></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
@@ -154,7 +156,19 @@ export function DashboardPage() {
                   </CollapsibleTrigger>
               </SidebarMenuItem>
             </Collapsible>
-
+             <Collapsible>
+              <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileDiff />
+                        <span>Contabilidad</span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+              </SidebarMenuItem>
+            </Collapsible>
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
