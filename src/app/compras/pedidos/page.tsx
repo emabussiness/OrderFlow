@@ -129,12 +129,14 @@ export default function PedidosPage() {
         
         const existingItemIndex = items.findIndex((item) => item.productoId === productoId);
 
-        if (existingItemIndex !== -1) {
-            // Product already exists, increment quantity and remove the new line
-            const updatedItems = items.filter((_, i) => i !== index);
-            updatedItems[existingItemIndex].cantidad += newItems[index].cantidad;
-            setItems(updatedItems);
-            toast({ title: "Producto duplicado", description: "La cantidad ha sido actualizada en la línea existente."});
+        if (existingItemIndex !== -1 && existingItemIndex !== index) {
+            toast({
+                variant: "destructive",
+                title: "Producto duplicado", 
+                description: "Este producto ya está en la lista. Por favor, actualice la cantidad existente."
+            });
+             const updatedItems = items.filter((_, i) => i !== index);
+             setItems(updatedItems);
         } else {
             newItems[index].productoId = productoId;
             newItems[index].precio = producto ? producto.precio : 0;
@@ -215,9 +217,9 @@ export default function PedidosPage() {
   }
 
   return (
-    <div className="p-6">
+    <>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Pedidos de Compra</h1>
+        <h1 className="text-2xl font-bold">Pedidos de Compra</h1>
         <Dialog open={openCreate} onOpenChange={setOpenCreate}>
           <DialogTrigger asChild>
             <Button>
@@ -280,7 +282,7 @@ export default function PedidosPage() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {productos.map(p => (
-                                                    <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id)}>
+                                                    <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id && i.productoId !== item.productoId)}>
                                                         {p.nombre}
                                                     </SelectItem>
                                                 ))}
@@ -460,8 +462,6 @@ export default function PedidosPage() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
-
-    

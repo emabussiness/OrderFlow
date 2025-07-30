@@ -15,10 +15,22 @@ import {
 import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { usePathname } from 'next/navigation';
 
-export function DashboardPage() {
+export function DashboardPage({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  const getPageTitle = () => {
+    if (pathname === '/') return 'Dashboard';
+    if (pathname.startsWith('/compras')) {
+      const pathParts = pathname.split('/');
+      const lastPart = pathParts[pathParts.length - 1];
+      return lastPart.charAt(0).toUpperCase() + lastPart.slice(1).replace('-', ' ');
+    }
+    return 'Dashboard';
+  }
+
   return (
     <>
       <Sidebar>
@@ -32,7 +44,7 @@ export function DashboardPage() {
           <SidebarMenu>
             <SidebarMenuItem>
               <Link href="/">
-                <SidebarMenuButton isActive>
+                <SidebarMenuButton isActive={pathname === '/'}>
                   <Home />
                   Dashboard
                 </SidebarMenuButton>
@@ -88,10 +100,10 @@ export function DashboardPage() {
                   </SidebarMenuItem>
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
-                      <SidebarMenuItem><Link href="/compras/pedidos"><SidebarMenuButton>Pedido</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="/compras/presupuestos"><SidebarMenuButton>Presupuesto proveedor</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="/compras/ordenes"><SidebarMenuButton>Orden de compra</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="/compras/registros"><SidebarMenuButton>Compra</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/pedidos"><SidebarMenuButton isActive={pathname.startsWith('/compras/pedidos')}>Pedido</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/presupuestos"><SidebarMenuButton isActive={pathname.startsWith('/compras/presupuestos')}>Presupuesto proveedor</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/ordenes"><SidebarMenuButton isActive={pathname.startsWith('/compras/ordenes')}>Orden de compra</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/registros"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros')}>Compra</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton>Notas Crédito/Débito</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton>Ajustes de Stock</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
@@ -111,7 +123,7 @@ export function DashboardPage() {
                   </SidebarMenuItem>
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
-                      <SidebarMenuItem><Link href="/compras/informes"><SidebarMenuButton>Informes de Compras</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/informes"><SidebarMenuButton isActive={pathname.startsWith('/compras/informes')}>Informes de Compras</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
@@ -191,18 +203,11 @@ export function DashboardPage() {
         <header className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
-            <h1 className="text-2xl font-bold">Dashboard</h1>
+            <h1 className="text-2xl font-bold">{getPageTitle()}</h1>
           </div>
         </header>
-        <main className="flex-1 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-card p-6 rounded-lg shadow">
-              <h3 className="font-semibold text-lg mb-2">Visión General</h3>
-              <p className="text-muted-foreground">
-                Bienvenido a tu panel de control.
-              </p>
-            </div>
-          </div>
+        <main className="flex-1 p-6 bg-muted/20">
+            {children}
         </main>
       </SidebarInset>
     </>

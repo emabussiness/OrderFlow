@@ -66,9 +66,9 @@ export default function PresupuestosProveedorPage() {
   };
 
   return (
-    <div className="p-6">
+    <>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Presupuestos de Proveedores</h1>
+        <h1 className="text-2xl font-bold">Presupuestos de Proveedores</h1>
         <Button disabled>Registrar Presupuesto</Button>
       </div>
 
@@ -125,6 +125,6 @@ export default function PresupuestosProveedorPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+    </>
   );
 }
