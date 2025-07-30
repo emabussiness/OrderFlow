@@ -127,7 +127,7 @@ export default function PedidosPage() {
     setItems(newItems);
   };
   
-  const handleItemChange = (index: number, field: 'productoId' | 'cantidad', value: string | number) => {
+  const handleItemChange = (index: number, field: keyof ItemPedido, value: string | number) => {
     const newItems = [...items];
     const currentItem = newItems[index];
 
@@ -156,8 +156,11 @@ export default function PedidosPage() {
 
     } else if (field === 'cantidad') {
       currentItem.cantidad = Number(value) < 1 ? 1 : Number(value);
-      setItems(newItems);
+    } else if (field === 'precio') {
+        currentItem.precio = Number(value) < 0 ? 0 : Number(value);
     }
+    
+    setItems(newItems);
   };
 
   const calcularTotal = () => {
@@ -305,7 +308,7 @@ export default function PedidosPage() {
                                         <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1"/>
                                     </TableCell>
                                      <TableCell>
-                                        <Input type="number" value={item.precio.toFixed(2)} readOnly className="border-none bg-transparent"/>
+                                        <Input type="number" value={item.precio.toFixed(2)} onChange={(e) => handleItemChange(index, 'precio', e.target.value)} />
                                     </TableCell>
                                     <TableCell className="text-right">
                                         ${(item.cantidad * item.precio).toFixed(2)}

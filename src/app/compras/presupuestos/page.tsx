@@ -70,6 +70,12 @@ const initialPedidos: Pedido[] = [
   },
 ];
 
+const productos = [
+    { id: "101", nombre: "Producto X", precio: 100 },
+    { id: "102", nombre: "Producto Y", precio: 25.50 },
+    { id: "103", nombre: "Producto Z", precio: 50 },
+];
+
 
 type Presupuesto = {
   id: string;
@@ -119,6 +125,7 @@ export default function PresupuestosProveedorPage() {
   const [observaciones, setObservaciones] = useState('');
   
   const selectedPedido = initialPedidos.find(p => p.id === selectedPedidoId);
+  const pedidosConPresupuesto = presupuestos.map(p => p.pedidoId);
 
   useEffect(() => {
     if (selectedPedido) {
@@ -144,12 +151,34 @@ export default function PresupuestosProveedorPage() {
         return "outline";
     }
   };
-  
-  const handleItemPriceChange = (index: number, newPrice: string) => {
+
+  const handleAddItem = () => {
+    setItems([...items, { productoId: '', nombre: '', cantidad: 1, precio: 0 }]);
+  };
+
+  const handleRemoveItem = (index: number) => {
+    const newItems = items.filter((_, i) => i !== index);
+    setItems(newItems);
+  };
+
+  const handleItemChange = (index: number, field: keyof ItemPresupuesto, value: string | number) => {
     const newItems = [...items];
-    newItems[index].precio = Number(newPrice) < 0 ? 0 : Number(newPrice);
+    const currentItem = newItems[index];
+
+    if (field === 'productoId') {
+      const productoId = value as string;
+      const producto = productos.find(p => p.id === productoId);
+      currentItem.productoId = productoId;
+      currentItem.precio = producto ? producto.precio : 0;
+      currentItem.nombre = producto ? producto.nombre : '';
+    } else if (field === 'cantidad') {
+      currentItem.cantidad = Number(value) < 1 ? 1 : Number(value);
+    } else if (field === 'precio') {
+      currentItem.precio = Number(value) < 0 ? 0 : Number(value);
+    }
     setItems(newItems);
   }
+  
 
   const calcularTotal = () => {
      return items.reduce((total, item) => total + (item.cantidad * item.precio), 0).toFixed(2);
@@ -244,7 +273,9 @@ export default function PresupuestosProveedorPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {initialPedidos.filter(p => p.estado === 'Pendiente').map(p => (
-                       <SelectItem key={p.id} value={p.id}>{p.id} - {p.proveedor}</SelectItem>
+                       <SelectItem key={p.id} value={p.id} disabled={pedidosConPresupuesto.includes(p.id)}>
+                        {p.id} - {p.proveedor} {pedidosConPresupuesto.includes(p.id) && "(Presupuestado)"}
+                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -259,7 +290,7 @@ export default function PresupuestosProveedorPage() {
               {selectedPedido && (
                  <Card className="col-span-4">
                     <CardHeader>
-                        <CardTitle>Productos del Pedido</CardTitle>
+                        <CardTitle>Productos del Presupuesto</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -269,25 +300,52 @@ export default function PresupuestosProveedorPage() {
                                     <TableHead className="w-[150px]">Cantidad</TableHead>
                                     <TableHead className="w-[150px]">Precio Cotizado</TableHead>
                                     <TableHead className="w-[150px] text-right">Subtotal</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {items.map((item, index) => (
                                     <TableRow key={index}>
-                                        <TableCell>{item.nombre}</TableCell>
-                                        <TableCell>{item.cantidad}</TableCell>
                                         <TableCell>
-                                            <Input type="number" value={item.precio} onChange={(e) => handleItemPriceChange(index, e.target.value)} min="0"/>
+                                             <Select value={item.productoId} onValueChange={(value) => handleItemChange(index, 'productoId', value)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccione un producto" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {productos.map(p => (
+                                                        <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id && i !== index)}>
+                                                            {p.nombre}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input type="number" value={item.precio} onChange={(e) => handleItemChange(index, 'precio', e.target.value)} min="0"/>
                                         </TableCell>
                                         <TableCell className="text-right">
                                           ${(item.cantidad * item.precio).toFixed(2)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
+                                                <Trash2 className="h-4 w-4 text-red-500" />
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
-                         <div className="text-right font-bold text-lg mt-4">
-                            Total: ${calcularTotal()}
+                         <div className="flex justify-between items-center mt-4">
+                            <Button variant="outline" size="sm" onClick={handleAddItem}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Añadir Producto
+                            </Button>
+                            <div className="text-right font-bold text-lg">
+                                Total: ${calcularTotal()}
+                            </div>
                         </div>
                     </CardContent>
                  </Card>
