@@ -31,6 +31,7 @@ type OrdenCompra = {
   presupuestoId: string;
   pedidoId?: string;
   proveedor: string;
+  proveedorId: string;
   fechaOrden: string;
   estado: "Pendiente de Recepción" | "Recibido Parcial" | "Recibido Completo" | "Cancelada";
   total: number;
@@ -58,6 +59,7 @@ const initialOrdenes: OrdenCompra[] = [
     presupuestoId: "PRE-001",
     pedidoId: "PED-001",
     proveedor: "Proveedor A",
+    proveedorId: "1",
     fechaOrden: "2024-07-31",
     total: 1480.0,
     estado: "Pendiente de Recepción",
@@ -126,6 +128,7 @@ export default function OrdenesCompraPage() {
     if (ordenes.length > 0) {
         if (JSON.stringify(ordenes) !== JSON.stringify(initialOrdenes) || !localStorage.getItem("ordenes_compra")) {
              localStorage.setItem("ordenes_compra", JSON.stringify(ordenes));
+             window.dispatchEvent(new Event('storage'));
         }
     } else if (localStorage.getItem("ordenes_compra")) {
         localStorage.removeItem("ordenes_compra");
@@ -213,6 +216,7 @@ export default function OrdenesCompraPage() {
       presupuestoId: creationMode === 'pedido' ? 'N/A (Directo)' : 'N/A (Manual)',
       pedidoId: creationMode === 'pedido' ? selectedPedidoId : undefined,
       proveedor: proveedor?.nombre || 'Desconocido',
+      proveedorId: proveedor?.id || '',
       fechaOrden: new Date().toISOString().split('T')[0],
       estado: "Pendiente de Recepción",
       total: parseFloat(calcularTotal()),
@@ -309,7 +313,7 @@ export default function OrdenesCompraPage() {
                                                     <SelectTrigger><SelectValue placeholder="Seleccione producto" /></SelectTrigger>
                                                     <SelectContent>
                                                         {productos.map(p => (
-                                                            <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id && i !== index)}>{p.nombre}</SelectItem>
+                                                            <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id && i.productoId !== item.productoId)}>{p.nombre}</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
@@ -388,8 +392,8 @@ export default function OrdenesCompraPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleOpenDetails(orden)}>Ver Detalles</DropdownMenuItem>
-                        <DropdownMenuItem>Registrar Recepción</DropdownMenuItem>
-                         <DropdownMenuItem className="text-red-500">Cancelar Orden</DropdownMenuItem>
+                        <DropdownMenuItem disabled>Registrar Recepción</DropdownMenuItem>
+                         <DropdownMenuItem className="text-red-500" disabled={orden.estado !== 'Pendiente de Recepción'}>Cancelar Orden</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -424,8 +428,8 @@ export default function OrdenesCompraPage() {
                             <p>{selectedOrden.presupuestoId.startsWith('PRE-') ? `Presupuesto (${selectedOrden.presupuestoId})` : selectedOrden.presupuestoId }</p>
                         </div>
                         <div>
-                            <p className="font-semibold">Estado:</p>
-                            <Badge variant={getStatusVariant(selectedOrden.estado)}>{selectedOrden.estado}</Badge>
+                            <div className="font-semibold">Estado:</div>
+                            <div><Badge variant={getStatusVariant(selectedOrden.estado)}>{selectedOrden.estado}</Badge></div>
                         </div>
                         <div>
                             <p className="font-semibold">Generado por:</p>
@@ -475,3 +479,5 @@ export default function OrdenesCompraPage() {
     </>
   );
 }
+
+    
