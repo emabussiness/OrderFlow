@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -25,11 +24,13 @@ type Pedido = {
   id: string;
   proveedor: string;
   proveedorId: string;
-  fecha: string;
+  fechaPedido: string;
   estado: "Pendiente" | "Completado" | "Cancelado";
   total: number;
   items: ItemPedido[];
   observaciones?: string;
+  usuario: string;
+  fechaCreacion: string;
 };
 
 const initialPedidos: Pedido[] = [
@@ -37,34 +38,40 @@ const initialPedidos: Pedido[] = [
     id: "PED-001",
     proveedor: "Proveedor A",
     proveedorId: "1",
-    fecha: "2024-07-30",
+    fechaPedido: "2024-07-30",
     estado: "Pendiente",
     total: 1500.00,
     items: [
         { productoId: '101', nombre: 'Producto X', cantidad: 10, precio: 150 },
-    ]
+    ],
+    usuario: "Usuario Demo",
+    fechaCreacion: "2024-07-30T10:00:00Z"
   },
   {
     id: "PED-002",
     proveedor: "Proveedor B",
     proveedorId: "2",
-    fecha: "2024-07-29",
+    fechaPedido: "2024-07-29",
     estado: "Completado",
     total: 750.50,
     items: [
         { productoId: '102', nombre: 'Producto Y', cantidad: 30, precio: 25.50 },
-    ]
+    ],
+    usuario: "Usuario Demo",
+    fechaCreacion: "2024-07-29T11:30:00Z"
   },
   {
     id: "PED-003",
     proveedor: "Proveedor C",
     proveedorId: "3",
-    fecha: "2024-07-28",
+    fechaPedido: "2024-07-28",
     estado: "Cancelado",
     total: 200.00,
     items: [
         { productoId: '103', nombre: 'Producto Z', cantidad: 4, precio: 50 },
-    ]
+    ],
+    usuario: "Usuario Demo",
+    fechaCreacion: "2024-07-28T14:00:00Z"
   },
 ];
 
@@ -122,30 +129,33 @@ export default function PedidosPage() {
   
   const handleItemChange = (index: number, field: 'productoId' | 'cantidad', value: string | number) => {
     const newItems = [...items];
+    const currentItem = newItems[index];
 
     if (field === 'productoId') {
         const productoId = value as string;
         const producto = productos.find(p => p.id === productoId);
         
-        const existingItemIndex = items.findIndex((item) => item.productoId === productoId);
+        const existingItemIndex = items.findIndex((item, i) => item.productoId === productoId && i !== index);
 
-        if (existingItemIndex !== -1 && existingItemIndex !== index) {
+        if (existingItemIndex !== -1) {
+            const existingItem = items[existingItemIndex];
+            const updatedItems = [...items];
+            updatedItems[existingItemIndex].cantidad += currentItem.cantidad;
+            updatedItems.splice(index, 1);
+            setItems(updatedItems);
             toast({
-                variant: "destructive",
-                title: "Producto duplicado", 
-                description: "Este producto ya está en la lista. Por favor, actualice la cantidad existente."
+                title: "Producto ya existente", 
+                description: `Se ha actualizado la cantidad para ${existingItem.nombre}.`
             });
-             const updatedItems = items.filter((_, i) => i !== index);
-             setItems(updatedItems);
         } else {
-            newItems[index].productoId = productoId;
-            newItems[index].precio = producto ? producto.precio : 0;
-            newItems[index].nombre = producto ? producto.nombre : '';
+            currentItem.productoId = productoId;
+            currentItem.precio = producto ? producto.precio : 0;
+            currentItem.nombre = producto ? producto.nombre : '';
             setItems(newItems);
         }
 
     } else if (field === 'cantidad') {
-      newItems[index].cantidad = Number(value) < 1 ? 1 : Number(value);
+      currentItem.cantidad = Number(value) < 1 ? 1 : Number(value);
       setItems(newItems);
     }
   };
@@ -174,11 +184,13 @@ export default function PedidosPage() {
         id: `PED-${String(pedidos.length + 1).padStart(3, '0')}`,
         proveedor: proveedorSeleccionado?.nombre || 'Desconocido',
         proveedorId: proveedorId,
-        fecha: new Date().toISOString().split('T')[0],
+        fechaPedido: new Date().toISOString().split('T')[0],
         estado: 'Pendiente',
         total: parseFloat(calcularTotal()),
         items: items,
         observaciones: observaciones,
+        usuario: "Usuario", // Hardcoded for now
+        fechaCreacion: new Date().toISOString()
     }
     setPedidos([nuevoPedido, ...pedidos]);
     toast({
@@ -282,7 +294,7 @@ export default function PedidosPage() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {productos.map(p => (
-                                                    <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id && i.productoId !== item.productoId)}>
+                                                    <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id)}>
                                                         {p.nombre}
                                                     </SelectItem>
                                                 ))}
@@ -349,7 +361,7 @@ export default function PedidosPage() {
                 <TableRow key={pedido.id}>
                   <TableCell className="font-medium">{pedido.id}</TableCell>
                   <TableCell>{pedido.proveedor}</TableCell>
-                  <TableCell>{pedido.fecha}</TableCell>
+                  <TableCell>{pedido.fechaPedido}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(pedido.estado)}>
                       {pedido.estado}
@@ -408,18 +420,26 @@ export default function PedidosPage() {
             </DialogHeader>
             {selectedPedido && (
                 <div className="grid gap-4 py-4">
-                    <div className="flex justify-between">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
                             <p className="font-semibold">Proveedor:</p>
                             <p>{selectedPedido.proveedor}</p>
                         </div>
                         <div>
-                            <p className="font-semibold">Fecha:</p>
-                            <p>{selectedPedido.fecha}</p>
+                            <p className="font-semibold">Fecha del Pedido:</p>
+                            <p>{selectedPedido.fechaPedido}</p>
                         </div>
                         <div>
                             <p className="font-semibold">Estado:</p>
                             <p><Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge></p>
+                        </div>
+                        <div>
+                            <p className="font-semibold">Registrado por:</p>
+                            <p>{selectedPedido.usuario}</p>
+                        </div>
+                         <div>
+                            <p className="font-semibold">Fecha de Creación:</p>
+                            <p>{new Date(selectedPedido.fechaCreacion).toLocaleString()}</p>
                         </div>
                     </div>
                      <div>

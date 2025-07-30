@@ -1,20 +1,75 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
+// Tipos del componente Pedidos para reutilizar
+type ItemPedido = {
+  productoId: string;
+  nombre: string;
+  cantidad: number;
+  precio: number;
+};
+type Pedido = {
+  id: string;
+  proveedor: string;
+  proveedorId: string;
+  fechaPedido: string;
+  estado: "Pendiente" | "Completado" | "Cancelado";
+  total: number;
+  items: ItemPedido[];
+  observaciones?: string;
+  usuario: string;
+  fechaCreacion: string;
+};
+
+// Pedidos de ejemplo que podrían venir de una API
+const initialPedidos: Pedido[] = [
+    {
+    id: "PED-001",
+    proveedor: "Proveedor A",
+    proveedorId: "1",
+    fechaPedido: "2024-07-30",
+    estado: "Pendiente",
+    total: 1500.00,
+    items: [
+        { productoId: '101', nombre: 'Producto X', cantidad: 10, precio: 150 },
+    ],
+    usuario: "Usuario Demo",
+    fechaCreacion: "2024-07-30T10:00:00Z"
+  },
+   {
+    id: "PED-002",
+    proveedor: "Proveedor B",
+    proveedorId: "2",
+    fechaPedido: "2024-07-29",
+    estado: "Pendiente",
+    total: 750.50,
+    items: [
+        { productoId: '102', nombre: 'Producto Y', cantidad: 30, precio: 25.50 },
+    ],
+    usuario: "Usuario Demo",
+    fechaCreacion: "2024-07-29T11:30:00Z"
+  },
+];
+
 
 type Presupuesto = {
   id: string;
@@ -23,7 +78,10 @@ type Presupuesto = {
   fecha: string;
   total: number;
   estado: "Recibido" | "Aprobado" | "Rechazado";
-  items: { producto: string; cantidad: number; precio: number }[];
+  items: { productoId: string; nombre: string; cantidad: number; precio: number }[];
+  observaciones?: string;
+  usuario: string;
+  fechaCreacion: string;
 };
 
 const initialPresupuestos: Presupuesto[] = [
@@ -33,41 +91,47 @@ const initialPresupuestos: Presupuesto[] = [
     proveedor: "Proveedor A",
     fecha: "2024-07-31",
     total: 1480.0,
-    estado: "Recibido",
-    items: [
-        { producto: "Producto X", cantidad: 10, precio: 148 },
-    ]
-  },
-  {
-    id: "PRE-002",
-    pedidoId: "PED-002",
-    proveedor: "Proveedor B",
-    fecha: "2024-07-30",
-    total: 750.5,
     estado: "Aprobado",
     items: [
-        { producto: "Producto Y", cantidad: 30, precio: 25.01 },
-    ]
-  },
-  {
-    id: "PRE-003",
-    pedidoId: "PED-003",
-    proveedor: "Proveedor C",
-    fecha: "2024-07-29",
-    total: 195.0,
-    estado: "Rechazado",
-    items: [
-        { producto: "Producto Z", cantidad: 4, precio: 48.75 },
-    ]
+        { productoId: '101', nombre: "Producto X", cantidad: 10, precio: 148 },
+    ],
+    usuario: "Admin",
+    fechaCreacion: "2024-07-31T09:00:00Z"
   },
 ];
+
+type ItemPresupuesto = {
+  productoId: string;
+  nombre: string;
+  cantidad: number;
+  precio: number;
+}
 
 export default function PresupuestosProveedorPage() {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>(initialPresupuestos);
   const [selectedPresupuesto, setSelectedPresupuesto] = useState<Presupuesto | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
+  const [openCreate, setOpenCreate] = useState(false);
   const { toast } = useToast();
 
+  const [selectedPedidoId, setSelectedPedidoId] = useState('');
+  const [items, setItems] = useState<ItemPresupuesto[]>([]);
+  const [observaciones, setObservaciones] = useState('');
+  
+  const selectedPedido = initialPedidos.find(p => p.id === selectedPedidoId);
+
+  useEffect(() => {
+    if (selectedPedido) {
+      const newItems = selectedPedido.items.map(item => ({
+        ...item,
+        precio: item.precio // Inicialmente el precio es el estimado del pedido
+      }));
+      setItems(newItems);
+    } else {
+      setItems([]);
+    }
+  }, [selectedPedidoId]);
+  
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
       case "Recibido":
@@ -80,6 +144,60 @@ export default function PresupuestosProveedorPage() {
         return "outline";
     }
   };
+  
+  const handleItemPriceChange = (index: number, newPrice: string) => {
+    const newItems = [...items];
+    newItems[index].precio = Number(newPrice) < 0 ? 0 : Number(newPrice);
+    setItems(newItems);
+  }
+
+  const calcularTotal = () => {
+     return items.reduce((total, item) => total + (item.cantidad * item.precio), 0).toFixed(2);
+  }
+
+  const resetForm = () => {
+    setSelectedPedidoId('');
+    setItems([]);
+    setObservaciones('');
+  }
+
+  const handleCreatePresupuesto = () => {
+    if(!selectedPedidoId || items.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Error de validación",
+        description: "Debe seleccionar un pedido y tener al menos un item."
+      });
+      return;
+    }
+
+    const nuevoPresupuesto: Presupuesto = {
+      id: `PRE-${String(presupuestos.length + 1).padStart(3, '0')}`,
+      pedidoId: selectedPedidoId,
+      proveedor: selectedPedido?.proveedor || 'N/A',
+      fecha: new Date().toISOString().split('T')[0],
+      total: parseFloat(calcularTotal()),
+      estado: 'Recibido',
+      items: items,
+      observaciones,
+      usuario: "Usuario", // Hardcoded for now
+      fechaCreacion: new Date().toISOString(),
+    }
+
+    setPresupuestos([nuevoPresupuesto, ...presupuestos]);
+    toast({
+      title: "Presupuesto Registrado",
+      description: `El presupuesto ${nuevoPresupuesto.id} para el pedido ${nuevoPresupuesto.pedidoId} ha sido creado.`,
+    });
+    setOpenCreate(false);
+  }
+
+  useEffect(() => {
+    if(!openCreate) {
+        resetForm();
+    }
+  }, [openCreate]);
+
 
   const handleOpenDetails = (presupuesto: Presupuesto) => {
     setSelectedPresupuesto(presupuesto);
@@ -101,7 +219,87 @@ export default function PresupuestosProveedorPage() {
     <>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Presupuestos de Proveedores</h1>
-        <Button disabled>Registrar Presupuesto</Button>
+         <Dialog open={openCreate} onOpenChange={setOpenCreate}>
+          <DialogTrigger asChild>
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Registrar Presupuesto
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Registrar Nuevo Presupuesto</DialogTitle>
+              <DialogDescription>
+                Seleccione un pedido y registre los precios del proveedor.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="pedido" className="text-right">
+                  Pedido de Compra
+                </Label>
+                <Select value={selectedPedidoId} onValueChange={setSelectedPedidoId}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Seleccione un pedido pendiente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {initialPedidos.filter(p => p.estado === 'Pendiente').map(p => (
+                       <SelectItem key={p.id} value={p.id}>{p.id} - {p.proveedor}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="observaciones" className="text-right">
+                  Observaciones
+                </Label>
+                <Textarea id="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} className="col-span-3" placeholder="Añadir observaciones..."/>
+              </div>
+
+              {selectedPedido && (
+                 <Card className="col-span-4">
+                    <CardHeader>
+                        <CardTitle>Productos del Pedido</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Producto</TableHead>
+                                    <TableHead className="w-[150px]">Cantidad</TableHead>
+                                    <TableHead className="w-[150px]">Precio Cotizado</TableHead>
+                                    <TableHead className="w-[150px] text-right">Subtotal</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {items.map((item, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell>{item.nombre}</TableCell>
+                                        <TableCell>{item.cantidad}</TableCell>
+                                        <TableCell>
+                                            <Input type="number" value={item.precio} onChange={(e) => handleItemPriceChange(index, e.target.value)} min="0"/>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          ${(item.cantidad * item.precio).toFixed(2)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                         <div className="text-right font-bold text-lg mt-4">
+                            Total: ${calcularTotal()}
+                        </div>
+                    </CardContent>
+                 </Card>
+              )}
+             
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
+              <Button onClick={handleCreatePresupuesto} disabled={!selectedPedidoId}>Registrar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
@@ -200,7 +398,7 @@ export default function PresupuestosProveedorPage() {
             </DialogHeader>
             {selectedPresupuesto && (
                 <div className="grid gap-4 py-4">
-                    <div className="flex justify-between">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
                             <p className="font-semibold">Proveedor:</p>
                             <p>{selectedPresupuesto.proveedor}</p>
@@ -217,6 +415,18 @@ export default function PresupuestosProveedorPage() {
                             <p className="font-semibold">Estado:</p>
                             <p><Badge variant={getStatusVariant(selectedPresupuesto.estado)}>{selectedPresupuesto.estado}</Badge></p>
                         </div>
+                        <div>
+                            <p className="font-semibold">Registrado por:</p>
+                            <p>{selectedPresupuesto.usuario}</p>
+                        </div>
+                         <div>
+                            <p className="font-semibold">Fecha de Registro:</p>
+                            <p>{new Date(selectedPresupuesto.fechaCreacion).toLocaleString()}</p>
+                        </div>
+                    </div>
+                     <div>
+                        <p className="font-semibold">Observaciones:</p>
+                        <p className="text-muted-foreground">{selectedPresupuesto.observaciones || 'Sin observaciones'}</p>
                     </div>
 
                     <Card>
@@ -234,7 +444,7 @@ export default function PresupuestosProveedorPage() {
                                 <TableBody>
                                     {selectedPresupuesto.items.map((item, index) => (
                                         <TableRow key={index}>
-                                            <TableCell>{item.producto}</TableCell>
+                                            <TableCell>{item.nombre}</TableCell>
                                             <TableCell>{item.cantidad}</TableCell>
                                             <TableCell>${item.precio.toFixed(2)}</TableCell>
                                             <TableCell className="text-right">${(item.cantidad * item.precio).toFixed(2)}</TableCell>
