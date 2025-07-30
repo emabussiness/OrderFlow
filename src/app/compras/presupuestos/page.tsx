@@ -101,18 +101,14 @@ export default function PresupuestosProveedorPage() {
   
   const selectedPedido = pedidos.find(p => p.id === selectedPedidoId);
   const pedidosConPresupuesto = presupuestos.map(p => p.pedidoId);
+  const pedidosPendientes = pedidos.filter(p => p.estado === 'Pendiente' && !pedidosConPresupuesto.includes(p.id));
 
   useEffect(() => {
     const storedPresupuestos = localStorage.getItem("presupuestos");
-    if (storedPresupuestos) {
-      setPresupuestos(JSON.parse(storedPresupuestos));
-    } else {
-      setPresupuestos(initialPresupuestos);
-    }
+    setPresupuestos(storedPresupuestos ? JSON.parse(storedPresupuestos) : initialPresupuestos);
+
     const storedPedidos = localStorage.getItem("pedidos");
-     if (storedPedidos) {
-      setPedidos(JSON.parse(storedPedidos));
-    }
+    setPedidos(storedPedidos ? JSON.parse(storedPedidos) : []);
   }, []);
 
   useEffect(() => {
@@ -120,7 +116,9 @@ export default function PresupuestosProveedorPage() {
         if (JSON.stringify(presupuestos) !== JSON.stringify(initialPresupuestos) || !localStorage.getItem("presupuestos")) {
             localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
         }
-     }
+     } else if (localStorage.getItem("presupuestos")) {
+        localStorage.removeItem("presupuestos");
+    }
   }, [presupuestos]);
 
 
@@ -134,18 +132,14 @@ export default function PresupuestosProveedorPage() {
     } else {
       setItems([]);
     }
-  }, [selectedPedidoId, pedidos]); // Depend on pedidos as well
+  }, [selectedPedidoId, pedidos]); 
   
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
-      case "Recibido":
-        return "secondary";
-      case "Aprobado":
-        return "default";
-      case "Rechazado":
-        return "destructive";
-      default:
-        return "outline";
+      case "Recibido": return "secondary";
+      case "Aprobado": return "default";
+      case "Rechazado": return "destructive";
+      default: return "outline";
     }
   };
 
@@ -246,7 +240,6 @@ export default function PresupuestosProveedorPage() {
     setPresupuestos(updatedPresupuestos);
 
     if (newStatus === 'Aprobado' && presupuestoAprobado) {
-        // Generar Orden de Compra
         const storedOrdenes = localStorage.getItem("ordenes_compra") || "[]";
         const ordenes: OrdenCompra[] = JSON.parse(storedOrdenes);
         
@@ -264,7 +257,7 @@ export default function PresupuestosProveedorPage() {
 
         const nuevasOrdenes = [nuevaOrden, ...ordenes];
         localStorage.setItem("ordenes_compra", JSON.stringify(nuevasOrdenes));
-        window.dispatchEvent(new Event('storage')); // Notify other tabs/windows
+        window.dispatchEvent(new Event('storage'));
 
         toast({
             title: "Presupuesto Aprobado y Orden de Compra Generada",
@@ -307,9 +300,9 @@ export default function PresupuestosProveedorPage() {
                     <SelectValue placeholder="Seleccione un pedido pendiente" />
                   </SelectTrigger>
                   <SelectContent>
-                    {pedidos.filter(p => p.estado === 'Pendiente').map(p => (
-                       <SelectItem key={p.id} value={p.id} disabled={pedidosConPresupuesto.includes(p.id)}>
-                        {p.id} - {p.proveedor} {pedidosConPresupuesto.includes(p.id) && "(Presupuestado)"}
+                    {pedidosPendientes.map(p => (
+                       <SelectItem key={p.id} value={p.id}>
+                        {p.id} - {p.proveedor}
                        </SelectItem>
                     ))}
                   </SelectContent>
@@ -560,5 +553,3 @@ export default function PresupuestosProveedorPage() {
     </>
   );
 }
-
-    
