@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Combobox } from "@/components/ui/command";
+import { initialOrdenes, proveedores, productos, depositos } from "@/data";
 
 type Item = {
   productoId: string;
@@ -32,6 +33,8 @@ type OrdenCompra = {
   pedidoId?: string;
   proveedor: string;
   proveedorId: string;
+  deposito: string;
+  depositoId: string;
   fechaOrden: string;
   estado: "Pendiente de Recepción" | "Recibido Parcial" | "Recibido Completo" | "Cancelada";
   total: number;
@@ -44,6 +47,8 @@ type Pedido = {
   id: string;
   proveedor: string;
   proveedorId: string;
+  deposito: string;
+  depositoId: string;
   fechaPedido: string;
   estado: "Pendiente" | "Completado" | "Cancelado";
   total: number;
@@ -52,36 +57,6 @@ type Pedido = {
   usuario: string;
   fechaCreacion: string;
 };
-
-const initialOrdenes: OrdenCompra[] = [
-  {
-    id: "OC-001",
-    presupuestoId: "PRE-001",
-    pedidoId: "PED-001",
-    proveedor: "Proveedor A",
-    proveedorId: "1",
-    fechaOrden: "2024-07-31",
-    total: 1480.0,
-    estado: "Pendiente de Recepción",
-    items: [
-        { productoId: '101', nombre: "Producto X", cantidad: 10, precio: 148 },
-    ],
-    usuario: "Admin",
-    fechaCreacion: "2024-07-31T10:00:00Z"
-  },
-];
-
-const proveedores = [
-    { id: "1", nombre: "Proveedor A" },
-    { id: "2", nombre: "Proveedor B" },
-    { id: "3", nombre: "Proveedor C" },
-];
-
-const productos = [
-    { id: "101", nombre: "Producto X", precio: 100 },
-    { id: "102", nombre: "Producto Y", precio: 25.50 },
-    { id: "103", nombre: "Producto Z", precio: 50 },
-];
 
 export default function OrdenesCompraPage() {
   const { toast } = useToast();
@@ -97,11 +72,11 @@ export default function OrdenesCompraPage() {
   const [creationMode, setCreationMode] = useState<"pedido" | "manual">("manual");
   const [selectedPedidoId, setSelectedPedidoId] = useState('');
   const [selectedProveedorId, setSelectedProveedorId] = useState('');
+  const [selectedDepositoId, setSelectedDepositoId] = useState('');
   const [items, setItems] = useState<Item[]>([]);
 
   const selectedPedido = pedidos.find(p => p.id === selectedPedidoId);
-  
-  const pedidosSinPresupuesto = pedidos.filter(p => p.estado === 'Pendiente' && !presupuestosIds.includes(p.id));
+  const pedidosSinOC = pedidos.filter(p => p.estado === 'Pendiente' && !presupuestosIds.includes(p.id));
 
   useEffect(() => {
     const storedOrdenes = localStorage.getItem("ordenes_compra");
@@ -127,20 +102,19 @@ export default function OrdenesCompraPage() {
   }, []);
 
   useEffect(() => {
-    // Prevent saving initial data to localStorage on first render
-    if (ordenes.length > 0 && JSON.stringify(ordenes) !== JSON.stringify(initialOrdenes)) {
-      localStorage.setItem("ordenes_compra", JSON.stringify(ordenes));
-    }
-}, [ordenes]);
+    localStorage.setItem("ordenes_compra", JSON.stringify(ordenes));
+  }, [ordenes]);
 
 
    useEffect(() => {
     if (creationMode === 'pedido' && selectedPedido) {
       setItems(selectedPedido.items.map(item => ({...item})));
       setSelectedProveedorId(selectedPedido.proveedorId);
+      setSelectedDepositoId(selectedPedido.depositoId);
     } else {
       setItems([]);
       setSelectedProveedorId('');
+      setSelectedDepositoId('');
     }
    }, [creationMode, selectedPedidoId, selectedPedido]);
 
@@ -198,24 +172,30 @@ export default function OrdenesCompraPage() {
     setCreationMode('manual');
     setSelectedPedidoId('');
     setSelectedProveedorId('');
+    setSelectedDepositoId('');
     setItems([]);
   }
 
   const handleCreateOC = () => {
     const proveedorId = creationMode === 'pedido' ? selectedPedido?.proveedorId : selectedProveedorId;
-    if (!proveedorId || items.length === 0 || items.some(i => !i.productoId)) {
-      toast({ variant: "destructive", title: "Error de validación", description: "Proveedor y al menos un producto son requeridos." });
+    const depositoId = creationMode === 'pedido' ? selectedPedido?.depositoId : selectedDepositoId;
+
+    if (!proveedorId || !depositoId || items.length === 0 || items.some(i => !i.productoId)) {
+      toast({ variant: "destructive", title: "Error de validación", description: "Proveedor, depósito y al menos un producto son requeridos." });
       return;
     }
 
     const proveedor = proveedores.find(p => p.id === proveedorId);
+    const deposito = depositos.find(d => d.id === depositoId);
     
     const nuevaOrden: OrdenCompra = {
       id: `OC-${String(ordenes.length + 1).padStart(3, '0')}`,
-      presupuestoId: creationMode === 'pedido' ? 'N/A (Directo)' : 'N/A (Manual)',
+      presupuestoId: creationMode === 'pedido' ? 'N/A (Desde Pedido)' : 'N/A (Manual)',
       pedidoId: creationMode === 'pedido' ? selectedPedidoId : undefined,
       proveedor: proveedor?.nombre || 'Desconocido',
       proveedorId: proveedor?.id || '',
+      deposito: deposito?.nombre || 'Desconocido',
+      depositoId: deposito?.id || '',
       fechaOrden: new Date().toISOString().split('T')[0],
       estado: "Pendiente de Recepción",
       total: parseFloat(calcularTotal()),
@@ -266,6 +246,7 @@ export default function OrdenesCompraPage() {
                     </RadioGroup>
 
                     {creationMode === 'manual' && (
+                        <>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="proveedor" className="text-right">Proveedor</Label>
                              <div className="col-span-3">
@@ -278,6 +259,19 @@ export default function OrdenesCompraPage() {
                                 />
                             </div>
                         </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="deposito" className="text-right">Depósito</Label>
+                             <div className="col-span-3">
+                                <Combobox
+                                    options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
+                                    value={selectedDepositoId}
+                                    onChange={setSelectedDepositoId}
+                                    placeholder="Seleccione un depósito"
+                                    searchPlaceholder="Buscar depósito..."
+                                />
+                            </div>
+                        </div>
+                        </>
                     )}
 
                     {creationMode === 'pedido' && (
@@ -285,7 +279,7 @@ export default function OrdenesCompraPage() {
                             <Label htmlFor="pedido" className="text-right">Pedido de Compra</Label>
                             <div className="col-span-3">
                                 <Combobox
-                                    options={pedidosSinPresupuesto.map(p => ({ value: p.id, label: `${p.id} - ${p.proveedor}` }))}
+                                    options={pedidosSinOC.map(p => ({ value: p.id, label: `${p.id} - ${p.proveedor}` }))}
                                     value={selectedPedidoId}
                                     onChange={setSelectedPedidoId}
                                     placeholder="Seleccione un pedido pendiente"
@@ -362,8 +356,9 @@ export default function OrdenesCompraPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>ID Orden</TableHead>
-                <TableHead>ID Presupuesto</TableHead>
+                <TableHead>Origen</TableHead>
                 <TableHead>Proveedor</TableHead>
+                <TableHead>Depósito</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -376,6 +371,7 @@ export default function OrdenesCompraPage() {
                   <TableCell className="font-medium">{orden.id}</TableCell>
                   <TableCell>{orden.presupuestoId}</TableCell>
                   <TableCell>{orden.proveedor}</TableCell>
+                  <TableCell>{orden.deposito}</TableCell>
                   <TableCell>{orden.fechaOrden}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(orden.estado)}>
@@ -396,7 +392,9 @@ export default function OrdenesCompraPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleOpenDetails(orden)}>Ver Detalles</DropdownMenuItem>
                         <DropdownMenuItem disabled>Registrar Recepción</DropdownMenuItem>
-                         <DropdownMenuItem className="text-red-500" disabled={orden.estado !== 'Pendiente de Recepción'}>Cancelar Orden</DropdownMenuItem>
+                         <DropdownMenuItem disabled={orden.estado !== 'Pendiente de Recepción'}>
+                            <span className="text-red-500">Cancelar Orden</span>
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -421,6 +419,10 @@ export default function OrdenesCompraPage() {
                         <div>
                             <p className="font-semibold">Proveedor:</p>
                             <p>{selectedOrden.proveedor}</p>
+                        </div>
+                        <div>
+                            <p className="font-semibold">Depósito:</p>
+                            <p>{selectedOrden.deposito}</p>
                         </div>
                         <div>
                             <p className="font-semibold">Fecha de la Orden:</p>
@@ -482,5 +484,3 @@ export default function OrdenesCompraPage() {
     </>
   );
 }
-
-    

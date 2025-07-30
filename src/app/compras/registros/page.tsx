@@ -5,7 +5,6 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle, Calendar as CalendarIcon } from "lucide-react";
 import {
   DropdownMenu,
@@ -35,6 +34,7 @@ type Compra = {
   id: string;
   ordenCompraId: string;
   proveedor: string;
+  deposito: string;
   fechaFactura: string;
   numeroFactura: string;
   total: number;
@@ -47,12 +47,13 @@ type OrdenCompra = {
   id: string;
   proveedor: string;
   proveedorId: string;
+  deposito: string;
+  depositoId: string;
   fechaOrden: string;
   estado: "Pendiente de Recepción" | "Recibido Parcial" | "Recibido Completo" | "Cancelada";
   total: number;
   items: (Omit<Item, 'cantidadRecibida'>)[];
 };
-
 
 const initialCompras: Compra[] = [];
 
@@ -96,9 +97,7 @@ export default function ComprasPage() {
   }, []);
 
   useEffect(() => {
-    if (compras.length > 0 || localStorage.getItem("compras")) {
-      localStorage.setItem("compras", JSON.stringify(compras));
-    }
+    localStorage.setItem("compras", JSON.stringify(compras));
   }, [compras]);
 
 
@@ -152,6 +151,7 @@ export default function ComprasPage() {
         id: `COM-${String(compras.length + 1).padStart(3, '0')}`,
         ordenCompraId: selectedOCId,
         proveedor: selectedOC?.proveedor || 'N/A',
+        deposito: selectedOC?.deposito || 'N/A',
         fechaFactura: format(fechaFactura, "yyyy-MM-dd"),
         numeroFactura,
         total: parseFloat(calcularTotal()),
@@ -295,6 +295,7 @@ export default function ComprasPage() {
                 <TableHead>ID Compra</TableHead>
                 <TableHead>ID Orden</TableHead>
                 <TableHead>Proveedor</TableHead>
+                <TableHead>Depósito</TableHead>
                 <TableHead>Nro. Factura</TableHead>
                 <TableHead>Fecha Factura</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -307,6 +308,7 @@ export default function ComprasPage() {
                   <TableCell className="font-medium">{compra.id}</TableCell>
                   <TableCell>{compra.ordenCompraId}</TableCell>
                   <TableCell>{compra.proveedor}</TableCell>
+                  <TableCell>{compra.deposito}</TableCell>
                   <TableCell>{compra.numeroFactura}</TableCell>
                    <TableCell>{compra.fechaFactura}</TableCell>
                   <TableCell className="text-right">
@@ -351,6 +353,10 @@ export default function ComprasPage() {
                          <div>
                             <p className="font-semibold">Orden de Compra:</p>
                             <p>{selectedCompra.ordenCompraId}</p>
+                        </div>
+                         <div>
+                            <p className="font-semibold">Depósito:</p>
+                            <p>{selectedCompra.deposito}</p>
                         </div>
                         <div>
                             <p className="font-semibold">Número de Factura:</p>

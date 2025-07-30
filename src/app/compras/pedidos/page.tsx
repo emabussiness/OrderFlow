@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Combobox } from "@/components/ui/command";
+import { initialPedidos, productos, proveedores, depositos } from "@/data";
 
 type ItemPedido = {
   productoId: string;
@@ -31,6 +32,8 @@ type Pedido = {
   id: string;
   proveedor: string;
   proveedorId: string;
+  deposito: string;
+  depositoId: string;
   fechaPedido: string;
   estado: "Pendiente" | "Completado" | "Cancelado";
   total: number;
@@ -39,61 +42,6 @@ type Pedido = {
   usuario: string;
   fechaCreacion: string;
 };
-
-const initialPedidos: Pedido[] = [
-  {
-    id: "PED-001",
-    proveedor: "Proveedor A",
-    proveedorId: "1",
-    fechaPedido: "2024-07-30",
-    estado: "Pendiente",
-    total: 1500.00,
-    items: [
-        { productoId: '101', nombre: 'Producto X', cantidad: 10, precio: 150 },
-    ],
-    usuario: "Usuario Demo",
-    fechaCreacion: "2024-07-30T10:00:00Z"
-  },
-  {
-    id: "PED-002",
-    proveedor: "Proveedor B",
-    proveedorId: "2",
-    fechaPedido: "2024-07-29",
-    estado: "Completado",
-    total: 750.50,
-    items: [
-        { productoId: '102', nombre: 'Producto Y', cantidad: 30, precio: 25.50 },
-    ],
-    usuario: "Usuario Demo",
-    fechaCreacion: "2024-07-29T11:30:00Z"
-  },
-  {
-    id: "PED-003",
-    proveedor: "Proveedor C",
-    proveedorId: "3",
-    fechaPedido: "2024-07-28",
-    estado: "Cancelado",
-    total: 200.00,
-    items: [
-        { productoId: '103', nombre: 'Producto Z', cantidad: 4, precio: 50 },
-    ],
-    usuario: "Usuario Demo",
-    fechaCreacion: "2024-07-28T14:00:00Z"
-  },
-];
-
-const proveedores = [
-    { id: "1", nombre: "Proveedor A" },
-    { id: "2", nombre: "Proveedor B" },
-    { id: "3", nombre: "Proveedor C" },
-];
-
-const productos = [
-    { id: "101", nombre: "Producto X", precio: 100 },
-    { id: "102", nombre: "Producto Y", precio: 25.50 },
-    { id: "103", nombre: "Producto Z", precio: 50 },
-];
-
 
 export default function PedidosPage() {
   const { toast } = useToast();
@@ -104,6 +52,7 @@ export default function PedidosPage() {
 
   const [items, setItems] = useState<ItemPedido[]>([]);
   const [proveedorId, setProveedorId] = useState('');
+  const [depositoId, setDepositoId] = useState('');
   const [observaciones, setObservaciones] = useState('');
 
   useEffect(() => {
@@ -116,13 +65,7 @@ export default function PedidosPage() {
   }, []);
 
   useEffect(() => {
-    if (pedidos.length > 0 || localStorage.getItem("pedidos")) {
-        try {
-            localStorage.setItem("pedidos", JSON.stringify(pedidos));
-        } catch (error) {
-            console.error("Failed to set pedidos in localStorage:", error);
-        }
-    }
+     localStorage.setItem("pedidos", JSON.stringify(pedidos));
   }, [pedidos]);
 
 
@@ -156,20 +99,17 @@ export default function PedidosPage() {
         const productoId = value as string;
         const producto = productos.find(p => p.id === productoId);
         
-        const existingItemIndex = items.findIndex((item, i) => item.productoId === productoId && i !== index);
-
-        if (existingItemIndex !== -1) {
+        if (items.some((item, i) => item.productoId === productoId && i !== index)) {
             toast({
                 variant: "destructive",
                 title: "Producto duplicado", 
-                description: `El producto ${producto?.nombre} ya está en la lista. No se puede añadir de nuevo.`
+                description: `El producto ${producto?.nombre} ya está en la lista.`
             });
-        } else {
-            currentItem.productoId = productoId;
-            currentItem.precio = producto ? producto.precio : 0;
-            currentItem.nombre = producto ? producto.nombre : '';
-            setItems(newItems);
+            return;
         }
+        currentItem.productoId = productoId;
+        currentItem.precio = producto ? producto.precio : 0;
+        currentItem.nombre = producto ? producto.nombre : '';
 
     } else if (field === 'cantidad') {
       currentItem.cantidad = Number(value) < 1 ? 1 : Number(value);
@@ -187,23 +127,28 @@ export default function PedidosPage() {
   const resetForm = () => {
     setItems([]);
     setProveedorId('');
+    setDepositoId('');
     setObservaciones('');
   }
 
   const handleCreatePedido = () => {
-    if(!proveedorId || items.length === 0 || items.some(i => !i.productoId)) {
+    if(!proveedorId || !depositoId || items.length === 0 || items.some(i => !i.productoId)) {
         toast({
             variant: "destructive",
             title: "Error de validación",
-            description: "Por favor, complete todos los campos requeridos.",
+            description: "Por favor, complete todos los campos requeridos (proveedor, depósito y productos).",
         })
         return;
     }
     const proveedorSeleccionado = proveedores.find(p => p.id === proveedorId);
+    const depositoSeleccionado = depositos.find(d => d.id === depositoId);
+
     const nuevoPedido: Pedido = {
         id: `PED-${String(pedidos.length + 1).padStart(3, '0')}`,
         proveedor: proveedorSeleccionado?.nombre || 'Desconocido',
         proveedorId: proveedorId,
+        deposito: depositoSeleccionado?.nombre || 'Desconocido',
+        depositoId: depositoId,
         fechaPedido: new Date().toISOString().split('T')[0],
         estado: 'Pendiente',
         total: parseFloat(calcularTotal()),
@@ -282,6 +227,20 @@ export default function PedidosPage() {
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="deposito" className="text-right">
+                  Depósito Destino
+                </Label>
+                 <div className="col-span-3">
+                    <Combobox
+                        options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
+                        value={depositoId}
+                        onChange={setDepositoId}
+                        placeholder="Seleccione un depósito"
+                        searchPlaceholder="Buscar depósito..."
+                    />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="observaciones" className="text-right">
                   Observaciones
                 </Label>
@@ -311,7 +270,6 @@ export default function PedidosPage() {
                                             options={productos.map(p => ({ value: p.id, label: p.nombre }))}
                                             value={item.productoId}
                                             onChange={(value) => handleItemChange(index, 'productoId', value)}
-                                            disabled={items.some(i => i.productoId === item.productoId && i.productoId !== item.productoId)}
                                             placeholder="Seleccione producto"
                                             searchPlaceholder="Buscar producto..."
                                         />
@@ -349,7 +307,7 @@ export default function PedidosPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
-              <Button onClick={handleCreatePedido} disabled={items.length === 0 || items.some(i => !i.productoId) || !proveedorId}>Crear Pedido</Button>
+              <Button onClick={handleCreatePedido} disabled={items.length === 0 || items.some(i => !i.productoId) || !proveedorId || !depositoId}>Crear Pedido</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -365,6 +323,7 @@ export default function PedidosPage() {
               <TableRow>
                 <TableHead>ID Pedido</TableHead>
                 <TableHead>Proveedor</TableHead>
+                <TableHead>Depósito</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Total Estimado</TableHead>
@@ -376,6 +335,7 @@ export default function PedidosPage() {
                 <TableRow key={pedido.id}>
                   <TableCell className="font-medium">{pedido.id}</TableCell>
                   <TableCell>{pedido.proveedor}</TableCell>
+                  <TableCell>{pedido.deposito}</TableCell>
                   <TableCell>{pedido.fechaPedido}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(pedido.estado)}>
@@ -395,7 +355,6 @@ export default function PedidosPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleOpenDetails(pedido)}>Ver Detalles</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleGeneratePresupuesto(pedido.id)}>Generar Presupuesto</DropdownMenuItem>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={pedido.estado === 'Cancelado'}>
@@ -439,6 +398,10 @@ export default function PedidosPage() {
                         <div>
                             <p className="font-semibold">Proveedor:</p>
                             <p>{selectedPedido.proveedor}</p>
+                        </div>
+                        <div>
+                            <p className="font-semibold">Depósito Destino:</p>
+                            <p>{selectedPedido.deposito}</p>
                         </div>
                         <div>
                             <p className="font-semibold">Fecha del Pedido:</p>

@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/command";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { initialPresupuestos, proveedores, productos, depositos } from "@/data";
 
 type Item = {
   productoId: string;
@@ -32,6 +33,8 @@ type Pedido = {
   id: string;
   proveedor: string;
   proveedorId: string;
+  deposito: string;
+  depositoId: string;
   fechaPedido: string;
   estado: "Pendiente" | "Completado" | "Cancelado";
   total: number;
@@ -46,6 +49,8 @@ type Presupuesto = {
   pedidoId: string;
   proveedor: string;
   proveedorId: string;
+  deposito: string;
+  depositoId: string;
   fecha: string;
   total: number;
   estado: "Recibido" | "Aprobado" | "Rechazado";
@@ -58,7 +63,11 @@ type Presupuesto = {
 type OrdenCompra = {
   id: string;
   presupuestoId: string;
+  pedidoId?: string;
   proveedor: string;
+  proveedorId: string;
+  deposito: string;
+  depositoId: string;
   fechaOrden: string;
   estado: "Pendiente de Recepción" | "Recibido Parcial" | "Recibido Completo" | "Cancelada";
   total: number;
@@ -66,35 +75,6 @@ type OrdenCompra = {
   usuario: string;
   fechaCreacion: string;
 };
-
-const initialPresupuestos: Presupuesto[] = [
-  {
-    id: "PRE-001",
-    pedidoId: "PED-001",
-    proveedor: "Proveedor A",
-    proveedorId: "1",
-    fecha: "2024-07-31",
-    total: 1480.0,
-    estado: "Aprobado",
-    items: [
-        { productoId: '101', nombre: "Producto X", cantidad: 10, precio: 148 },
-    ],
-    usuario: "Admin",
-    fechaCreacion: "2024-07-31T09:00:00Z"
-  },
-];
-
-const proveedores = [
-    { id: "1", nombre: "Proveedor A" },
-    { id: "2", nombre: "Proveedor B" },
-    { id: "3", nombre: "Proveedor C" },
-];
-
-const productos = [
-    { id: "101", nombre: "Producto X", precio: 100 },
-    { id: "102", nombre: "Producto Y", precio: 25.50 },
-    { id: "103", nombre: "Producto Z", precio: 50 },
-];
 
 export default function PresupuestosProveedorPage() {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
@@ -108,6 +88,7 @@ export default function PresupuestosProveedorPage() {
   const [creationMode, setCreationMode] = useState<"pedido" | "manual">("pedido");
   const [selectedPedidoId, setSelectedPedidoId] = useState('');
   const [selectedProveedorId, setSelectedProveedorId] = useState('');
+  const [selectedDepositoId, setSelectedDepositoId] = useState('');
   const [items, setItems] = useState<Item[]>([]);
   const [observaciones, setObservaciones] = useState('');
   
@@ -124,9 +105,7 @@ export default function PresupuestosProveedorPage() {
   }, []);
 
   useEffect(() => {
-    if (presupuestos.length > 0 && JSON.stringify(presupuestos) !== JSON.stringify(initialPresupuestos)) {
-      localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
-    }
+    localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
   }, [presupuestos]);
 
 
@@ -138,9 +117,11 @@ export default function PresupuestosProveedorPage() {
       }));
       setItems(newItems);
       setSelectedProveedorId(selectedPedido.proveedorId);
+      setSelectedDepositoId(selectedPedido.depositoId);
     } else {
       setItems([]);
       setSelectedProveedorId('');
+      setSelectedDepositoId('');
     }
   }, [creationMode, selectedPedidoId, selectedPedido]); 
   
@@ -192,21 +173,21 @@ export default function PresupuestosProveedorPage() {
     setCreationMode('pedido');
     setSelectedPedidoId('');
     setSelectedProveedorId('');
+    setSelectedDepositoId('');
     setItems([]);
     setObservaciones('');
   }
 
   const handleCreatePresupuesto = () => {
-    if (creationMode === 'pedido' && (!selectedPedidoId || items.length === 0)) {
+    const proveedorId = creationMode === 'pedido' ? selectedPedido?.proveedorId : selectedProveedorId;
+    const depositoId = creationMode === 'pedido' ? selectedPedido?.depositoId : selectedDepositoId;
+
+    if (!proveedorId || !depositoId || items.length === 0 || (creationMode === 'manual' && items.some(i => !i.productoId))) {
       toast({
         variant: "destructive",
         title: "Error de validación",
-        description: "Debe seleccionar un pedido y tener al menos un item."
+        description: "Debe seleccionar un proveedor, un depósito y tener al menos un item."
       });
-      return;
-    }
-     if (creationMode === 'manual' && (!selectedProveedorId || items.length === 0 || items.some(i => !i.productoId))) {
-      toast({ variant: "destructive", title: "Error de validación", description: "Proveedor y al menos un producto son requeridos." });
       return;
     }
 
@@ -219,13 +200,16 @@ export default function PresupuestosProveedorPage() {
         return;
     }
     
-    const proveedor = proveedores.find(p => p.id === (creationMode === 'pedido' ? selectedPedido?.proveedorId : selectedProveedorId));
+    const proveedor = proveedores.find(p => p.id === proveedorId);
+    const deposito = depositos.find(d => d.id === depositoId);
 
     const nuevoPresupuesto: Presupuesto = {
       id: `PRE-${String(presupuestos.length + 1).padStart(3, '0')}`,
       pedidoId: creationMode === 'pedido' ? selectedPedidoId : 'N/A (Manual)',
       proveedor: proveedor?.nombre || 'N/A',
       proveedorId: proveedor?.id || '',
+      deposito: deposito?.nombre || 'N/A',
+      depositoId: deposito?.id || '',
       fecha: new Date().toISOString().split('T')[0],
       total: parseFloat(calcularTotal()),
       estado: 'Recibido',
@@ -274,7 +258,11 @@ export default function PresupuestosProveedorPage() {
         const nuevaOrden: OrdenCompra = {
             id: `OC-${String(ordenes.length + 1).padStart(3, '0')}`,
             presupuestoId: presupuestoAprobado.id,
+            pedidoId: presupuestoAprobado.pedidoId.startsWith('PED-') ? presupuestoAprobado.pedidoId : undefined,
             proveedor: presupuestoAprobado.proveedor,
+            proveedorId: presupuestoAprobado.proveedorId,
+            deposito: presupuestoAprobado.deposito,
+            depositoId: presupuestoAprobado.depositoId,
             fechaOrden: new Date().toISOString().split('T')[0],
             estado: "Pendiente de Recepción",
             total: presupuestoAprobado.total,
@@ -350,6 +338,7 @@ export default function PresupuestosProveedorPage() {
                   </div>
                 </div>
               ) : (
+                <>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="proveedor" className="text-right">Proveedor</Label>
                    <div className="col-span-3">
@@ -362,6 +351,19 @@ export default function PresupuestosProveedorPage() {
                       />
                   </div>
                 </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="deposito" className="text-right">Depósito</Label>
+                   <div className="col-span-3">
+                      <Combobox
+                          options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
+                          value={selectedDepositoId}
+                          onChange={setSelectedDepositoId}
+                          placeholder="Seleccione un depósito"
+                          searchPlaceholder="Buscar depósito..."
+                      />
+                  </div>
+                </div>
+                </>
               )}
              
                <div className="grid grid-cols-4 items-center gap-4">
@@ -434,7 +436,7 @@ export default function PresupuestosProveedorPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
-              <Button onClick={handleCreatePresupuesto} disabled={creationMode === 'pedido' && !selectedPedidoId}>Registrar</Button>
+              <Button onClick={handleCreatePresupuesto} disabled={(creationMode === 'pedido' && !selectedPedidoId) || (creationMode === 'manual' && (!selectedProveedorId || !selectedDepositoId))}>Registrar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -451,6 +453,7 @@ export default function PresupuestosProveedorPage() {
                 <TableHead>ID Presupuesto</TableHead>
                 <TableHead>ID Pedido</TableHead>
                 <TableHead>Proveedor</TableHead>
+                <TableHead>Depósito</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -463,6 +466,7 @@ export default function PresupuestosProveedorPage() {
                   <TableCell className="font-medium">{presupuesto.id}</TableCell>
                   <TableCell>{presupuesto.pedidoId}</TableCell>
                   <TableCell>{presupuesto.proveedor}</TableCell>
+                  <TableCell>{presupuesto.deposito}</TableCell>
                   <TableCell>{presupuesto.fecha}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(presupuesto.estado)}>
@@ -501,7 +505,9 @@ export default function PresupuestosProveedorPage() {
                         </AlertDialog>
                          <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={presupuesto.estado !== 'Recibido'} className="text-red-500">Rechazar</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={presupuesto.estado !== 'Recibido'}>
+                               <span className="text-red-500">Rechazar</span>
+                            </DropdownMenuItem>
                            </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
@@ -540,6 +546,10 @@ export default function PresupuestosProveedorPage() {
                         <div>
                             <p className="font-semibold">Proveedor:</p>
                             <p>{selectedPresupuesto.proveedor}</p>
+                        </div>
+                        <div>
+                            <p className="font-semibold">Depósito:</p>
+                            <p>{selectedPresupuesto.deposito}</p>
                         </div>
                         <div>
                             <p className="font-semibold">Fecha:</p>
@@ -605,5 +615,3 @@ export default function PresupuestosProveedorPage() {
     </>
   );
 }
-
-    
