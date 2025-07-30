@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,32 +14,57 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
-const pedidos = [
+type Pedido = {
+  id: string;
+  proveedor: string;
+  proveedorId: string;
+  fecha: string;
+  estado: "Pendiente" | "Completado" | "Cancelado";
+  total: number;
+  items: ItemPedido[];
+  observaciones?: string;
+};
+
+const initialPedidos: Pedido[] = [
   {
     id: "PED-001",
     proveedor: "Proveedor A",
+    proveedorId: "1",
     fecha: "2024-07-30",
     estado: "Pendiente",
     total: 1500.00,
+    items: [
+        { productoId: '101', nombre: 'Producto X', cantidad: 10, precio: 150 },
+    ]
   },
   {
     id: "PED-002",
     proveedor: "Proveedor B",
+    proveedorId: "2",
     fecha: "2024-07-29",
     estado: "Completado",
     total: 750.50,
+    items: [
+        { productoId: '102', nombre: 'Producto Y', cantidad: 30, precio: 25.50 },
+    ]
   },
   {
     id: "PED-003",
     proveedor: "Proveedor C",
+    proveedorId: "3",
     fecha: "2024-07-28",
     estado: "Cancelado",
     total: 200.00,
+    items: [
+        { productoId: '103', nombre: 'Producto Z', cantidad: 4, precio: 50 },
+    ]
   },
 ];
 
@@ -56,15 +82,23 @@ const productos = [
 
 type ItemPedido = {
   productoId: string;
+  nombre: string;
   cantidad: number;
   precio: number;
 };
 
 export default function PedidosPage() {
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<ItemPedido[]>([]);
+  const { toast } = useToast();
+  const [pedidos, setPedidos] = useState<Pedido[]>(initialPedidos);
+  const [openCreate, setOpenCreate] = useState(false);
+  const [openDetails, setOpenDetails] = useState(false);
+  const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
 
-  const getStatusVariant = (status: string) => {
+  const [items, setItems] = useState<ItemPedido[]>([]);
+  const [proveedorId, setProveedorId] = useState('');
+  const [observaciones, setObservaciones] = useState('');
+
+  const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status.toLowerCase()) {
       case "pendiente":
         return "secondary";
@@ -78,7 +112,7 @@ export default function PedidosPage() {
   };
 
   const handleAddItem = () => {
-    setItems([...items, { productoId: '', cantidad: 1, precio: 0 }]);
+    setItems([...items, { productoId: '', nombre: '', cantidad: 1, precio: 0 }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -91,69 +125,100 @@ export default function PedidosPage() {
 
     if (field === 'productoId') {
         const productoId = value as string;
-        const productoExistente = items.find((item, i) => item.productoId === productoId && i !== index);
+        const producto = productos.find(p => p.id === productoId);
+        
+        const existingItemIndex = items.findIndex((item) => item.productoId === productoId);
 
-        if (productoExistente) {
-            // Si el producto ya existe en otra linea, incrementamos la cantidad y eliminamos esta
-            const itemsSinDuplicado = items.filter((item, i) => item.productoId !== productoId || i === index);
-            const itemOriginalIndex = itemsSinDuplicado.findIndex((item) => item.productoId === productoId);
-            
-            if (itemOriginalIndex !== -1) {
-                itemsSinDuplicado[itemOriginalIndex].cantidad += newItems[index].cantidad;
-            }
-            
-            // Remove the current row which is now a duplicate
-            const finalItems = newItems.filter((_, i) => i !== index);
-            const originalItem = finalItems.find(item => item.productoId === productoId);
-            if(originalItem) {
-                originalItem.cantidad += 1;
-                setItems(finalItems.filter((_,i) => i !== index));
-            } else {
-                 const itemToUpdate = finalItems.find(item => item.productoId === newItems[index].productoId);
-                 if (itemToUpdate) {
-                     itemToUpdate.cantidad += 1;
-                 }
-                 setItems(finalItems.filter((_, i) => i !== index));
-            }
-            // Find the original item and increment its quantity
-            const finalItemsWithIncrement = newItems.filter((_, i) => i !== index);
-            const itemToIncrement = finalItemsWithIncrement.find(item => item.productoId === productoId);
-            if(itemToIncrement){
-                itemToIncrement.cantidad += 1;
-                setItems(finalItemsWithIncrement);
-            }
-
+        if (existingItemIndex !== -1) {
+            // Product already exists, increment quantity and remove the new line
+            const updatedItems = items.filter((_, i) => i !== index);
+            updatedItems[existingItemIndex].cantidad += newItems[index].cantidad;
+            setItems(updatedItems);
+            toast({ title: "Producto duplicado", description: "La cantidad ha sido actualizada en la línea existente."});
         } else {
-            const producto = productos.find(p => p.id === productoId);
             newItems[index].productoId = productoId;
             newItems[index].precio = producto ? producto.precio : 0;
+            newItems[index].nombre = producto ? producto.nombre : '';
             setItems(newItems);
         }
 
     } else if (field === 'cantidad') {
-      newItems[index].cantidad = Number(value);
+      newItems[index].cantidad = Number(value) < 1 ? 1 : Number(value);
       setItems(newItems);
     }
   };
 
-
-  const handleCreatePedido = () => {
-    // Lógica para crear el pedido
-    console.log("Creando pedido...", items);
-    setOpen(false);
-    // Resetear items
-    setItems([]);
-  };
-  
   const calcularTotal = () => {
     return items.reduce((total, item) => total + (item.cantidad * item.precio), 0).toFixed(2);
+  }
+
+  const resetForm = () => {
+    setItems([]);
+    setProveedorId('');
+    setObservaciones('');
+  }
+
+  const handleCreatePedido = () => {
+    if(!proveedorId || items.length === 0 || items.some(i => !i.productoId)) {
+        toast({
+            variant: "destructive",
+            title: "Error de validación",
+            description: "Por favor, complete todos los campos requeridos.",
+        })
+        return;
+    }
+    const proveedorSeleccionado = proveedores.find(p => p.id === proveedorId);
+    const nuevoPedido: Pedido = {
+        id: `PED-${String(pedidos.length + 1).padStart(3, '0')}`,
+        proveedor: proveedorSeleccionado?.nombre || 'Desconocido',
+        proveedorId: proveedorId,
+        fecha: new Date().toISOString().split('T')[0],
+        estado: 'Pendiente',
+        total: parseFloat(calcularTotal()),
+        items: items,
+        observaciones: observaciones,
+    }
+    setPedidos([nuevoPedido, ...pedidos]);
+    toast({
+        title: "Pedido Creado",
+        description: `El pedido ${nuevoPedido.id} ha sido creado exitosamente.`,
+    })
+    setOpenCreate(false);
+  };
+
+  useEffect(() => {
+    if(!openCreate) {
+        resetForm();
+    }
+  }, [openCreate]);
+
+
+  const handleOpenDetails = (pedido: Pedido) => {
+    setSelectedPedido(pedido);
+    setOpenDetails(true);
+  }
+
+  const handleCancelPedido = (pedidoId: string) => {
+    setPedidos(pedidos.map(p => p.id === pedidoId ? {...p, estado: 'Cancelado'} : p));
+    toast({
+        title: "Pedido Cancelado",
+        description: `El pedido ${pedidoId} ha sido cancelado.`,
+        variant: "destructive",
+    })
+  }
+  
+  const handleGeneratePresupuesto = (pedidoId: string) => {
+     toast({
+        title: "Función no implementada",
+        description: `La generación de presupuesto para el pedido ${pedidoId} estará disponible pronto.`,
+    })
   }
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Pedidos de Compra</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={openCreate} onOpenChange={setOpenCreate}>
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -172,7 +237,7 @@ export default function PedidosPage() {
                 <Label htmlFor="proveedor" className="text-right">
                   Proveedor
                 </Label>
-                <Select>
+                <Select value={proveedorId} onValueChange={setProveedorId}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Seleccione un proveedor" />
                   </SelectTrigger>
@@ -187,7 +252,7 @@ export default function PedidosPage() {
                 <Label htmlFor="observaciones" className="text-right">
                   Observaciones
                 </Label>
-                <Textarea id="observaciones" className="col-span-3" placeholder="Añadir observaciones..."/>
+                <Textarea id="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} className="col-span-3" placeholder="Añadir observaciones..."/>
               </div>
 
               <Card className="col-span-4">
@@ -215,7 +280,7 @@ export default function PedidosPage() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {productos.map(p => (
-                                                    <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id && items[index].productoId !== p.id)}>
+                                                    <SelectItem key={p.id} value={p.id} disabled={items.some(i => i.productoId === p.id)}>
                                                         {p.nombre}
                                                     </SelectItem>
                                                 ))}
@@ -254,8 +319,8 @@ export default function PedidosPage() {
 
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button onClick={handleCreatePedido} disabled={items.length === 0 || items.some(i => !i.productoId)}>Crear Pedido</Button>
+              <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
+              <Button onClick={handleCreatePedido} disabled={items.length === 0 || items.some(i => !i.productoId) || !proveedorId}>Crear Pedido</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -300,11 +365,27 @@ export default function PedidosPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
-                        <DropdownMenuItem>Generar Presupuesto</DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-500">
-                          Cancelar
-                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDetails(pedido)}>Ver Detalles</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleGeneratePresupuesto(pedido.id)}>Generar Presupuesto</DropdownMenuItem>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={pedido.estado === 'Cancelado'}>
+                                    <span className="text-red-500">Cancelar</span>
+                                </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Esta acción no se puede deshacer. Esto cancelará permanentemente el pedido.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cerrar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleCancelPedido(pedido.id)} className="bg-destructive hover:bg-destructive/90">Confirmar</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -314,6 +395,71 @@ export default function PedidosPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={openDetails} onOpenChange={setOpenDetails}>
+        <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>Detalles del Pedido: {selectedPedido?.id}</DialogTitle>
+                <DialogDescription>
+                    Información detallada del pedido de compra.
+                </DialogDescription>
+            </DialogHeader>
+            {selectedPedido && (
+                <div className="grid gap-4 py-4">
+                    <div className="flex justify-between">
+                        <div>
+                            <p className="font-semibold">Proveedor:</p>
+                            <p>{selectedPedido.proveedor}</p>
+                        </div>
+                        <div>
+                            <p className="font-semibold">Fecha:</p>
+                            <p>{selectedPedido.fecha}</p>
+                        </div>
+                        <div>
+                            <p className="font-semibold">Estado:</p>
+                            <p><Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge></p>
+                        </div>
+                    </div>
+                     <div>
+                        <p className="font-semibold">Observaciones:</p>
+                        <p className="text-muted-foreground">{selectedPedido.observaciones || 'Sin observaciones'}</p>
+                    </div>
+
+                    <Card>
+                        <CardHeader><CardTitle>Productos</CardTitle></CardHeader>
+                        <CardContent>
+                             <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Producto</TableHead>
+                                        <TableHead>Cantidad</TableHead>
+                                        <TableHead>Precio Unit.</TableHead>
+                                        <TableHead className="text-right">Subtotal</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {selectedPedido.items.map((item, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell>{item.nombre}</TableCell>
+                                            <TableCell>{item.cantidad}</TableCell>
+                                            <TableCell>${item.precio.toFixed(2)}</TableCell>
+                                            <TableCell className="text-right">${(item.cantidad * item.precio).toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                     <div className="text-right font-bold text-xl mt-4">
+                        Total: ${selectedPedido.total.toFixed(2)}
+                    </div>
+                </div>
+            )}
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
