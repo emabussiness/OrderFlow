@@ -116,8 +116,10 @@ export default function PresupuestosProveedorPage() {
   }, []);
 
   useEffect(() => {
-     if(presupuestos.length > 0) {
-        localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
+     if (presupuestos.length > 0) {
+        if (JSON.stringify(presupuestos) !== JSON.stringify(initialPresupuestos) || !localStorage.getItem("presupuestos")) {
+            localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
+        }
      }
   }, [presupuestos]);
 
@@ -163,7 +165,7 @@ export default function PresupuestosProveedorPage() {
     if (field === 'productoId') {
       const productoId = value as string;
       const producto = productos.find(p => p.id === productoId);
-       if (items.some(item => item.productoId === productoId && item.productoId !== currentItem.productoId)) {
+       if (items.some((item, i) => item.productoId === productoId && i !== index)) {
             toast({ variant: "destructive", title: "Producto duplicado", description: "Este producto ya ha sido añadido." });
             return;
        }
@@ -262,6 +264,7 @@ export default function PresupuestosProveedorPage() {
 
         const nuevasOrdenes = [nuevaOrden, ...ordenes];
         localStorage.setItem("ordenes_compra", JSON.stringify(nuevasOrdenes));
+        window.dispatchEvent(new Event('storage')); // Notify other tabs/windows
 
         toast({
             title: "Presupuesto Aprobado y Orden de Compra Generada",
@@ -502,7 +505,7 @@ export default function PresupuestosProveedorPage() {
                             <p>{selectedPresupuesto.pedidoId}</p>
                         </div>
                         <div>
-                            <p className="font-semibold">Estado:</p>
+                            <div className="font-semibold">Estado:</div>
                             <div><Badge variant={getStatusVariant(selectedPresupuesto.estado)}>{selectedPresupuesto.estado}</Badge></div>
                         </div>
                         <div>

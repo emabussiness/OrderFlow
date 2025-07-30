@@ -80,9 +80,8 @@ export default function OrdenesCompraPage() {
 
   useEffect(() => {
     if (ordenes.length > 0) {
-        // We might not want to overwrite initial data if it's the first load and localStorage is empty.
-        // A more complex logic can be added here if needed.
-        if (localStorage.getItem("ordenes_compra") || ordenes.length > initialOrdenes.length) {
+        // We only write to localStorage if it's not the initial data or if data has been added.
+        if (JSON.stringify(ordenes) !== JSON.stringify(initialOrdenes) || !localStorage.getItem("ordenes_compra")) {
              localStorage.setItem("ordenes_compra", JSON.stringify(ordenes));
         }
     }

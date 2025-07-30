@@ -20,6 +20,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
+type ItemPedido = {
+  productoId: string;
+  nombre: string;
+  cantidad: number;
+  precio: number;
+};
+
 type Pedido = {
   id: string;
   proveedor: string;
@@ -87,12 +94,6 @@ const productos = [
     { id: "103", nombre: "Producto Z", precio: 50 },
 ];
 
-type ItemPedido = {
-  productoId: string;
-  nombre: string;
-  cantidad: number;
-  precio: number;
-};
 
 export default function PedidosPage() {
   const { toast } = useToast();
@@ -116,7 +117,10 @@ export default function PedidosPage() {
 
   useEffect(() => {
     if (pedidos.length > 0) {
-        localStorage.setItem("pedidos", JSON.stringify(pedidos));
+       // Only write to localStorage if it's not the initial data or if data has been added.
+       if (JSON.stringify(pedidos) !== JSON.stringify(initialPedidos) || !localStorage.getItem("pedidos")) {
+         localStorage.setItem("pedidos", JSON.stringify(pedidos));
+       }
     }
   }, [pedidos]);
 
