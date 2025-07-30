@@ -285,7 +285,7 @@ export default function PresupuestosProveedorPage() {
 
         const nuevasOrdenes = [nuevaOrden, ...ordenes];
         localStorage.setItem("ordenes_compra", JSON.stringify(nuevasOrdenes));
-        window.dispatchEvent(new StorageEvent('storage', { key: 'ordenes_compra' }));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'ordenes_compra', newValue: JSON.stringify(nuevasOrdenes) }));
 
         toast({
             title: "Presupuesto Aprobado y Orden de Compra Generada",

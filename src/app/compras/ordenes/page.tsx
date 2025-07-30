@@ -127,12 +127,9 @@ export default function OrdenesCompraPage() {
   }, []);
 
   useEffect(() => {
-    if (ordenes.length > 0 || localStorage.getItem("ordenes_compra")) {
-        try {
-            localStorage.setItem("ordenes_compra", JSON.stringify(ordenes));
-        } catch (error) {
-            console.error("Failed to set ordenes in localStorage:", error);
-        }
+    // Prevent saving initial data to localStorage on first render
+    if (ordenes.length > 0 && JSON.stringify(ordenes) !== JSON.stringify(initialOrdenes)) {
+      localStorage.setItem("ordenes_compra", JSON.stringify(ordenes));
     }
 }, [ordenes]);
 
@@ -319,7 +316,7 @@ export default function OrdenesCompraPage() {
                                                     options={productos.map(p => ({ value: p.id, label: p.nombre }))}
                                                     value={item.productoId}
                                                     onChange={(value) => handleItemChange(index, 'productoId', value)}
-                                                    disabled={creationMode === 'pedido' || items.some(i => i.productoId === item.productoId && i !== index)}
+                                                    disabled={creationMode === 'pedido'}
                                                     placeholder="Seleccione producto"
                                                     searchPlaceholder="Buscar producto..."
                                                 />
@@ -485,3 +482,5 @@ export default function OrdenesCompraPage() {
     </>
   );
 }
+
+    

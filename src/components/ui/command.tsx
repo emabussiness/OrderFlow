@@ -2,8 +2,9 @@
 
 import * as React from "react"
 import { type DialogProps } from "@radix-ui/react-dialog"
-import { Command as CommandPrimitive, useCommandState } from "cmdk"
+import { Command as CommandPrimitive } from "cmdk"
 import { Search } from "lucide-react"
+import { ChevronsUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import {
@@ -159,6 +160,11 @@ type ComboboxProps = {
 
 const Combobox = ({ options, value, onChange, placeholder, searchPlaceholder, disabled }: ComboboxProps) => {
     const [open, setOpen] = React.useState(false);
+    const [filter, setFilter] = React.useState('');
+
+    const filteredOptions = filter
+        ? options.filter(option => option.label.toLowerCase().includes(filter.toLowerCase()))
+        : options;
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -178,17 +184,22 @@ const Combobox = ({ options, value, onChange, placeholder, searchPlaceholder, di
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                 <Command>
-                    <CommandInput placeholder={searchPlaceholder || "Search..."} />
+                    <CommandInput 
+                        placeholder={searchPlaceholder || "Search..."} 
+                        value={filter}
+                        onValueChange={setFilter}
+                    />
                     <CommandEmpty>No option found.</CommandEmpty>
                     <CommandList>
                         <CommandGroup>
-                            {options.map((option) => (
+                            {filteredOptions.map((option) => (
                                 <CommandItem
                                     key={option.value}
                                     value={option.value}
                                     onSelect={(currentValue) => {
                                         onChange(currentValue === value ? "" : currentValue)
                                         setOpen(false)
+                                        setFilter('');
                                     }}
                                 >
                                     <Check
@@ -207,8 +218,6 @@ const Combobox = ({ options, value, onChange, placeholder, searchPlaceholder, di
         </Popover>
     )
 }
-import { ChevronsUpDown } from "lucide-react"
-
 
 export {
   Command,
@@ -222,3 +231,5 @@ export {
   CommandSeparator,
   Combobox
 }
+
+    
