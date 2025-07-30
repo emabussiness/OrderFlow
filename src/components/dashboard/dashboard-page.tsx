@@ -16,6 +16,7 @@ import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, Shopp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export function DashboardPage() {
   return (
@@ -30,10 +31,12 @@ export function DashboardPage() {
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton href="/" isActive>
-                <Home />
-                Dashboard
-              </SidebarMenuButton>
+              <Link href="/">
+                <SidebarMenuButton isActive>
+                  <Home />
+                  Dashboard
+                </SidebarMenuButton>
+              </Link>
             </SidebarMenuItem>
 
             <Collapsible>
@@ -63,11 +66,11 @@ export function DashboardPage() {
                   </SidebarMenuItem>
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
-                      <SidebarMenuItem><SidebarMenuButton href="#"><Package />Productos</SidebarMenuButton></SidebarMenuItem>
-                      <SidebarMenuItem><SidebarMenuButton href="#"><Boxes />Categoría</SidebarMenuButton></SidebarMenuItem>
-                      <SidebarMenuItem><SidebarMenuButton href="#"><Truck />Proveedor</SidebarMenuButton></SidebarMenuItem>
-                      <SidebarMenuItem><SidebarMenuButton href="#"><Warehouse />Depósitos</SidebarMenuButton></SidebarMenuItem>
-                      <SidebarMenuItem><SidebarMenuButton href="#"><Building />Sucursal</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Package />Productos</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Boxes />Categoría</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Truck />Proveedor</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Warehouse />Depósitos</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Building />Sucursal</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
@@ -85,12 +88,12 @@ export function DashboardPage() {
                   </SidebarMenuItem>
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
-                      <SidebarMenuItem><SidebarMenuButton href="/compras/pedidos">Pedido</SidebarMenuButton></SidebarMenuItem>
-                      <SidebarMenuItem><SidebarMenuButton href="/compras/presupuestos">Presupuesto proveedor</SidebarMenuButton></SidebarMenuItem>
-                      <SidebarMenuItem><SidebarMenuButton href="/compras/ordenes">Orden de compra</SidebarMenuButton></SidebarMenuItem>
-                      <SidebarMenuItem><SidebarMenuButton href="/compras/registros">Compra</SidebarMenuButton></SidebarMenuItem>
-                      <SidebarMenuItem><SidebarMenuButton href="#">Notas Crédito/Débito</SidebarMenuButton></SidebarMenuItem>
-                      <SidebarMenuItem><SidebarMenuButton href="#">Ajustes de Stock</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/pedidos"><SidebarMenuButton>Pedido</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/presupuestos"><SidebarMenuButton>Presupuesto proveedor</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/ordenes"><SidebarMenuButton>Orden de compra</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/registros"><SidebarMenuButton>Compra</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton>Notas Crédito/Débito</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton>Ajustes de Stock</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
@@ -108,7 +111,7 @@ export function DashboardPage() {
                   </SidebarMenuItem>
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
-                      <SidebarMenuItem><SidebarMenuButton href="/compras/informes">Informes de Compras</SidebarMenuButton></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/informes"><SidebarMenuButton>Informes de Compras</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
