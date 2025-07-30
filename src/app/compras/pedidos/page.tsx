@@ -116,13 +116,18 @@ export default function PedidosPage() {
   }, []);
 
   useEffect(() => {
-    if (pedidos.length > 0) {
-       // Only write to localStorage if it's not the initial data or if data has been added.
-       if (JSON.stringify(pedidos) !== JSON.stringify(initialPedidos) || !localStorage.getItem("pedidos")) {
-         localStorage.setItem("pedidos", JSON.stringify(pedidos));
-       }
+    if (pedidos.length === 0 && !localStorage.getItem("pedidos")) return;
+    try {
+        const storedData = localStorage.getItem("pedidos");
+        const currentData = JSON.stringify(pedidos);
+        if (storedData !== currentData) {
+            localStorage.setItem("pedidos", currentData);
+        }
+    } catch (error) {
+        console.error("Failed to stringify or set pedidos in localStorage:", error);
     }
   }, [pedidos]);
+
 
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status.toLowerCase()) {
@@ -448,7 +453,7 @@ export default function PedidosPage() {
                             <p>{selectedPedido.fechaPedido}</p>
                         </div>
                         <div>
-                            <p className="font-semibold">Estado:</p>
+                            <div className="font-semibold">Estado:</div>
                             <Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge>
                         </div>
                         <div>
@@ -503,5 +508,3 @@ export default function PedidosPage() {
     </>
   );
 }
-
-    

@@ -112,12 +112,15 @@ export default function PresupuestosProveedorPage() {
   }, []);
 
   useEffect(() => {
-     if (presupuestos.length > 0) {
-        if (JSON.stringify(presupuestos) !== JSON.stringify(initialPresupuestos) || !localStorage.getItem("presupuestos")) {
-            localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
+    if (presupuestos.length === 0 && !localStorage.getItem("presupuestos")) return;
+    try {
+        const storedData = localStorage.getItem("presupuestos");
+        const currentData = JSON.stringify(presupuestos);
+        if (storedData !== currentData) {
+            localStorage.setItem("presupuestos", currentData);
         }
-     } else if (localStorage.getItem("presupuestos")) {
-        localStorage.removeItem("presupuestos");
+    } catch (error) {
+        console.error("Failed to stringify or set presupuestos in localStorage:", error);
     }
   }, [presupuestos]);
 
@@ -132,7 +135,7 @@ export default function PresupuestosProveedorPage() {
     } else {
       setItems([]);
     }
-  }, [selectedPedidoId, pedidos]); 
+  }, [selectedPedidoId, pedidos, selectedPedido]); 
   
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
@@ -257,7 +260,7 @@ export default function PresupuestosProveedorPage() {
 
         const nuevasOrdenes = [nuevaOrden, ...ordenes];
         localStorage.setItem("ordenes_compra", JSON.stringify(nuevasOrdenes));
-        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'ordenes_compra' }));
 
         toast({
             title: "Presupuesto Aprobado y Orden de Compra Generada",
@@ -499,7 +502,7 @@ export default function PresupuestosProveedorPage() {
                         </div>
                         <div>
                             <div className="font-semibold">Estado:</div>
-                            <div><Badge variant={getStatusVariant(selectedPresupuesto.estado)}>{selectedPresupuesto.estado}</Badge></div>
+                            <Badge variant={getStatusVariant(selectedPresupuesto.estado)}>{selectedPresupuesto.estado}</Badge>
                         </div>
                         <div>
                             <p className="font-semibold">Registrado por:</p>

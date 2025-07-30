@@ -116,24 +116,29 @@ export default function OrdenesCompraPage() {
         setPresupuestosIds(presupuestos.map((p: any) => p.pedidoId));
     }
 
-    const handleStorageChange = () => {
-        const stored = localStorage.getItem("ordenes_compra");
-        setOrdenes(stored ? JSON.parse(stored) : initialOrdenes);
+    const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === 'ordenes_compra') {
+            const stored = localStorage.getItem("ordenes_compra");
+            setOrdenes(stored ? JSON.parse(stored) : initialOrdenes);
+        }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   useEffect(() => {
-    if (ordenes.length > 0) {
-        if (JSON.stringify(ordenes) !== JSON.stringify(initialOrdenes) || !localStorage.getItem("ordenes_compra")) {
-             localStorage.setItem("ordenes_compra", JSON.stringify(ordenes));
-             window.dispatchEvent(new Event('storage'));
+    if (ordenes.length === 0 && !localStorage.getItem("ordenes_compra")) return;
+    try {
+        const storedData = localStorage.getItem("ordenes_compra");
+        const currentData = JSON.stringify(ordenes);
+        if (storedData !== currentData) {
+            localStorage.setItem("ordenes_compra", currentData);
         }
-    } else if (localStorage.getItem("ordenes_compra")) {
-        localStorage.removeItem("ordenes_compra");
+    } catch (error) {
+        console.error("Failed to stringify or set ordenes in localStorage:", error);
     }
   }, [ordenes]);
+
 
    useEffect(() => {
     if (creationMode === 'pedido' && selectedPedido) {
@@ -429,7 +434,7 @@ export default function OrdenesCompraPage() {
                         </div>
                         <div>
                             <div className="font-semibold">Estado:</div>
-                            <div><Badge variant={getStatusVariant(selectedOrden.estado)}>{selectedOrden.estado}</Badge></div>
+                            <Badge variant={getStatusVariant(selectedOrden.estado)}>{selectedOrden.estado}</Badge>
                         </div>
                         <div>
                             <p className="font-semibold">Generado por:</p>
@@ -479,5 +484,3 @@ export default function OrdenesCompraPage() {
     </>
   );
 }
-
-    

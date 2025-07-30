@@ -45,8 +45,9 @@ type OrdenCompra = {
   fechaOrden: string;
   estado: "Pendiente de Recepción" | "Recibido Parcial" | "Recibido Completo" | "Cancelada";
   total: number;
-  items: Item[];
+  items: (Item & { cantidadRecibida?: undefined })[]; // OC items don't have this
 };
+
 
 const initialCompras: Compra[] = [];
 
@@ -75,21 +76,33 @@ export default function ComprasPage() {
     const storedOrdenes = localStorage.getItem("ordenes_compra");
     setOrdenes(storedOrdenes ? JSON.parse(storedOrdenes) : []);
 
-     const handleStorageChange = () => {
-        const stored = localStorage.getItem("compras");
-        setCompras(stored ? JSON.parse(stored) : initialCompras);
-        const storedOC = localStorage.getItem("ordenes_compra");
-        setOrdenes(storedOC ? JSON.parse(storedOC) : []);
+     const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === 'compras') {
+            const stored = localStorage.getItem("compras");
+            setCompras(stored ? JSON.parse(stored) : initialCompras);
+        }
+        if (e.key === 'ordenes_compra') {
+            const storedOC = localStorage.getItem("ordenes_compra");
+            setOrdenes(storedOC ? JSON.parse(storedOC) : []);
+        }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   useEffect(() => {
-     if (JSON.stringify(compras) !== JSON.stringify(initialCompras) || !localStorage.getItem("compras")) {
-        localStorage.setItem("compras", JSON.stringify(compras));
-     }
+    if (compras.length === 0 && !localStorage.getItem("compras")) return;
+    try {
+        const storedData = localStorage.getItem("compras");
+        const currentData = JSON.stringify(compras);
+        if (storedData !== currentData) {
+            localStorage.setItem("compras", currentData);
+        }
+    } catch (error) {
+        console.error("Failed to stringify or set compras in localStorage:", error);
+    }
   }, [compras]);
+
 
   useEffect(() => {
     if (selectedOC) {
@@ -97,7 +110,7 @@ export default function ComprasPage() {
     } else {
         setItems([]);
     }
-  }, [selectedOCId, ordenes]);
+  }, [selectedOCId, selectedOC]);
   
   const handleItemChange = (index: number, value: string) => {
     const newItems = [...items];
@@ -159,7 +172,7 @@ export default function ComprasPage() {
         oc.id === selectedOCId ? {...oc, estado: nuevoEstado} : oc
     );
     localStorage.setItem('ordenes_compra', JSON.stringify(updatedOrdenes));
-    window.dispatchEvent(new Event('storage')); // Notify other tabs/components
+    window.dispatchEvent(new StorageEvent('storage', { key: 'ordenes_compra' }));
 
     toast({ title: 'Compra Registrada', description: `La compra ${nuevaCompra.id} ha sido registrada.`});
     setOpenCreate(false);
@@ -375,5 +388,3 @@ export default function ComprasPage() {
     </>
   );
 }
-
-    
