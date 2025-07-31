@@ -26,7 +26,11 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/compras')) {
       const pathParts = pathname.split('/');
       const lastPart = pathParts[pathParts.length - 1];
-      return lastPart.charAt(0).toUpperCase() + lastPart.slice(1).replace('-', ' ');
+      const title = lastPart.charAt(0).toUpperCase() + lastPart.slice(1).replace('-', ' ');
+      if (pathname.includes('referenciales')) return `Referenciales - ${title}`;
+      if (pathname.includes('movimientos')) return `Movimientos - ${title}`;
+      if (pathname.includes('informes')) return `Informes - ${title}`;
+      return title;
     }
     return 'Dashboard';
   }
@@ -78,7 +82,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                   </SidebarMenuItem>
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
-                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Package />Productos</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/referenciales/productos"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/productos')}><Package />Productos</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Boxes />Categoría</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Truck />Proveedor</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Warehouse />Depósitos</SidebarMenuButton></Link></SidebarMenuItem>
