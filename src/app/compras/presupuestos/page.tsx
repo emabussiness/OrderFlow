@@ -24,39 +24,46 @@ import { Combobox } from "@/components/ui/command";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { productos as initialProductos, proveedores, depositos } from "@/data";
 
-type Item = {
-  productoId: string;
+type ItemPresupuesto = {
+  producto_id: string;
   nombre: string;
   cantidad: number;
-  precio: number;
+  precio_presupuestado: number;
+};
+
+type ItemPedido = {
+  producto_id: string;
+  nombre: string;
+  cantidad: number;
+  precio_estimado: number;
 };
 
 type Pedido = {
   id: string;
-  proveedor: string;
-  proveedorId: string;
-  deposito: string;
-  depositoId: string;
-  fechaPedido: string;
+  proveedor_id: string;
+  proveedor_nombre: string;
+  deposito_id: string;
+  deposito_nombre: string;
+  fecha_pedido: string;
   estado: "Pendiente" | "Completado" | "Cancelado";
   total: number;
-  items: Item[];
+  items: ItemPedido[];
 };
 
 type Presupuesto = {
   id: string;
-  pedidoId: string;
-  proveedor: string;
-  proveedorId: string;
-  deposito: string;
-  depositoId: string;
-  fecha: string;
+  pedido_id: string;
+  proveedor_id: string;
+  proveedor_nombre: string;
+  deposito_id: string;
+  deposito_nombre: string;
+  fecha_presupuesto: string;
   total: number;
   estado: "Recibido" | "Aprobado" | "Rechazado";
-  items: Item[];
+  items: ItemPresupuesto[];
   observaciones?: string;
-  usuario: string;
-  fechaCreacion: any;
+  usuario_id: string;
+  fecha_creacion: any;
 };
 
 export default function PresupuestosProveedorPage() {
@@ -72,7 +79,7 @@ export default function PresupuestosProveedorPage() {
   const [selectedPedidoId, setSelectedPedidoId] = useState('');
   const [selectedProveedorId, setSelectedProveedorId] = useState('');
   const [selectedDepositoId, setSelectedDepositoId] = useState('');
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<ItemPresupuesto[]>([]);
   const [observaciones, setObservaciones] = useState('');
   
   const selectedPedido = pedidos.find(p => p.id === selectedPedidoId);
@@ -81,19 +88,19 @@ export default function PresupuestosProveedorPage() {
     setLoading(true);
     try {
       // Fetch Presupuestos
-      const presupuestosCollection = collection(db, 'presupuestos');
-      const qPresupuestos = query(presupuestosCollection, orderBy("fechaCreacion", "desc"));
+      const presupuestosCollection = collection(db, 'presupuesto_proveedor');
+      const qPresupuestos = query(presupuestosCollection, orderBy("fecha_creacion", "desc"));
       const presupuestosSnapshot = await getDocs(qPresupuestos);
       const presupuestosList = presupuestosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Presupuesto));
       setPresupuestos(presupuestosList);
 
       // Fetch Pedidos
-      const pedidosCollection = collection(db, 'pedidos');
+      const pedidosCollection = collection(db, 'pedidos_compra');
       const qPedidos = query(pedidosCollection, where("estado", "==", "Pendiente"));
       const pedidosSnapshot = await getDocs(qPedidos);
       const pedidosList = pedidosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pedido));
 
-      const pedidosConPresupuesto = presupuestosList.map(p => p.pedidoId);
+      const pedidosConPresupuesto = presupuestosList.map(p => p.pedido_id);
       setPedidos(pedidosList.filter(p => !pedidosConPresupuesto.includes(p.id)));
 
     } catch (error) {
@@ -111,12 +118,14 @@ export default function PresupuestosProveedorPage() {
   useEffect(() => {
     if (creationMode === 'pedido' && selectedPedido) {
       const newItems = selectedPedido.items.map(item => ({
-        ...item,
-        precio: item.precio || 0
+        producto_id: item.producto_id,
+        nombre: item.nombre,
+        cantidad: item.cantidad,
+        precio_presupuestado: item.precio_estimado || 0,
       }));
       setItems(newItems);
-      setSelectedProveedorId(selectedPedido.proveedorId);
-      setSelectedDepositoId(selectedPedido.depositoId);
+      setSelectedProveedorId(selectedPedido.proveedor_id);
+      setSelectedDepositoId(selectedPedido.deposito_id);
     } else {
       setItems([]);
       setSelectedProveedorId('');
@@ -134,7 +143,7 @@ export default function PresupuestosProveedorPage() {
   };
 
   const handleAddItem = () => {
-    setItems([...items, { productoId: '', nombre: '', cantidad: 1, precio: 0 }]);
+    setItems([...items, { producto_id: '', nombre: '', cantidad: 1, precio_presupuestado: 0 }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -142,30 +151,30 @@ export default function PresupuestosProveedorPage() {
     setItems(newItems);
   };
 
-  const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
+  const handleItemChange = (index: number, field: keyof ItemPresupuesto, value: string | number) => {
     const newItems = [...items];
     const currentItem = newItems[index];
 
-    if (field === 'productoId') {
+    if (field === 'producto_id') {
       const productoId = value as string;
       const producto = initialProductos.find(p => p.id === productoId);
-       if (items.some((item, i) => item.productoId === productoId && i !== index)) {
+       if (items.some((item, i) => item.producto_id === productoId && i !== index)) {
             toast({ variant: "destructive", title: "Producto duplicado", description: "Este producto ya ha sido añadido." });
             return;
        }
-      currentItem.productoId = productoId;
-      currentItem.precio = producto ? producto.precio : 0;
+      currentItem.producto_id = productoId;
+      currentItem.precio_presupuestado = producto ? producto.precio_referencia : 0;
       currentItem.nombre = producto ? producto.nombre : '';
     } else if (field === 'cantidad') {
       currentItem.cantidad = Number(value) < 1 ? 1 : Number(value);
-    } else if (field === 'precio') {
-      currentItem.precio = Number(value) < 0 ? 0 : Number(value);
+    } else if (field === 'precio_presupuestado') {
+      currentItem.precio_presupuestado = Number(value) < 0 ? 0 : Number(value);
     }
     setItems(newItems);
   }
   
   const calcularTotal = () => {
-     return items.reduce((total, item) => total + (item.cantidad * item.precio), 0).toFixed(2);
+     return items.reduce((total, item) => total + (item.cantidad * item.precio_presupuestado), 0).toFixed(2);
   }
 
   const resetForm = () => {
@@ -178,10 +187,10 @@ export default function PresupuestosProveedorPage() {
   }
 
   const handleCreatePresupuesto = async () => {
-    const proveedorId = creationMode === 'pedido' ? selectedPedido?.proveedorId : selectedProveedorId;
-    const depositoId = creationMode === 'pedido' ? selectedPedido?.depositoId : selectedDepositoId;
+    const proveedorId = creationMode === 'pedido' ? selectedPedido?.proveedor_id : selectedProveedorId;
+    const depositoId = creationMode === 'pedido' ? selectedPedido?.deposito_id : selectedDepositoId;
 
-    if (!proveedorId || !depositoId || items.length === 0 || (creationMode === 'manual' && items.some(i => !i.productoId))) {
+    if (!proveedorId || !depositoId || items.length === 0 || (creationMode === 'manual' && items.some(i => !i.producto_id))) {
       toast({ variant: "destructive", title: "Error", description: "Proveedor, depósito y al menos un producto son requeridos." });
       return;
     }
@@ -191,29 +200,26 @@ export default function PresupuestosProveedorPage() {
 
     try {
         const nuevoPresupuesto = {
-            id: '',
-            pedidoId: creationMode === 'pedido' ? selectedPedidoId : 'N/A (Manual)',
-            proveedor: proveedor?.nombre || 'N/A',
-            proveedorId: proveedor?.id || '',
-            deposito: deposito?.nombre || 'N/A',
-            depositoId: deposito?.id || '',
-            fecha: new Date().toISOString().split('T')[0],
+            pedido_id: creationMode === 'pedido' ? selectedPedidoId : 'N/A (Manual)',
+            proveedor_nombre: proveedor?.nombre || 'N/A',
+            proveedor_id: proveedor?.id || '',
+            deposito_nombre: deposito?.nombre || 'N/A',
+            deposito_id: deposito?.id || '',
+            fecha_presupuesto: new Date().toISOString().split('T')[0],
             total: parseFloat(calcularTotal()),
             estado: 'Recibido' as 'Recibido',
             items: items,
             observaciones,
-            usuario: "Usuario", // Hardcoded
-            fechaCreacion: serverTimestamp(),
+            usuario_id: "user-demo", // Hardcoded
+            fecha_creacion: serverTimestamp(),
         }
 
-        const docRef = await addDoc(collection(db, "presupuestos"), nuevoPresupuesto);
-        nuevoPresupuesto.id = docRef.id;
+        const docRef = await addDoc(collection(db, "presupuesto_proveedor"), nuevoPresupuesto);
 
-        setPresupuestos([nuevoPresupuesto, ...presupuestos]);
+        await fetchData(); // Refresh lists
         
         toast({ title: "Presupuesto Registrado", description: `El presupuesto ha sido creado.` });
         setOpenCreate(false);
-        fetchData(); // Refresh lists
     } catch(e) {
         console.error("Error creating presupuesto:", e);
         toast({ variant: "destructive", title: "Error", description: "No se pudo crear el presupuesto." });
@@ -231,7 +237,7 @@ export default function PresupuestosProveedorPage() {
   }
 
   const handleUpdateStatus = async (presupuestoId: string, newStatus: "Aprobado" | "Rechazado") => {
-    const presupuestoRef = doc(db, 'presupuestos', presupuestoId);
+    const presupuestoRef = doc(db, 'presupuesto_proveedor', presupuestoId);
     try {
         await updateDoc(presupuestoRef, { estado: newStatus });
         
@@ -239,25 +245,25 @@ export default function PresupuestosProveedorPage() {
         
         if (newStatus === 'Aprobado' && presupuestoAprobado) {
             const nuevaOrden = {
-                presupuestoId: presupuestoAprobado.id,
-                pedidoId: presupuestoAprobado.pedidoId.startsWith('PED-') ? presupuestoAprobado.pedidoId : undefined,
-                proveedor: presupuestoAprobado.proveedor,
-                proveedorId: presupuestoAprobado.proveedorId,
-                deposito: presupuestoAprobado.deposito,
-                depositoId: presupuestoAprobado.depositoId,
-                fechaOrden: new Date().toISOString().split('T')[0],
+                presupuesto_proveedor_id: presupuestoAprobado.id,
+                pedido_id: presupuestoAprobado.pedido_id,
+                proveedor_nombre: presupuestoAprobado.proveedor_nombre,
+                proveedor_id: presupuestoAprobado.proveedor_id,
+                deposito_nombre: presupuestoAprobado.deposito_nombre,
+                deposito_id: presupuestoAprobado.deposito_id,
+                fecha_orden: new Date().toISOString().split('T')[0],
                 estado: "Pendiente de Recepción",
                 total: presupuestoAprobado.total,
-                items: presupuestoAprobado.items,
-                usuario: "Usuario",
-                fechaCreacion: serverTimestamp(),
+                items: presupuestoAprobado.items.map(i => ({...i, precio_unitario: i.precio_presupuestado})),
+                usuario_id: "user-demo",
+                fecha_creacion: serverTimestamp(),
             };
             await addDoc(collection(db, "ordenes_compra"), nuevaOrden);
             toast({ title: "Presupuesto Aprobado y OC Generada", description: `La Orden de Compra ha sido creada.` });
         } else {
              toast({ title: `Presupuesto ${newStatus}`, description: `El estado del presupuesto ha sido actualizado.` });
         }
-        fetchData();
+        await fetchData();
     } catch(e) {
         console.error("Error updating status:", e);
         toast({ variant: 'destructive', title: 'Error', description: 'No se pudo actualizar el estado.'});
@@ -304,7 +310,7 @@ export default function PresupuestosProveedorPage() {
                   </Label>
                   <div className="col-span-3">
                       <Combobox
-                          options={pedidos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor}` }))}
+                          options={pedidos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor_nombre}` }))}
                           value={selectedPedidoId}
                           onChange={setSelectedPedidoId}
                           placeholder="Seleccione un pedido pendiente"
@@ -370,9 +376,9 @@ export default function PresupuestosProveedorPage() {
                                         <TableCell>
                                              <Combobox
                                                 options={initialProductos.map(p => ({ value: p.id, label: p.nombre }))}
-                                                value={item.productoId}
-                                                onChange={(value) => handleItemChange(index, 'productoId', value)}
-                                                disabled={creationMode === 'pedido' && !!item.productoId}
+                                                value={item.producto_id}
+                                                onChange={(value) => handleItemChange(index, 'producto_id', value)}
+                                                disabled={creationMode === 'pedido' && !!item.producto_id}
                                                 placeholder="Seleccione producto"
                                                 searchPlaceholder="Buscar producto..."
                                             />
@@ -381,10 +387,10 @@ export default function PresupuestosProveedorPage() {
                                             <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" disabled={creationMode === 'pedido'}/>
                                         </TableCell>
                                         <TableCell>
-                                            <Input type="number" value={item.precio} onChange={(e) => handleItemChange(index, 'precio', e.target.value)} min="0"/>
+                                            <Input type="number" value={item.precio_presupuestado} onChange={(e) => handleItemChange(index, 'precio_presupuestado', e.target.value)} min="0"/>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                          ${(item.cantidad * item.precio).toFixed(2)}
+                                          ${(item.cantidad * item.precio_presupuestado).toFixed(2)}
                                         </TableCell>
                                         <TableCell>
                                             <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={creationMode === 'pedido'}>
@@ -438,9 +444,9 @@ export default function PresupuestosProveedorPage() {
               {presupuestos.map((presupuesto) => (
                 <TableRow key={presupuesto.id}>
                   <TableCell className="font-medium">{presupuesto.id.substring(0,7)}</TableCell>
-                  <TableCell>{presupuesto.pedidoId.startsWith('PED-') ? presupuesto.pedidoId.substring(0,7) : presupuesto.pedidoId}</TableCell>
-                  <TableCell>{presupuesto.proveedor}</TableCell>
-                  <TableCell>{presupuesto.fecha}</TableCell>
+                  <TableCell>{presupuesto.pedido_id?.substring(0,7) ?? 'N/A'}</TableCell>
+                  <TableCell>{presupuesto.proveedor_nombre}</TableCell>
+                  <TableCell>{presupuesto.fecha_presupuesto}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(presupuesto.estado)}>
                       {presupuesto.estado}
@@ -516,13 +522,13 @@ export default function PresupuestosProveedorPage() {
             {selectedPresupuesto && (
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div><p className="font-semibold">Proveedor:</p><p>{selectedPresupuesto.proveedor}</p></div>
-                        <div><p className="font-semibold">Depósito:</p><p>{selectedPresupuesto.deposito}</p></div>
-                        <div><p className="font-semibold">Fecha:</p><p>{selectedPresupuesto.fecha}</p></div>
-                        <div><p className="font-semibold">Pedido ID:</p><p>{selectedPresupuesto.pedidoId.startsWith('PED-') ? selectedPresupuesto.pedidoId.substring(0,7) : selectedPresupuesto.pedidoId}</p></div>
+                        <div><p className="font-semibold">Proveedor:</p><p>{selectedPresupuesto.proveedor_nombre}</p></div>
+                        <div><p className="font-semibold">Depósito:</p><p>{selectedPresupuesto.deposito_nombre}</p></div>
+                        <div><p className="font-semibold">Fecha:</p><p>{selectedPresupuesto.fecha_presupuesto}</p></div>
+                        <div><p className="font-semibold">Pedido ID:</p><p>{selectedPresupuesto.pedido_id?.substring(0,7) ?? 'N/A'}</p></div>
                         <div><div className="font-semibold">Estado:</div><Badge variant={getStatusVariant(selectedPresupuesto.estado)}>{selectedPresupuesto.estado}</Badge></div>
-                        <div><p className="font-semibold">Registrado por:</p><p>{selectedPresupuesto.usuario}</p></div>
-                        <div><p className="font-semibold">Fecha de Registro:</p><p>{selectedPresupuesto.fechaCreacion?.toDate().toLocaleString()}</p></div>
+                        <div><p className="font-semibold">Registrado por:</p><p>{selectedPresupuesto.usuario_id}</p></div>
+                        <div><p className="font-semibold">Fecha de Registro:</p><p>{selectedPresupuesto.fecha_creacion?.toDate().toLocaleString()}</p></div>
                     </div>
                      <div><p className="font-semibold">Observaciones:</p><p className="text-muted-foreground">{selectedPresupuesto.observaciones || 'Sin observaciones'}</p></div>
                     <Card>
@@ -539,8 +545,8 @@ export default function PresupuestosProveedorPage() {
                                         <TableRow key={index}>
                                             <TableCell>{item.nombre}</TableCell>
                                             <TableCell>{item.cantidad}</TableCell>
-                                            <TableCell>${item.precio.toFixed(2)}</TableCell>
-                                            <TableCell className="text-right">${(item.cantidad * item.precio).toFixed(2)}</TableCell>
+                                            <TableCell>${item.precio_presupuestado.toFixed(2)}</TableCell>
+                                            <TableCell className="text-right">${(item.cantidad * item.precio_presupuestado).toFixed(2)}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

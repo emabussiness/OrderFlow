@@ -22,39 +22,46 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Combobox } from "@/components/ui/command";
 import { productos as initialProductos, proveedores, depositos } from "@/data";
 
-type Item = {
-  productoId: string;
+type ItemOrden = {
+  producto_id: string;
   nombre: string;
   cantidad: number;
-  precio: number;
+  precio_unitario: number;
+};
+
+type ItemPedido = {
+  producto_id: string;
+  nombre: string;
+  cantidad: number;
+  precio_estimado: number;
 };
 
 type OrdenCompra = {
   id: string;
-  presupuestoId?: string;
-  pedidoId?: string;
-  proveedor: string;
-  proveedorId: string;
-  deposito: string;
-  depositoId: string;
-  fechaOrden: string;
+  presupuesto_proveedor_id?: string;
+  pedido_id?: string;
+  proveedor_nombre: string;
+  proveedor_id: string;
+  deposito_nombre: string;
+  deposito_id: string;
+  fecha_orden: string;
   estado: "Pendiente de Recepción" | "Recibido Parcial" | "Recibido Completo" | "Cancelada";
   total: number;
-  items: Item[];
-  usuario: string;
-  fechaCreacion: any;
+  items: ItemOrden[];
+  usuario_id: string;
+  fecha_creacion: any;
 };
 
 type Pedido = {
   id: string;
-  proveedor: string;
-  proveedorId: string;
-  deposito: string;
-  depositoId: string;
-  fechaPedido: string;
+  proveedor_nombre: string;
+  proveedor_id: string;
+  deposito_nombre: string;
+  deposito_id: string;
+  fecha_pedido: string;
   estado: "Pendiente" | "Completado" | "Cancelado";
   total: number;
-  items: Item[];
+  items: ItemPedido[];
 };
 
 export default function OrdenesCompraPage() {
@@ -72,7 +79,7 @@ export default function OrdenesCompraPage() {
   const [selectedPedidoId, setSelectedPedidoId] = useState('');
   const [selectedProveedorId, setSelectedProveedorId] = useState('');
   const [selectedDepositoId, setSelectedDepositoId] = useState('');
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<ItemOrden[]>([]);
 
   const selectedPedido = pedidos.find(p => p.id === selectedPedidoId);
 
@@ -81,20 +88,20 @@ export default function OrdenesCompraPage() {
     try {
       // Fetch Ordenes
       const ordenesCollection = collection(db, 'ordenes_compra');
-      const qOrdenes = query(ordenesCollection, orderBy("fechaCreacion", "desc"));
+      const qOrdenes = query(ordenesCollection, orderBy("fecha_creacion", "desc"));
       const ordenesSnapshot = await getDocs(qOrdenes);
       const ordenesList = ordenesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as OrdenCompra));
       setOrdenes(ordenesList);
 
-      // Fetch Pedidos pendientes sin OC
-      const qPedidos = query(collection(db, 'pedidos'), where("estado", "==", "Pendiente"));
+      // Fetch Pedidos pendientes sin OC y sin Presupuesto
+      const qPedidos = query(collection(db, 'pedidos_compra'), where("estado", "==", "Pendiente"));
       const pedidosSnapshot = await getDocs(qPedidos);
       const pedidosList = pedidosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pedido));
 
-      const qPresupuestos = await getDocs(collection(db, 'presupuestos'));
-      const presupuestosPedidosIds = qPresupuestos.docs.map(doc => doc.data().pedidoId);
+      const qPresupuestos = await getDocs(collection(db, 'presupuesto_proveedor'));
+      const presupuestosPedidosIds = qPresupuestos.docs.map(doc => doc.data().pedido_id);
       
-      const ordenesPedidosIds = ordenesList.map(oc => oc.pedidoId);
+      const ordenesPedidosIds = ordenesList.map(oc => oc.pedido_id);
 
       const pedidosFiltrados = pedidosList.filter(p => !presupuestosPedidosIds.includes(p.id) && !ordenesPedidosIds.includes(p.id));
       setPedidos(pedidosFiltrados);
@@ -114,9 +121,9 @@ export default function OrdenesCompraPage() {
 
    useEffect(() => {
     if (creationMode === 'pedido' && selectedPedido) {
-      setItems(selectedPedido.items.map(item => ({...item})));
-      setSelectedProveedorId(selectedPedido.proveedorId);
-      setSelectedDepositoId(selectedPedido.depositoId);
+      setItems(selectedPedido.items.map(item => ({...item, precio_unitario: item.precio_estimado})));
+      setSelectedProveedorId(selectedPedido.proveedor_id);
+      setSelectedDepositoId(selectedPedido.deposito_id);
     } else {
       setItems([]);
       setSelectedProveedorId('');
@@ -139,30 +146,30 @@ export default function OrdenesCompraPage() {
     setOpenDetails(true);
   }
 
-  const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
+  const handleItemChange = (index: number, field: keyof ItemOrden, value: string | number) => {
     const newItems = [...items];
     const currentItem = newItems[index];
 
-    if (field === 'productoId') {
+    if (field === 'producto_id') {
       const productoId = value as string;
       const producto = initialProductos.find(p => p.id === productoId);
-       if (items.some((item, i) => item.productoId === productoId && i !== index)) {
+       if (items.some((item, i) => item.producto_id === productoId && i !== index)) {
             toast({ variant: "destructive", title: "Producto duplicado", description: "Este producto ya ha sido añadido." });
             return;
        }
-      currentItem.productoId = productoId;
-      currentItem.precio = producto ? producto.precio : 0;
+      currentItem.producto_id = productoId;
+      currentItem.precio_unitario = producto ? producto.precio_referencia : 0;
       currentItem.nombre = producto ? producto.nombre : '';
     } else if (field === 'cantidad') {
       currentItem.cantidad = Number(value) < 1 ? 1 : Number(value);
-    } else if (field === 'precio') {
-      currentItem.precio = Number(value) < 0 ? 0 : Number(value);
+    } else if (field === 'precio_unitario') {
+      currentItem.precio_unitario = Number(value) < 0 ? 0 : Number(value);
     }
     setItems(newItems);
   }
 
   const handleAddItem = () => {
-    setItems([...items, { productoId: '', nombre: '', cantidad: 1, precio: 0 }]);
+    setItems([...items, { producto_id: '', nombre: '', cantidad: 1, precio_unitario: 0 }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -171,7 +178,7 @@ export default function OrdenesCompraPage() {
   };
   
   const calcularTotal = () => {
-     return items.reduce((total, item) => total + (item.cantidad * item.precio), 0).toFixed(2);
+     return items.reduce((total, item) => total + (item.cantidad * item.precio_unitario), 0).toFixed(2);
   }
 
   const resetForm = () => {
@@ -183,10 +190,10 @@ export default function OrdenesCompraPage() {
   }
 
   const handleCreateOC = async () => {
-    const proveedorId = creationMode === 'pedido' ? selectedPedido?.proveedorId : selectedProveedorId;
-    const depositoId = creationMode === 'pedido' ? selectedPedido?.depositoId : selectedDepositoId;
+    const proveedorId = creationMode === 'pedido' ? selectedPedido?.proveedor_id : selectedProveedorId;
+    const depositoId = creationMode === 'pedido' ? selectedPedido?.deposito_id : selectedDepositoId;
 
-    if (!proveedorId || !depositoId || items.length === 0 || items.some(i => !i.productoId)) {
+    if (!proveedorId || !depositoId || items.length === 0 || items.some(i => !i.producto_id)) {
       toast({ variant: "destructive", title: "Error", description: "Proveedor, depósito y productos son requeridos." });
       return;
     }
@@ -196,31 +203,30 @@ export default function OrdenesCompraPage() {
     
     try {
         const nuevaOrden = {
-          presupuestoId: 'N/A (Directa)',
-          pedidoId: creationMode === 'pedido' ? selectedPedidoId : undefined,
-          proveedor: proveedor?.nombre || 'Desconocido',
-          proveedorId: proveedor?.id || '',
-          deposito: deposito?.nombre || 'Desconocido',
-          depositoId: deposito?.id || '',
-          fechaOrden: new Date().toISOString().split('T')[0],
+          presupuesto_proveedor_id: 'N/A (Directa)',
+          pedido_id: creationMode === 'pedido' ? selectedPedidoId : undefined,
+          proveedor_nombre: proveedor?.nombre || 'Desconocido',
+          proveedor_id: proveedor?.id || '',
+          deposito_nombre: deposito?.nombre || 'Desconocido',
+          deposito_id: deposito?.id || '',
+          fecha_orden: new Date().toISOString().split('T')[0],
           estado: "Pendiente de Recepción" as "Pendiente de Recepción",
           total: parseFloat(calcularTotal()),
           items: items,
-          usuario: "Usuario",
-          fechaCreacion: serverTimestamp(),
+          usuario_id: "user-demo",
+          fecha_creacion: serverTimestamp(),
         };
 
         const docRef = await addDoc(collection(db, "ordenes_compra"), nuevaOrden);
-        setOrdenes([{ id: docRef.id, ...nuevaOrden }, ...ordenes]);
         
         if (creationMode === 'pedido' && selectedPedidoId) {
-          const pedidoRef = doc(db, 'pedidos', selectedPedidoId);
+          const pedidoRef = doc(db, 'pedidos_compra', selectedPedidoId);
           await updateDoc(pedidoRef, { estado: "Completado" });
         }
 
         toast({ title: "Orden de Compra Creada", description: `La OC ha sido creada exitosamente.` });
         setOpenCreate(false);
-        fetchData();
+        await fetchData();
     } catch(e) {
         console.error("Error creating OC:", e);
         toast({ variant: "destructive", title: "Error", description: "No se pudo crear la Orden de Compra." });
@@ -296,7 +302,7 @@ export default function OrdenesCompraPage() {
                             <Label htmlFor="pedido" className="text-right">Pedido de Compra</Label>
                             <div className="col-span-3">
                                 <Combobox
-                                    options={pedidos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor}` }))}
+                                    options={pedidos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor_nombre}` }))}
                                     value={selectedPedidoId}
                                     onChange={setSelectedPedidoId}
                                     placeholder="Seleccione un pedido pendiente"
@@ -325,16 +331,16 @@ export default function OrdenesCompraPage() {
                                             <TableCell>
                                                 <Combobox
                                                     options={initialProductos.map(p => ({ value: p.id, label: p.nombre }))}
-                                                    value={item.productoId}
-                                                    onChange={(value) => handleItemChange(index, 'productoId', value)}
+                                                    value={item.producto_id}
+                                                    onChange={(value) => handleItemChange(index, 'producto_id', value)}
                                                     disabled={creationMode === 'pedido'}
                                                     placeholder="Seleccione producto"
                                                     searchPlaceholder="Buscar producto..."
                                                 />
                                             </TableCell>
                                             <TableCell><Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" disabled={creationMode === 'pedido'}/></TableCell>
-                                            <TableCell><Input type="number" value={item.precio} onChange={(e) => handleItemChange(index, 'precio', e.target.value)} min="0"/></TableCell>
-                                            <TableCell className="text-right">${(item.cantidad * item.precio).toFixed(2)}</TableCell>
+                                            <TableCell><Input type="number" value={item.precio_unitario} onChange={(e) => handleItemChange(index, 'precio_unitario', e.target.value)} min="0"/></TableCell>
+                                            <TableCell className="text-right">${(item.cantidad * item.precio_unitario).toFixed(2)}</TableCell>
                                             <TableCell>
                                                 <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={creationMode === 'pedido'}>
                                                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -386,10 +392,10 @@ export default function OrdenesCompraPage() {
               {ordenes.map((orden) => (
                 <TableRow key={orden.id}>
                   <TableCell className="font-medium">{orden.id.substring(0,7)}</TableCell>
-                  <TableCell>{orden.presupuestoId?.startsWith('PRE-') ? `Presupuesto (${orden.presupuestoId.substring(0,7)})` : orden.presupuestoId}</TableCell>
-                  <TableCell>{orden.proveedor}</TableCell>
-                  <TableCell>{orden.deposito}</TableCell>
-                  <TableCell>{orden.fechaOrden}</TableCell>
+                  <TableCell>{orden.presupuesto_proveedor_id ? `Presupuesto (${orden.presupuesto_proveedor_id.substring(0,7)})` : `Pedido (${orden.pedido_id?.substring(0,7)})`}</TableCell>
+                  <TableCell>{orden.proveedor_nombre}</TableCell>
+                  <TableCell>{orden.deposito_nombre}</TableCell>
+                  <TableCell>{orden.fecha_orden}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(orden.estado)}>
                       {orden.estado}
@@ -430,13 +436,13 @@ export default function OrdenesCompraPage() {
             {selectedOrden && (
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div><p className="font-semibold">Proveedor:</p><p>{selectedOrden.proveedor}</p></div>
-                        <div><p className="font-semibold">Depósito:</p><p>{selectedOrden.deposito}</p></div>
-                        <div><p className="font-semibold">Fecha de la Orden:</p><p>{selectedOrden.fechaOrden}</p></div>
-                         <div><p className="font-semibold">Origen:</p><p>{selectedOrden.presupuestoId?.startsWith('PRE-') ? `Presupuesto (${selectedOrden.presupuestoId.substring(0,7)})` : selectedOrden.presupuestoId }</p></div>
+                        <div><p className="font-semibold">Proveedor:</p><p>{selectedOrden.proveedor_nombre}</p></div>
+                        <div><p className="font-semibold">Depósito:</p><p>{selectedOrden.deposito_nombre}</p></div>
+                        <div><p className="font-semibold">Fecha de la Orden:</p><p>{selectedOrden.fecha_orden}</p></div>
+                         <div><p className="font-semibold">Origen:</p><p>{selectedOrden.presupuesto_proveedor_id ? `Presupuesto (${selectedOrden.presupuesto_proveedor_id.substring(0,7)})` : `Pedido (${selectedOrden.pedido_id?.substring(0,7)})`}</p></div>
                         <div><div className="font-semibold">Estado:</div><Badge variant={getStatusVariant(selectedOrden.estado)}>{selectedOrden.estado}</Badge></div>
-                        <div><p className="font-semibold">Generado por:</p><p>{selectedOrden.usuario}</p></div>
-                         <div><p className="font-semibold">Fecha de Generación:</p><p>{selectedOrden.fechaCreacion?.toDate().toLocaleString()}</p></div>
+                        <div><p className="font-semibold">Generado por:</p><p>{selectedOrden.usuario_id}</p></div>
+                         <div><p className="font-semibold">Fecha de Generación:</p><p>{selectedOrden.fecha_creacion?.toDate().toLocaleString()}</p></div>
                     </div>
                     <Card>
                         <CardHeader><CardTitle>Productos</CardTitle></CardHeader>
@@ -452,8 +458,8 @@ export default function OrdenesCompraPage() {
                                         <TableRow key={index}>
                                             <TableCell>{item.nombre}</TableCell>
                                             <TableCell>{item.cantidad}</TableCell>
-                                            <TableCell>${item.precio.toFixed(2)}</TableCell>
-                                            <TableCell className="text-right">${(item.cantidad * item.precio).toFixed(2)}</TableCell>
+                                            <TableCell>${item.precio_unitario.toFixed(2)}</TableCell>
+                                            <TableCell className="text-right">${(item.cantidad * item.precio_unitario).toFixed(2)}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

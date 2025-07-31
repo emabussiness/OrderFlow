@@ -24,25 +24,25 @@ import { Combobox } from "@/components/ui/command";
 import { productos as initialProductos, proveedores, depositos } from "@/data";
 
 type ItemPedido = {
-  productoId: string;
+  producto_id: string;
   nombre: string;
   cantidad: number;
-  precio: number;
+  precio_estimado: number;
 };
 
 type Pedido = {
   id: string;
-  proveedor: string;
-  proveedorId: string;
-  deposito: string;
-  depositoId: string;
-  fechaPedido: string;
+  proveedor_id: string;
+  proveedor_nombre: string;
+  deposito_id: string;
+  deposito_nombre: string;
+  fecha_pedido: string;
   estado: "Pendiente" | "Completado" | "Cancelado";
   total: number;
   items: ItemPedido[];
   observaciones?: string;
-  usuario: string;
-  fechaCreacion: any;
+  usuario_id: string;
+  fecha_creacion: any;
 };
 
 export default function PedidosPage() {
@@ -61,8 +61,8 @@ export default function PedidosPage() {
 
   const fetchPedidos = async () => {
     try {
-      const pedidosCollection = collection(db, 'pedidos');
-      const q = query(pedidosCollection, orderBy("fechaCreacion", "desc"));
+      const pedidosCollection = collection(db, 'pedidos_compra');
+      const q = query(pedidosCollection, orderBy("fecha_creacion", "desc"));
       const pedidosSnapshot = await getDocs(q);
       const pedidosList = pedidosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pedido));
       setPedidos(pedidosList);
@@ -92,7 +92,7 @@ export default function PedidosPage() {
   };
 
   const handleAddItem = () => {
-    setItems([...items, { productoId: '', nombre: '', cantidad: 1, precio: 0 }]);
+    setItems([...items, { producto_id: '', nombre: '', cantidad: 1, precio_estimado: 0 }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -104,11 +104,11 @@ export default function PedidosPage() {
     const newItems = [...items];
     const currentItem = newItems[index];
 
-    if (field === 'productoId') {
+    if (field === 'producto_id') {
         const productoId = value as string;
         const producto = productos.find(p => p.id === productoId);
         
-        if (items.some((item, i) => item.productoId === productoId && i !== index)) {
+        if (items.some((item, i) => item.producto_id === productoId && i !== index)) {
             toast({
                 variant: "destructive",
                 title: "Producto duplicado", 
@@ -116,21 +116,21 @@ export default function PedidosPage() {
             });
             return;
         }
-        currentItem.productoId = productoId;
-        currentItem.precio = producto ? producto.precio : 0;
+        currentItem.producto_id = productoId;
+        currentItem.precio_estimado = producto ? producto.precio_referencia : 0;
         currentItem.nombre = producto ? producto.nombre : '';
 
     } else if (field === 'cantidad') {
       currentItem.cantidad = Number(value) < 1 ? 1 : Number(value);
-    } else if (field === 'precio') {
-        currentItem.precio = Number(value) < 0 ? 0 : Number(value);
+    } else if (field === 'precio_estimado') {
+        currentItem.precio_estimado = Number(value) < 0 ? 0 : Number(value);
     }
     
     setItems(newItems);
   };
 
   const calcularTotal = () => {
-    return items.reduce((total, item) => total + (item.cantidad * item.precio), 0).toFixed(2);
+    return items.reduce((total, item) => total + (item.cantidad * item.precio_estimado), 0).toFixed(2);
   }
 
   const resetForm = () => {
@@ -141,7 +141,7 @@ export default function PedidosPage() {
   }
 
   const handleCreatePedido = async () => {
-    if(!proveedorId || !depositoId || items.length === 0 || items.some(i => !i.productoId)) {
+    if(!proveedorId || !depositoId || items.length === 0 || items.some(i => !i.producto_id)) {
         toast({
             variant: "destructive",
             title: "Error de validación",
@@ -154,22 +154,22 @@ export default function PedidosPage() {
 
     try {
         const nuevoPedido = {
-            proveedor: proveedorSeleccionado?.nombre || 'Desconocido',
-            proveedorId: proveedorId,
-            deposito: depositoSeleccionado?.nombre || 'Desconocido',
-            depositoId: depositoId,
-            fechaPedido: new Date().toISOString().split('T')[0],
+            proveedor_nombre: proveedorSeleccionado?.nombre || 'Desconocido',
+            proveedor_id: proveedorId,
+            deposito_nombre: depositoSeleccionado?.nombre || 'Desconocido',
+            deposito_id: depositoId,
+            fecha_pedido: new Date().toISOString().split('T')[0],
             estado: 'Pendiente',
             total: parseFloat(calcularTotal()),
             items: items,
             observaciones: observaciones,
-            usuario: "Usuario", // Hardcoded for now
-            fechaCreacion: serverTimestamp()
+            usuario_id: "user-demo", // Hardcoded for now
+            fecha_creacion: serverTimestamp()
         };
 
-        const docRef = await addDoc(collection(db, "pedidos"), nuevoPedido);
+        const docRef = await addDoc(collection(db, "pedidos_compra"), nuevoPedido);
         
-        setPedidos([{ id: docRef.id, ...nuevoPedido }, ...pedidos]);
+        await fetchPedidos(); // Refresh data from Firestore
         
         toast({
             title: "Pedido Creado",
@@ -196,7 +196,7 @@ export default function PedidosPage() {
 
   const handleCancelPedido = async (pedidoId: string) => {
     try {
-      const pedidoRef = doc(db, "pedidos", pedidoId);
+      const pedidoRef = doc(db, "pedidos_compra", pedidoId);
       await updateDoc(pedidoRef, { estado: 'Cancelado' });
       setPedidos(pedidos.map(p => p.id === pedidoId ? {...p, estado: 'Cancelado'} : p));
       toast({
@@ -287,8 +287,8 @@ export default function PedidosPage() {
                                     <TableCell>
                                         <Combobox
                                             options={productos.map(p => ({ value: p.id, label: p.nombre }))}
-                                            value={item.productoId}
-                                            onChange={(value) => handleItemChange(index, 'productoId', value)}
+                                            value={item.producto_id}
+                                            onChange={(value) => handleItemChange(index, 'producto_id', value)}
                                             placeholder="Seleccione producto"
                                             searchPlaceholder="Buscar producto..."
                                         />
@@ -297,10 +297,10 @@ export default function PedidosPage() {
                                         <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1"/>
                                     </TableCell>
                                      <TableCell>
-                                        <Input type="number" value={item.precio.toFixed(2)} onChange={(e) => handleItemChange(index, 'precio', e.target.value)} />
+                                        <Input type="number" value={item.precio_estimado.toFixed(2)} onChange={(e) => handleItemChange(index, 'precio_estimado', e.target.value)} />
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        ${(item.cantidad * item.precio).toFixed(2)}
+                                        ${(item.cantidad * item.precio_estimado).toFixed(2)}
                                     </TableCell>
                                     <TableCell>
                                         <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
@@ -326,7 +326,7 @@ export default function PedidosPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
-              <Button onClick={handleCreatePedido} disabled={items.length === 0 || items.some(i => !i.productoId) || !proveedorId || !depositoId}>Crear Pedido</Button>
+              <Button onClick={handleCreatePedido} disabled={items.length === 0 || items.some(i => !i.producto_id) || !proveedorId || !depositoId}>Crear Pedido</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -353,9 +353,9 @@ export default function PedidosPage() {
               {pedidos.map((pedido) => (
                 <TableRow key={pedido.id}>
                   <TableCell className="font-medium">{pedido.id.substring(0,7)}</TableCell>
-                  <TableCell>{pedido.proveedor}</TableCell>
-                  <TableCell>{pedido.deposito}</TableCell>
-                  <TableCell>{pedido.fechaPedido}</TableCell>
+                  <TableCell>{pedido.proveedor_nombre}</TableCell>
+                  <TableCell>{pedido.deposito_nombre}</TableCell>
+                  <TableCell>{pedido.fecha_pedido}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(pedido.estado)}>
                       {pedido.estado}
@@ -416,15 +416,15 @@ export default function PedidosPage() {
                     <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
                             <p className="font-semibold">Proveedor:</p>
-                            <p>{selectedPedido.proveedor}</p>
+                            <p>{selectedPedido.proveedor_nombre}</p>
                         </div>
                         <div>
                             <p className="font-semibold">Depósito Destino:</p>
-                            <p>{selectedPedido.deposito}</p>
+                            <p>{selectedPedido.deposito_nombre}</p>
                         </div>
                         <div>
                             <p className="font-semibold">Fecha del Pedido:</p>
-                            <p>{selectedPedido.fechaPedido}</p>
+                            <p>{selectedPedido.fecha_pedido}</p>
                         </div>
                         <div>
                             <div className="font-semibold">Estado:</div>
@@ -432,11 +432,11 @@ export default function PedidosPage() {
                         </div>
                         <div>
                             <p className="font-semibold">Registrado por:</p>
-                            <p>{selectedPedido.usuario}</p>
+                            <p>{selectedPedido.usuario_id}</p>
                         </div>
                          <div>
                             <p className="font-semibold">Fecha de Creación:</p>
-                            <p>{selectedPedido.fechaCreacion?.toDate().toLocaleString()}</p>
+                            <p>{selectedPedido.fecha_creacion?.toDate().toLocaleString()}</p>
                         </div>
                     </div>
                      <div>
@@ -452,7 +452,7 @@ export default function PedidosPage() {
                                     <TableRow>
                                         <TableHead>Producto</TableHead>
                                         <TableHead>Cantidad</TableHead>
-                                        <TableHead>Precio Unit.</TableHead>
+                                        <TableHead>Precio Estimado</TableHead>
                                         <TableHead className="text-right">Subtotal</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -461,8 +461,8 @@ export default function PedidosPage() {
                                         <TableRow key={index}>
                                             <TableCell>{item.nombre}</TableCell>
                                             <TableCell>{item.cantidad}</TableCell>
-                                            <TableCell>${item.precio.toFixed(2)}</TableCell>
-                                            <TableCell className="text-right">${(item.cantidad * item.precio).toFixed(2)}</TableCell>
+                                            <TableCell>${item.precio_estimado.toFixed(2)}</TableCell>
+                                            <TableCell className="text-right">${(item.cantidad * item.precio_estimado).toFixed(2)}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
