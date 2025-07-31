@@ -83,10 +83,14 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
                       <SidebarMenuItem><Link href="/compras/referenciales/productos"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/productos')}><Package />Productos</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Boxes />Categoría</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Truck />Proveedor</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Boxes />Categorías</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Truck />Proveedores</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Warehouse />Depósitos</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Building />Sucursal</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Building />Sucursales</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><FileText />Unidades de Medida</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><FileText />Tipos de Documento</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><DollarSign />Formas de Pago</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Building />Bancos</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
