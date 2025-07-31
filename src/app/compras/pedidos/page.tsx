@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { collection, addDoc, getDocs, doc, updateDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -19,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Combobox } from "@/components/ui/command";
-import { initialPedidos, productos, proveedores, depositos } from "@/data";
+import { productos as initialProductos, proveedores, depositos } from "@/data";
 
 type ItemPedido = {
   productoId: string;
@@ -40,12 +42,14 @@ type Pedido = {
   items: ItemPedido[];
   observaciones?: string;
   usuario: string;
-  fechaCreacion: string;
+  fechaCreacion: any;
 };
 
 export default function PedidosPage() {
   const { toast } = useToast();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [productos, setProductos] = useState(initialProductos);
+  const [loading, setLoading] = useState(true);
   const [openCreate, setOpenCreate] = useState(false);
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
@@ -55,19 +59,24 @@ export default function PedidosPage() {
   const [depositoId, setDepositoId] = useState('');
   const [observaciones, setObservaciones] = useState('');
 
-  useEffect(() => {
-    const storedPedidos = localStorage.getItem("pedidos");
-    if (storedPedidos) {
-      setPedidos(JSON.parse(storedPedidos));
-    } else {
-      setPedidos(initialPedidos);
+  const fetchPedidos = async () => {
+    try {
+      const pedidosCollection = collection(db, 'pedidos');
+      const q = query(pedidosCollection, orderBy("fechaCreacion", "desc"));
+      const pedidosSnapshot = await getDocs(q);
+      const pedidosList = pedidosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pedido));
+      setPedidos(pedidosList);
+    } catch (error) {
+      console.error("Error fetching pedidos: ", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los pedidos." });
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-     localStorage.setItem("pedidos", JSON.stringify(pedidos));
-  }, [pedidos]);
-
+    fetchPedidos();
+  }, []);
 
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status.toLowerCase()) {
@@ -131,7 +140,7 @@ export default function PedidosPage() {
     setObservaciones('');
   }
 
-  const handleCreatePedido = () => {
+  const handleCreatePedido = async () => {
     if(!proveedorId || !depositoId || items.length === 0 || items.some(i => !i.productoId)) {
         toast({
             variant: "destructive",
@@ -143,26 +152,34 @@ export default function PedidosPage() {
     const proveedorSeleccionado = proveedores.find(p => p.id === proveedorId);
     const depositoSeleccionado = depositos.find(d => d.id === depositoId);
 
-    const nuevoPedido: Pedido = {
-        id: `PED-${String(pedidos.length + 1).padStart(3, '0')}`,
-        proveedor: proveedorSeleccionado?.nombre || 'Desconocido',
-        proveedorId: proveedorId,
-        deposito: depositoSeleccionado?.nombre || 'Desconocido',
-        depositoId: depositoId,
-        fechaPedido: new Date().toISOString().split('T')[0],
-        estado: 'Pendiente',
-        total: parseFloat(calcularTotal()),
-        items: items,
-        observaciones: observaciones,
-        usuario: "Usuario", // Hardcoded for now
-        fechaCreacion: new Date().toISOString()
+    try {
+        const nuevoPedido = {
+            proveedor: proveedorSeleccionado?.nombre || 'Desconocido',
+            proveedorId: proveedorId,
+            deposito: depositoSeleccionado?.nombre || 'Desconocido',
+            depositoId: depositoId,
+            fechaPedido: new Date().toISOString().split('T')[0],
+            estado: 'Pendiente',
+            total: parseFloat(calcularTotal()),
+            items: items,
+            observaciones: observaciones,
+            usuario: "Usuario", // Hardcoded for now
+            fechaCreacion: serverTimestamp()
+        };
+
+        const docRef = await addDoc(collection(db, "pedidos"), nuevoPedido);
+        
+        setPedidos([{ id: docRef.id, ...nuevoPedido }, ...pedidos]);
+        
+        toast({
+            title: "Pedido Creado",
+            description: `El pedido ha sido creado exitosamente.`,
+        })
+        setOpenCreate(false);
+    } catch (e) {
+        console.error("Error adding document: ", e);
+        toast({ variant: "destructive", title: "Error", description: "No se pudo crear el pedido." });
     }
-    setPedidos([nuevoPedido, ...pedidos]);
-    toast({
-        title: "Pedido Creado",
-        description: `El pedido ${nuevoPedido.id} ha sido creado exitosamente.`,
-    })
-    setOpenCreate(false);
   };
 
   useEffect(() => {
@@ -177,21 +194,23 @@ export default function PedidosPage() {
     setOpenDetails(true);
   }
 
-  const handleCancelPedido = (pedidoId: string) => {
-    setPedidos(pedidos.map(p => p.id === pedidoId ? {...p, estado: 'Cancelado'} : p));
-    toast({
-        title: "Pedido Cancelado",
-        description: `El pedido ${pedidoId} ha sido cancelado.`,
-        variant: "destructive",
-    })
+  const handleCancelPedido = async (pedidoId: string) => {
+    try {
+      const pedidoRef = doc(db, "pedidos", pedidoId);
+      await updateDoc(pedidoRef, { estado: 'Cancelado' });
+      setPedidos(pedidos.map(p => p.id === pedidoId ? {...p, estado: 'Cancelado'} : p));
+      toast({
+          title: "Pedido Cancelado",
+          description: `El pedido ${pedidoId} ha sido cancelado.`,
+          variant: "destructive",
+      })
+    } catch (error) {
+       console.error("Error cancelling pedido: ", error);
+       toast({ variant: "destructive", title: "Error", description: "No se pudo cancelar el pedido." });
+    }
   }
-  
-  const handleGeneratePresupuesto = (pedidoId: string) => {
-     toast({
-        title: "Función no implementada",
-        description: `La generación de presupuesto para el pedido ${pedidoId} estará disponible pronto.`,
-    })
-  }
+
+  if (loading) return <p>Cargando pedidos...</p>;
 
   return (
     <>
@@ -333,7 +352,7 @@ export default function PedidosPage() {
             <TableBody>
               {pedidos.map((pedido) => (
                 <TableRow key={pedido.id}>
-                  <TableCell className="font-medium">{pedido.id}</TableCell>
+                  <TableCell className="font-medium">{pedido.id.substring(0,7)}</TableCell>
                   <TableCell>{pedido.proveedor}</TableCell>
                   <TableCell>{pedido.deposito}</TableCell>
                   <TableCell>{pedido.fechaPedido}</TableCell>
@@ -357,7 +376,7 @@ export default function PedidosPage() {
                         <DropdownMenuItem onClick={() => handleOpenDetails(pedido)}>Ver Detalles</DropdownMenuItem>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={pedido.estado === 'Cancelado'}>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={pedido.estado === 'Cancelado' || pedido.estado === 'Completado'}>
                                     <span className="text-red-500">Cancelar</span>
                                 </DropdownMenuItem>
                             </AlertDialogTrigger>
@@ -387,7 +406,7 @@ export default function PedidosPage() {
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
         <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-                <DialogTitle>Detalles del Pedido: {selectedPedido?.id}</DialogTitle>
+                <DialogTitle>Detalles del Pedido: {selectedPedido?.id.substring(0,7)}</DialogTitle>
                 <DialogDescription>
                     Información detallada del pedido de compra.
                 </DialogDescription>
@@ -417,7 +436,7 @@ export default function PedidosPage() {
                         </div>
                          <div>
                             <p className="font-semibold">Fecha de Creación:</p>
-                            <p>{new Date(selectedPedido.fechaCreacion).toLocaleString()}</p>
+                            <p>{selectedPedido.fechaCreacion?.toDate().toLocaleString()}</p>
                         </div>
                     </div>
                      <div>

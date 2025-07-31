@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, orderBy, writeBatch } from "firebase/firestore";
+import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -21,12 +23,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Combobox } from "@/components/ui/command";
 
-
 type Item = {
   productoId: string;
   nombre: string;
   cantidad: number;
   precio: number;
+};
+
+type ItemCompra = Item & {
   cantidadRecibida: number;
 };
 
@@ -38,29 +42,24 @@ type Compra = {
   fechaFactura: string;
   numeroFactura: string;
   total: number;
-  items: Item[];
+  items: ItemCompra[];
   usuario: string;
-  fechaCreacion: string;
+  fechaCreacion: any;
 };
 
 type OrdenCompra = {
   id: string;
   proveedor: string;
-  proveedorId: string;
   deposito: string;
-  depositoId: string;
-  fechaOrden: string;
   estado: "Pendiente de Recepción" | "Recibido Parcial" | "Recibido Completo" | "Cancelada";
-  total: number;
-  items: (Omit<Item, 'cantidadRecibida'>)[];
+  items: Item[];
 };
-
-const initialCompras: Compra[] = [];
 
 export default function ComprasPage() {
   const { toast } = useToast();
   const [compras, setCompras] = useState<Compra[]>([]);
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [openCreate, setOpenCreate] = useState(false);
   const [openDetails, setOpenDetails] = useState(false);
@@ -70,42 +69,42 @@ export default function ComprasPage() {
   const [selectedOCId, setSelectedOCId] = useState('');
   const [numeroFactura, setNumeroFactura] = useState('');
   const [fechaFactura, setFechaFactura] = useState<Date | undefined>(new Date());
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<ItemCompra[]>([]);
   
-  const ordenesPendientes = ordenes.filter(oc => oc.estado === 'Pendiente de Recepción' || oc.estado === 'Recibido Parcial');
   const selectedOC = ordenes.find(oc => oc.id === selectedOCId);
 
-  useEffect(() => {
-    const storedCompras = localStorage.getItem("compras");
-    setCompras(storedCompras ? JSON.parse(storedCompras) : initialCompras);
-    
-    const storedOrdenes = localStorage.getItem("ordenes_compra");
-    setOrdenes(storedOrdenes ? JSON.parse(storedOrdenes) : []);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch Compras
+      const comprasCollection = collection(db, 'compras');
+      const qCompras = query(comprasCollection, orderBy("fechaCreacion", "desc"));
+      const comprasSnapshot = await getDocs(qCompras);
+      setCompras(comprasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Compra)));
 
-     const handleStorageChange = (e: StorageEvent) => {
-        if (e.key === 'compras') {
-            const stored = localStorage.getItem("compras");
-            setCompras(stored ? JSON.parse(stored) : initialCompras);
-        }
-        if (e.key === 'ordenes_compra') {
-            const storedOC = localStorage.getItem("ordenes_compra");
-            setOrdenes(storedOC ? JSON.parse(storedOC) : []);
-        }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+      // Fetch Ordenes Pendientes
+      const ordenesCollection = collection(db, 'ordenes_compra');
+      const qOrdenes = query(ordenesCollection, where("estado", "in", ["Pendiente de Recepción", "Recibido Parcial"]));
+      const ordenesSnapshot = await getDocs(qOrdenes);
+      setOrdenes(ordenesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as OrdenCompra)));
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("compras", JSON.stringify(compras));
-  }, [compras]);
-
-
-  useEffect(() => {
     if (selectedOC) {
-        setItems(selectedOC.items.map(item => ({...item, cantidadRecibida: item.cantidad})));
+      // Logic to calculate remaining quantities could be added here
+      setItems(selectedOC.items.map(item => ({...item, cantidadRecibida: item.cantidad})));
     } else {
-        setItems([]);
+      setItems([]);
     }
   }, [selectedOCId, selectedOC]);
   
@@ -135,9 +134,9 @@ export default function ComprasPage() {
     setItems([]);
   }
 
-  const handleCreateCompra = () => {
-    if (!selectedOCId || !numeroFactura || !fechaFactura) {
-        toast({ variant: 'destructive', title: 'Error de validación', description: 'Complete todos los campos de la factura.'});
+  const handleCreateCompra = async () => {
+    if (!selectedOCId || !numeroFactura || !fechaFactura || !selectedOC) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Complete todos los campos.'});
         return;
     }
 
@@ -146,34 +145,41 @@ export default function ComprasPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Debe recibir al menos un producto.'});
         return;
     }
-
-    const nuevaCompra: Compra = {
-        id: `COM-${String(compras.length + 1).padStart(3, '0')}`,
-        ordenCompraId: selectedOCId,
-        proveedor: selectedOC?.proveedor || 'N/A',
-        deposito: selectedOC?.deposito || 'N/A',
-        fechaFactura: format(fechaFactura, "yyyy-MM-dd"),
-        numeroFactura,
-        total: parseFloat(calcularTotal()),
-        items,
-        usuario: 'Usuario',
-        fechaCreacion: new Date().toISOString()
-    }
-
-    setCompras([nuevaCompra, ...compras]);
-
-    // Update OC status
-    const totalOriginal = selectedOC?.items.reduce((sum, item) => sum + item.cantidad, 0) || 0;
-    const nuevoEstado = totalRecibido < totalOriginal ? 'Recibido Parcial' : 'Recibido Completo';
     
-    const updatedOrdenes = ordenes.map(oc => 
-        oc.id === selectedOCId ? {...oc, estado: nuevoEstado} : oc
-    );
-    localStorage.setItem('ordenes_compra', JSON.stringify(updatedOrdenes));
-    window.dispatchEvent(new StorageEvent('storage', { key: 'ordenes_compra' }));
+    try {
+        const batch = writeBatch(db);
 
-    toast({ title: 'Compra Registrada', description: `La compra ${nuevaCompra.id} ha sido registrada.`});
-    setOpenCreate(false);
+        const nuevaCompra = {
+            ordenCompraId: selectedOCId,
+            proveedor: selectedOC?.proveedor || 'N/A',
+            deposito: selectedOC?.deposito || 'N/A',
+            fechaFactura: format(fechaFactura, "yyyy-MM-dd"),
+            numeroFactura,
+            total: parseFloat(calcularTotal()),
+            items,
+            usuario: 'Usuario',
+            fechaCreacion: serverTimestamp()
+        }
+        
+        const compraRef = doc(collection(db, "compras"));
+        batch.set(compraRef, nuevaCompra);
+
+        // Update OC status
+        const totalOriginal = selectedOC?.items.reduce((sum, item) => sum + item.cantidad, 0) || 0;
+        const nuevoEstado = totalRecibido < totalOriginal ? 'Recibido Parcial' : 'Recibido Completo';
+        
+        const ordenRef = doc(db, 'ordenes_compra', selectedOCId);
+        batch.update(ordenRef, { estado: nuevoEstado });
+
+        await batch.commit();
+
+        toast({ title: 'Compra Registrada', description: `La compra ha sido registrada con éxito.`});
+        setOpenCreate(false);
+        fetchData();
+    } catch(e) {
+        console.error("Error creating compra:", e);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo registrar la compra.'});
+    }
   }
 
   useEffect(() => {
@@ -186,6 +192,8 @@ export default function ComprasPage() {
     setOpenDetails(true);
   }
 
+  if(loading) return <p>Cargando compras...</p>;
+
   return (
     <>
       <div className="flex justify-between items-center mb-6">
@@ -197,14 +205,13 @@ export default function ComprasPage() {
             <DialogContent className="sm:max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>Registrar Nueva Compra</DialogTitle>
-                    <DialogDescription>Seleccione una OC y registre los datos de la factura.</DialogDescription>
                 </DialogHeader>
                  <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="oc" className="text-right">Orden de Compra</Label>
                         <div className="col-span-3">
                             <Combobox
-                                options={ordenesPendientes.map(oc => ({ value: oc.id, label: `${oc.id} - ${oc.proveedor}` }))}
+                                options={ordenes.map(oc => ({ value: oc.id, label: `${oc.id.substring(0,7)} - ${oc.proveedor}` }))}
                                 value={selectedOCId}
                                 onChange={setSelectedOCId}
                                 placeholder="Seleccione una OC pendiente"
@@ -295,7 +302,6 @@ export default function ComprasPage() {
                 <TableHead>ID Compra</TableHead>
                 <TableHead>ID Orden</TableHead>
                 <TableHead>Proveedor</TableHead>
-                <TableHead>Depósito</TableHead>
                 <TableHead>Nro. Factura</TableHead>
                 <TableHead>Fecha Factura</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -305,10 +311,9 @@ export default function ComprasPage() {
             <TableBody>
               {compras.map((compra) => (
                 <TableRow key={compra.id}>
-                  <TableCell className="font-medium">{compra.id}</TableCell>
-                  <TableCell>{compra.ordenCompraId}</TableCell>
+                  <TableCell className="font-medium">{compra.id.substring(0,7)}</TableCell>
+                  <TableCell>{compra.ordenCompraId.substring(0,7)}</TableCell>
                   <TableCell>{compra.proveedor}</TableCell>
-                  <TableCell>{compra.deposito}</TableCell>
                   <TableCell>{compra.numeroFactura}</TableCell>
                    <TableCell>{compra.fechaFactura}</TableCell>
                   <TableCell className="text-right">
@@ -338,42 +343,18 @@ export default function ComprasPage() {
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
         <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-                <DialogTitle>Detalles de la Compra: {selectedCompra?.id}</DialogTitle>
-                <DialogDescription>
-                    Información detallada de la compra y factura asociada.
-                </DialogDescription>
+                <DialogTitle>Detalles de la Compra: {selectedCompra?.id.substring(0,7)}</DialogTitle>
             </DialogHeader>
             {selectedCompra && (
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <p className="font-semibold">Proveedor:</p>
-                            <p>{selectedCompra.proveedor}</p>
-                        </div>
-                         <div>
-                            <p className="font-semibold">Orden de Compra:</p>
-                            <p>{selectedCompra.ordenCompraId}</p>
-                        </div>
-                         <div>
-                            <p className="font-semibold">Depósito:</p>
-                            <p>{selectedCompra.deposito}</p>
-                        </div>
-                        <div>
-                            <p className="font-semibold">Número de Factura:</p>
-                            <p>{selectedCompra.numeroFactura}</p>
-                        </div>
-                         <div>
-                            <p className="font-semibold">Fecha de Factura:</p>
-                            <p>{selectedCompra.fechaFactura}</p>
-                        </div>
-                        <div>
-                            <p className="font-semibold">Registrado por:</p>
-                            <p>{selectedCompra.usuario}</p>
-                        </div>
-                         <div>
-                            <p className="font-semibold">Fecha de Registro:</p>
-                            <p>{new Date(selectedCompra.fechaCreacion).toLocaleString()}</p>
-                        </div>
+                        <div><p className="font-semibold">Proveedor:</p><p>{selectedCompra.proveedor}</p></div>
+                        <div><p className="font-semibold">Orden de Compra:</p><p>{selectedCompra.ordenCompraId.substring(0,7)}</p></div>
+                        <div><p className="font-semibold">Depósito:</p><p>{selectedCompra.deposito}</p></div>
+                        <div><p className="font-semibold">Número de Factura:</p><p>{selectedCompra.numeroFactura}</p></div>
+                        <div><p className="font-semibold">Fecha de Factura:</p><p>{selectedCompra.fechaFactura}</p></div>
+                        <div><p className="font-semibold">Registrado por:</p><p>{selectedCompra.usuario}</p></div>
+                        <div><p className="font-semibold">Fecha de Registro:</p><p>{selectedCompra.fechaCreacion?.toDate().toLocaleString()}</p></div>
                     </div>
 
                     <Card>
@@ -382,10 +363,7 @@ export default function ComprasPage() {
                              <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Producto</TableHead>
-                                        <TableHead>Cantidad Recibida</TableHead>
-                                        <TableHead>Precio Unit.</TableHead>
-                                        <TableHead className="text-right">Subtotal</TableHead>
+                                        <TableHead>Producto</TableHead><TableHead>Cantidad Recibida</TableHead><TableHead>Precio Unit.</TableHead><TableHead className="text-right">Subtotal</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -401,9 +379,7 @@ export default function ComprasPage() {
                             </Table>
                         </CardContent>
                     </Card>
-                     <div className="text-right font-bold text-xl mt-4">
-                        Total Facturado: ${selectedCompra.total.toFixed(2)}
-                    </div>
+                     <div className="text-right font-bold text-xl mt-4">Total Facturado: ${selectedCompra.total.toFixed(2)}</div>
                 </div>
             )}
             <DialogFooter>

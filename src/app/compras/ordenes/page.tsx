@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Combobox } from "@/components/ui/command";
-import { initialOrdenes, proveedores, productos, depositos } from "@/data";
+import { productos as initialProductos, proveedores, depositos } from "@/data";
 
 type Item = {
   productoId: string;
@@ -29,7 +31,7 @@ type Item = {
 
 type OrdenCompra = {
   id: string;
-  presupuestoId: string;
+  presupuestoId?: string;
   pedidoId?: string;
   proveedor: string;
   proveedorId: string;
@@ -40,7 +42,7 @@ type OrdenCompra = {
   total: number;
   items: Item[];
   usuario: string;
-  fechaCreacion: string;
+  fechaCreacion: any;
 };
 
 type Pedido = {
@@ -53,16 +55,13 @@ type Pedido = {
   estado: "Pendiente" | "Completado" | "Cancelado";
   total: number;
   items: Item[];
-  observaciones?: string;
-  usuario: string;
-  fechaCreacion: string;
 };
 
 export default function OrdenesCompraPage() {
   const { toast } = useToast();
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [presupuestosIds, setPresupuestosIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const [selectedOrden, setSelectedOrden] = useState<OrdenCompra | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
@@ -76,35 +75,42 @@ export default function OrdenesCompraPage() {
   const [items, setItems] = useState<Item[]>([]);
 
   const selectedPedido = pedidos.find(p => p.id === selectedPedidoId);
-  const pedidosSinOC = pedidos.filter(p => p.estado === 'Pendiente' && !presupuestosIds.includes(p.id));
 
-  useEffect(() => {
-    const storedOrdenes = localStorage.getItem("ordenes_compra");
-    setOrdenes(storedOrdenes ? JSON.parse(storedOrdenes) : initialOrdenes);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch Ordenes
+      const ordenesCollection = collection(db, 'ordenes_compra');
+      const qOrdenes = query(ordenesCollection, orderBy("fechaCreacion", "desc"));
+      const ordenesSnapshot = await getDocs(qOrdenes);
+      const ordenesList = ordenesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as OrdenCompra));
+      setOrdenes(ordenesList);
 
-    const storedPedidos = localStorage.getItem("pedidos");
-    setPedidos(storedPedidos ? JSON.parse(storedPedidos) : []);
+      // Fetch Pedidos pendientes sin OC
+      const qPedidos = query(collection(db, 'pedidos'), where("estado", "==", "Pendiente"));
+      const pedidosSnapshot = await getDocs(qPedidos);
+      const pedidosList = pedidosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pedido));
 
-    const storedPresupuestos = localStorage.getItem("presupuestos");
-    if (storedPresupuestos) {
-        const presupuestos = JSON.parse(storedPresupuestos);
-        setPresupuestosIds(presupuestos.map((p: any) => p.pedidoId));
+      const qPresupuestos = await getDocs(collection(db, 'presupuestos'));
+      const presupuestosPedidosIds = qPresupuestos.docs.map(doc => doc.data().pedidoId);
+      
+      const ordenesPedidosIds = ordenesList.map(oc => oc.pedidoId);
+
+      const pedidosFiltrados = pedidosList.filter(p => !presupuestosPedidosIds.includes(p.id) && !ordenesPedidosIds.includes(p.id));
+      setPedidos(pedidosFiltrados);
+
+    } catch (error) {
+      console.error("Error fetching data: ", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos." });
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const handleStorageChange = (e: StorageEvent) => {
-        if (e.key === 'ordenes_compra') {
-            const stored = localStorage.getItem("ordenes_compra");
-            setOrdenes(stored ? JSON.parse(stored) : initialOrdenes);
-        }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
 
   useEffect(() => {
-    localStorage.setItem("ordenes_compra", JSON.stringify(ordenes));
-  }, [ordenes]);
-
+    fetchData();
+  }, []);
 
    useEffect(() => {
     if (creationMode === 'pedido' && selectedPedido) {
@@ -139,7 +145,7 @@ export default function OrdenesCompraPage() {
 
     if (field === 'productoId') {
       const productoId = value as string;
-      const producto = productos.find(p => p.id === productoId);
+      const producto = initialProductos.find(p => p.id === productoId);
        if (items.some((item, i) => item.productoId === productoId && i !== index)) {
             toast({ variant: "destructive", title: "Producto duplicado", description: "Este producto ya ha sido añadido." });
             return;
@@ -176,46 +182,57 @@ export default function OrdenesCompraPage() {
     setItems([]);
   }
 
-  const handleCreateOC = () => {
+  const handleCreateOC = async () => {
     const proveedorId = creationMode === 'pedido' ? selectedPedido?.proveedorId : selectedProveedorId;
     const depositoId = creationMode === 'pedido' ? selectedPedido?.depositoId : selectedDepositoId;
 
     if (!proveedorId || !depositoId || items.length === 0 || items.some(i => !i.productoId)) {
-      toast({ variant: "destructive", title: "Error de validación", description: "Proveedor, depósito y al menos un producto son requeridos." });
+      toast({ variant: "destructive", title: "Error", description: "Proveedor, depósito y productos son requeridos." });
       return;
     }
 
     const proveedor = proveedores.find(p => p.id === proveedorId);
     const deposito = depositos.find(d => d.id === depositoId);
     
-    const nuevaOrden: OrdenCompra = {
-      id: `OC-${String(ordenes.length + 1).padStart(3, '0')}`,
-      presupuestoId: creationMode === 'pedido' ? 'N/A (Desde Pedido)' : 'N/A (Manual)',
-      pedidoId: creationMode === 'pedido' ? selectedPedidoId : undefined,
-      proveedor: proveedor?.nombre || 'Desconocido',
-      proveedorId: proveedor?.id || '',
-      deposito: deposito?.nombre || 'Desconocido',
-      depositoId: deposito?.id || '',
-      fechaOrden: new Date().toISOString().split('T')[0],
-      estado: "Pendiente de Recepción",
-      total: parseFloat(calcularTotal()),
-      items: items,
-      usuario: "Usuario", // Hardcoded
-      fechaCreacion: new Date().toISOString(),
-    };
+    try {
+        const nuevaOrden = {
+          presupuestoId: 'N/A (Directa)',
+          pedidoId: creationMode === 'pedido' ? selectedPedidoId : undefined,
+          proveedor: proveedor?.nombre || 'Desconocido',
+          proveedorId: proveedor?.id || '',
+          deposito: deposito?.nombre || 'Desconocido',
+          depositoId: deposito?.id || '',
+          fechaOrden: new Date().toISOString().split('T')[0],
+          estado: "Pendiente de Recepción" as "Pendiente de Recepción",
+          total: parseFloat(calcularTotal()),
+          items: items,
+          usuario: "Usuario",
+          fechaCreacion: serverTimestamp(),
+        };
 
-    setOrdenes([nuevaOrden, ...ordenes]);
-    toast({
-        title: "Orden de Compra Creada",
-        description: `La OC ${nuevaOrden.id} ha sido creada exitosamente.`,
-    });
-    setOpenCreate(false);
+        const docRef = await addDoc(collection(db, "ordenes_compra"), nuevaOrden);
+        setOrdenes([{ id: docRef.id, ...nuevaOrden }, ...ordenes]);
+        
+        if (creationMode === 'pedido' && selectedPedidoId) {
+          const pedidoRef = doc(db, 'pedidos', selectedPedidoId);
+          await updateDoc(pedidoRef, { estado: "Completado" });
+        }
+
+        toast({ title: "Orden de Compra Creada", description: `La OC ha sido creada exitosamente.` });
+        setOpenCreate(false);
+        fetchData();
+    } catch(e) {
+        console.error("Error creating OC:", e);
+        toast({ variant: "destructive", title: "Error", description: "No se pudo crear la Orden de Compra." });
+    }
   }
 
   useEffect(() => {
     if(!openCreate) resetForm();
   }, [openCreate]);
 
+
+  if (loading) return <p>Cargando órdenes de compra...</p>;
 
   return (
     <>
@@ -279,7 +296,7 @@ export default function OrdenesCompraPage() {
                             <Label htmlFor="pedido" className="text-right">Pedido de Compra</Label>
                             <div className="col-span-3">
                                 <Combobox
-                                    options={pedidosSinOC.map(p => ({ value: p.id, label: `${p.id} - ${p.proveedor}` }))}
+                                    options={pedidos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor}` }))}
                                     value={selectedPedidoId}
                                     onChange={setSelectedPedidoId}
                                     placeholder="Seleccione un pedido pendiente"
@@ -307,7 +324,7 @@ export default function OrdenesCompraPage() {
                                         <TableRow key={index}>
                                             <TableCell>
                                                 <Combobox
-                                                    options={productos.map(p => ({ value: p.id, label: p.nombre }))}
+                                                    options={initialProductos.map(p => ({ value: p.id, label: p.nombre }))}
                                                     value={item.productoId}
                                                     onChange={(value) => handleItemChange(index, 'productoId', value)}
                                                     disabled={creationMode === 'pedido'}
@@ -368,8 +385,8 @@ export default function OrdenesCompraPage() {
             <TableBody>
               {ordenes.map((orden) => (
                 <TableRow key={orden.id}>
-                  <TableCell className="font-medium">{orden.id}</TableCell>
-                  <TableCell>{orden.presupuestoId}</TableCell>
+                  <TableCell className="font-medium">{orden.id.substring(0,7)}</TableCell>
+                  <TableCell>{orden.presupuestoId?.startsWith('PRE-') ? `Presupuesto (${orden.presupuestoId.substring(0,7)})` : orden.presupuestoId}</TableCell>
                   <TableCell>{orden.proveedor}</TableCell>
                   <TableCell>{orden.deposito}</TableCell>
                   <TableCell>{orden.fechaOrden}</TableCell>
@@ -408,54 +425,26 @@ export default function OrdenesCompraPage() {
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
         <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-                <DialogTitle>Detalles de la Orden: {selectedOrden?.id}</DialogTitle>
-                <DialogDescription>
-                    Información detallada de la orden de compra.
-                </DialogDescription>
+                <DialogTitle>Detalles de la Orden: {selectedOrden?.id.substring(0,7)}</DialogTitle>
             </DialogHeader>
             {selectedOrden && (
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <p className="font-semibold">Proveedor:</p>
-                            <p>{selectedOrden.proveedor}</p>
-                        </div>
-                        <div>
-                            <p className="font-semibold">Depósito:</p>
-                            <p>{selectedOrden.deposito}</p>
-                        </div>
-                        <div>
-                            <p className="font-semibold">Fecha de la Orden:</p>
-                            <p>{selectedOrden.fechaOrden}</p>
-                        </div>
-                         <div>
-                            <p className="font-semibold">Origen:</p>
-                            <p>{selectedOrden.presupuestoId.startsWith('PRE-') ? `Presupuesto (${selectedOrden.presupuestoId})` : selectedOrden.presupuestoId }</p>
-                        </div>
-                        <div>
-                            <div className="font-semibold">Estado:</div>
-                            <Badge variant={getStatusVariant(selectedOrden.estado)}>{selectedOrden.estado}</Badge>
-                        </div>
-                        <div>
-                            <p className="font-semibold">Generado por:</p>
-                            <p>{selectedOrden.usuario}</p>
-                        </div>
-                         <div>
-                            <p className="font-semibold">Fecha de Generación:</p>
-                            <p>{new Date(selectedOrden.fechaCreacion).toLocaleString()}</p>
-                        </div>
+                        <div><p className="font-semibold">Proveedor:</p><p>{selectedOrden.proveedor}</p></div>
+                        <div><p className="font-semibold">Depósito:</p><p>{selectedOrden.deposito}</p></div>
+                        <div><p className="font-semibold">Fecha de la Orden:</p><p>{selectedOrden.fechaOrden}</p></div>
+                         <div><p className="font-semibold">Origen:</p><p>{selectedOrden.presupuestoId?.startsWith('PRE-') ? `Presupuesto (${selectedOrden.presupuestoId.substring(0,7)})` : selectedOrden.presupuestoId }</p></div>
+                        <div><div className="font-semibold">Estado:</div><Badge variant={getStatusVariant(selectedOrden.estado)}>{selectedOrden.estado}</Badge></div>
+                        <div><p className="font-semibold">Generado por:</p><p>{selectedOrden.usuario}</p></div>
+                         <div><p className="font-semibold">Fecha de Generación:</p><p>{selectedOrden.fechaCreacion?.toDate().toLocaleString()}</p></div>
                     </div>
-
                     <Card>
                         <CardHeader><CardTitle>Productos</CardTitle></CardHeader>
                         <CardContent>
                              <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Producto</TableHead>
-                                        <TableHead>Cantidad</TableHead>
-                                        <TableHead>Precio Unit.</TableHead>
-                                        <TableHead className="text-right">Subtotal</TableHead>
+                                        <TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead className="text-right">Subtotal</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -471,9 +460,7 @@ export default function OrdenesCompraPage() {
                             </Table>
                         </CardContent>
                     </Card>
-                     <div className="text-right font-bold text-xl mt-4">
-                        Total: ${selectedOrden.total.toFixed(2)}
-                    </div>
+                     <div className="text-right font-bold text-xl mt-4">Total: ${selectedOrden.total.toFixed(2)}</div>
                 </div>
             )}
             <DialogFooter>
