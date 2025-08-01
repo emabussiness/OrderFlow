@@ -27,6 +27,9 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
       const pathParts = pathname.split('/');
       const lastPart = pathParts[pathParts.length - 1];
       const title = lastPart.charAt(0).toUpperCase() + lastPart.slice(1).replace('-', ' ');
+      if (pathname.includes('referenciales/productos')) return 'Referenciales - Productos';
+      if (pathname.includes('referenciales/categorias')) return 'Referenciales - Categorías';
+      if (pathname.includes('referenciales/unidades-medida')) return 'Referenciales - Unidades de Medida';
       if (pathname.includes('referenciales')) return `Referenciales - ${title}`;
       if (pathname.includes('movimientos')) return `Movimientos - ${title}`;
       if (pathname.includes('informes')) return `Informes - ${title}`;
@@ -83,11 +86,11 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
                       <SidebarMenuItem><Link href="/compras/referenciales/productos"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/productos')}><Package />Productos</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Boxes />Categorías</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/referenciales/categorias"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/categorias')}><Boxes />Categorías</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Truck />Proveedores</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Warehouse />Depósitos</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Building />Sucursales</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><FileText />Unidades de Medida</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/referenciales/unidades-medida"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/unidades-medida')}><FileText />Unidades de Medida</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><FileText />Tipos de Documento</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><DollarSign />Formas de Pago</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Building />Bancos</SidebarMenuButton></Link></SidebarMenuItem>

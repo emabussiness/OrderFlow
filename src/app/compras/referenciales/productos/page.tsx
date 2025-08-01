@@ -22,10 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/command";
 
-// Asumimos que estos datos vendrán de Firestore eventualmente
-const categorias = [{ id: "1", nombre: "Electrónica" }, { id: "2", nombre: "Ropa" }, { id: "3", nombre: "Hogar" }];
-const unidadesMedida = [{ id: "1", nombre: "Unidad", simbolo: "U." }, { id: "2", nombre: "Kilogramo", simbolo: "kg" }, { id: "3", nombre: "Litro", simbolo: "L" }];
-
+type Categoria = { id: string; nombre: string; };
+type UnidadMedida = { id: string; nombre: string; simbolo: string; };
 
 type Producto = {
   id: string;
@@ -56,30 +54,45 @@ const initialProductoState: Omit<Producto, 'id' | 'fecha_creacion'> = {
 export default function ProductosPage() {
   const { toast } = useToast();
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [unidadesMedida, setUnidadesMedida] = useState<UnidadMedida[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentProducto, setCurrentProducto] = useState<Omit<Producto, 'id' | 'fecha_creacion'>>(initialProductoState);
   const [currentProductoId, setCurrentProductoId] = useState<string | null>(null);
 
-  const fetchProductos = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
       const productosCollection = collection(db, 'productos');
-      const q = query(productosCollection, orderBy("nombre", "asc"));
-      const productosSnapshot = await getDocs(q);
+      const qProductos = query(productosCollection, orderBy("nombre", "asc"));
+      const productosSnapshot = await getDocs(qProductos);
       const productosList = productosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto));
       setProductos(productosList);
+
+      const categoriasCollection = collection(db, 'categorias_productos');
+      const qCategorias = query(categoriasCollection, orderBy("nombre", "asc"));
+      const categoriasSnapshot = await getDocs(qCategorias);
+      const categoriasList = categoriasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Categoria));
+      setCategorias(categoriasList);
+
+      const unidadesCollection = collection(db, 'unidades_medida');
+      const qUnidades = query(unidadesCollection, orderBy("nombre", "asc"));
+      const unidadesSnapshot = await getDocs(qUnidades);
+      const unidadesList = unidadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UnidadMedida));
+      setUnidadesMedida(unidadesList);
+
     } catch (error) {
-      console.error("Error fetching productos: ", error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+      console.error("Error fetching data: ", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos." });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProductos();
+    fetchData();
   }, []);
 
   const handleOpenDialog = (producto: Producto | null = null) => {
@@ -131,7 +144,7 @@ export default function ProductosPage() {
             await addDoc(collection(db, 'productos'), { ...currentProducto, fecha_creacion: serverTimestamp() });
             toast({ title: 'Producto Creado', description: 'El nuevo producto ha sido creado exitosamente.'});
         }
-        await fetchProductos();
+        await fetchData();
         handleCloseDialog();
     } catch (error) {
         console.error("Error saving producto: ", error);
@@ -143,7 +156,7 @@ export default function ProductosPage() {
       try {
           await deleteDoc(doc(db, 'productos', productoId));
           toast({ title: 'Producto Eliminado', description: 'El producto ha sido eliminado.', variant: 'destructive' });
-          await fetchProductos();
+          await fetchData();
       } catch (error) {
           console.error("Error deleting producto: ", error);
           toast({ variant: 'destructive', title: 'Error', description: 'No se pudo eliminar el producto.'});
