@@ -7,7 +7,7 @@ import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, Eye } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,16 +51,32 @@ const initialProductoState: Omit<Producto, 'id' | 'fecha_creacion'> = {
     costo_promedio: 0,
 };
 
+// Formateador de moneda para Guaraníes
+const currencyFormatter = new Intl.NumberFormat('es-PY', {
+  style: 'currency',
+  currency: 'PYG',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+
 export default function ProductosPage() {
   const { toast } = useToast();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [unidadesMedida, setUnidadesMedida] = useState<UnidadMedida[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // State for Create/Edit Dialog
   const [openDialog, setOpenDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentProducto, setCurrentProducto] = useState<Omit<Producto, 'id' | 'fecha_creacion'>>(initialProductoState);
   const [currentProductoId, setCurrentProductoId] = useState<string | null>(null);
+
+  // State for Details Dialog
+  const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
+  const [selectedProductForDetails, setSelectedProductForDetails] = useState<Producto | null>(null);
+
 
   const fetchData = async () => {
     setLoading(true);
@@ -124,6 +140,11 @@ export default function ProductosPage() {
     setCurrentProducto(initialProductoState);
     setCurrentProductoId(null);
   }
+  
+  const handleOpenDetailsDialog = (producto: Producto) => {
+    setSelectedProductForDetails(producto);
+    setOpenDetailsDialog(true);
+  };
 
   const handleInputChange = (field: keyof Omit<Producto, 'id'| 'fecha_creacion'>, value: any) => {
       setCurrentProducto(prev => ({...prev, [field]: value}));
@@ -198,7 +219,7 @@ export default function ProductosPage() {
                   <TableCell className="font-medium">{producto.nombre}</TableCell>
                   <TableCell>{producto.codigo_interno || 'N/A'}</TableCell>
                   <TableCell>{categorias.find(c => c.id === producto.categoria_id)?.nombre || 'Desconocida'}</TableCell>
-                  <TableCell className="text-right">${(producto.precio_referencia || 0).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">{currencyFormatter.format(producto.precio_referencia || 0)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -208,6 +229,7 @@ export default function ProductosPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleOpenDetailsDialog(producto)}><Eye className="mr-2 h-4 w-4" />Ver Detalles</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenDialog(producto)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -237,6 +259,7 @@ export default function ProductosPage() {
         </CardContent>
       </Card>
       
+      {/* Create/Edit Dialog */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
         <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
@@ -304,6 +327,59 @@ export default function ProductosPage() {
                 <Button variant="outline" onClick={handleCloseDialog}>Cancelar</Button>
                 <Button onClick={handleSubmit}>{isEditing ? 'Guardar Cambios' : 'Crear Producto'}</Button>
             </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Details Dialog */}
+      <Dialog open={openDetailsDialog} onOpenChange={setOpenDetailsDialog}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Detalles del Producto</DialogTitle>
+            <DialogDescription>{selectedProductForDetails?.nombre}</DialogDescription>
+          </DialogHeader>
+          {selectedProductForDetails && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 py-4 text-sm">
+              <div>
+                <Label className="font-semibold">Descripción</Label>
+                <p className="text-muted-foreground">{selectedProductForDetails.descripcion || 'N/A'}</p>
+              </div>
+              <div>
+                <Label className="font-semibold">Categoría</Label>
+                <p className="text-muted-foreground">{categorias.find(c => c.id === selectedProductForDetails.categoria_id)?.nombre || 'N/A'}</p>
+              </div>
+              <div>
+                <Label className="font-semibold">Unidad de Medida</Label>
+                <p className="text-muted-foreground">{unidadesMedida.find(u => u.id === selectedProductForDetails.unidad_medida_id)?.nombre || 'N/A'}</p>
+              </div>
+              <div>
+                <Label className="font-semibold">Tipo de IVA</Label>
+                <p className="text-muted-foreground">{selectedProductForDetails.iva_tipo}%</p>
+              </div>
+              <div>
+                <Label className="font-semibold">Código Interno</Label>
+                <p className="text-muted-foreground">{selectedProductForDetails.codigo_interno || 'N/A'}</p>
+              </div>
+              <div>
+                <Label className="font-semibold">Código de Barras</Label>
+                <p className="text-muted-foreground">{selectedProductForDetails.codigo_barra || 'N/A'}</p>
+              </div>
+              <div className="p-4 bg-secondary/50 rounded-md">
+                <Label className="font-semibold">Costo Promedio</Label>
+                <p className="text-lg font-bold">{currencyFormatter.format(selectedProductForDetails.costo_promedio || 0)}</p>
+              </div>
+              <div className="p-4 bg-secondary/50 rounded-md">
+                <Label className="font-semibold">Precio de Referencia</Label>
+                <p className="text-lg font-bold">{currencyFormatter.format(selectedProductForDetails.precio_referencia || 0)}</p>
+              </div>
+              <div className="col-span-2">
+                 <Label className="font-semibold">Fecha de Creación</Label>
+                 <p className="text-muted-foreground">{selectedProductForDetails.fecha_creacion?.toDate().toLocaleString() || 'N/A'}</p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenDetailsDialog(false)}>Cerrar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
