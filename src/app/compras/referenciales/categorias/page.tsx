@@ -183,7 +183,7 @@ export default function CategoriasPage() {
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">
                     <Label htmlFor="nombre">Nombre de la Categoría</Label>
-                    <Input id="nombre" value={currentCategoria.nombre} onChange={e => setCurrentCategoria({ nombre: e.target.value })} />
+                    <Input id="nombre" value={currentCategoria.nombre} onChange={e => setCurrentCategoria({ ...currentCategoria, nombre: e.target.value })} />
                 </div>
             </div>
             <DialogFooter>
