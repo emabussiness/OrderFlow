@@ -134,6 +134,11 @@ export default function ProductosPage() {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'Nombre, categoría y unidad de medida son requeridos.'});
         return;
     }
+    
+    if (currentProducto.precio_referencia < (currentProducto.costo_promedio || 0)) {
+        toast({ variant: 'destructive', title: 'Error de validación', description: 'El precio de referencia no puede ser menor al costo promedio.'});
+        return;
+    }
 
     try {
         if(isEditing && currentProductoId) {
