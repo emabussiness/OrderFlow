@@ -23,6 +23,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
 
   const getPageTitle = () => {
     if (pathname === '/') return 'Dashboard';
+    if (pathname.startsWith('/compras/referenciales/proveedores')) return 'Referenciales - Proveedores';
     if (pathname.startsWith('/compras')) {
       const pathParts = pathname.split('/');
       const lastPart = pathParts[pathParts.length - 1];
@@ -87,7 +88,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                     <SidebarMenu>
                       <SidebarMenuItem><Link href="/compras/referenciales/productos"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/productos')}><Package />Productos</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/referenciales/categorias"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/categorias')}><Boxes />Categorías</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Truck />Proveedores</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/referenciales/proveedores"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/proveedores')}><Truck />Proveedores</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Warehouse />Depósitos</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Building />Sucursales</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/referenciales/unidades-medida"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/unidades-medida')}><FileText />Unidades de Medida</SidebarMenuButton></Link></SidebarMenuItem>
