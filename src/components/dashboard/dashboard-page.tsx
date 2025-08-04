@@ -35,6 +35,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
       if (pathname.includes('referenciales/sucursales')) return 'Referenciales - Sucursales';
       if (pathname.includes('referenciales/depositos')) return 'Referenciales - Depósitos';
        if (pathname.includes('referenciales/tipos-documento')) return 'Referenciales - Tipos de Documento';
+       if (pathname.includes('referenciales/formas-pago')) return 'Referenciales - Formas de Pago';
       if (pathname.includes('referenciales')) return `Referenciales - ${title}`;
       if (pathname.includes('movimientos')) return `Movimientos - ${title}`;
       if (pathname.includes('informes')) return `Informes - ${title}`;
@@ -97,7 +98,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                       <SidebarMenuItem><Link href="/compras/referenciales/sucursales"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/sucursales')}><Building />Sucursales</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/referenciales/unidades-medida"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/unidades-medida')}><FileText />Unidades de Medida</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/referenciales/tipos-documento"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/tipos-documento')}><FileText />Tipos de Documento</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><DollarSign />Formas de Pago</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/referenciales/formas-pago"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/formas-pago')}><DollarSign />Formas de Pago</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><Building />Bancos</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
