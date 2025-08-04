@@ -33,6 +33,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
       if (pathname.includes('referenciales/unidades-medida')) return 'Referenciales - Unidades de Medida';
       if (pathname.includes('referenciales/proveedores')) return 'Referenciales - Proveedores';
       if (pathname.includes('referenciales/sucursales')) return 'Referenciales - Sucursales';
+      if (pathname.includes('referenciales/depositos')) return 'Referenciales - Depósitos';
       if (pathname.includes('referenciales')) return `Referenciales - ${title}`;
       if (pathname.includes('movimientos')) return `Movimientos - ${title}`;
       if (pathname.includes('informes')) return `Informes - ${title}`;
@@ -91,7 +92,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                       <SidebarMenuItem><Link href="/compras/referenciales/productos"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/productos')}><Package />Productos</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/referenciales/categorias"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/categorias')}><Boxes />Categorías</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/referenciales/proveedores"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/proveedores')}><Truck />Proveedores</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="#"><SidebarMenuButton><Warehouse />Depósitos</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/referenciales/depositos"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/depositos')}><Warehouse />Depósitos</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/referenciales/sucursales"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/sucursales')}><Building />Sucursales</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/referenciales/unidades-medida"><SidebarMenuButton isActive={pathname.startsWith('/compras/referenciales/unidades-medida')}><FileText />Unidades de Medida</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton><FileText />Tipos de Documento</SidebarMenuButton></Link></SidebarMenuItem>
