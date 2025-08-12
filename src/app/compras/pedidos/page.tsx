@@ -486,77 +486,79 @@ export default function PedidosPage() {
 
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
         <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-                <DialogTitle>Detalles del Pedido: {selectedPedido?.id.substring(0,7)}</DialogTitle>
-                <DialogDescription>
-                    Información detallada del pedido de compra.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-4 py-4 overflow-hidden">
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <p className="font-semibold">Proveedor:</p>
-                        <p>{selectedPedido?.proveedor_nombre}</p>
-                    </div>
-                    <div>
-                        <p className="font-semibold">Depósito Destino:</p>
-                        <p>{selectedPedido?.deposito_nombre}</p>
-                    </div>
-                    <div>
-                        <p className="font-semibold">Fecha del Pedido:</p>
-                        <p>{selectedPedido?.fecha_pedido}</p>
-                    </div>
-                    <div>
-                        <div className="font-semibold">Estado:</div>
-                        {selectedPedido && <Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge>}
-                    </div>
-                    <div>
-                        <p className="font-semibold">Registrado por:</p>
-                        <p>{selectedPedido?.usuario_id}</p>
-                    </div>
-                    <div>
-                        <p className="font-semibold">Fecha de Creación:</p>
-                        <p>{selectedPedido?.fecha_creacion?.toDate().toLocaleString()}</p>
-                    </div>
-                </div>
-                <div>
-                    <p className="font-semibold">Observaciones:</p>
-                    <p className="text-muted-foreground">{selectedPedido?.observaciones || 'Sin observaciones'}</p>
-                </div>
-                <ScrollArea className="flex-grow">
-                    <Card className="border-0 shadow-none">
-                        <CardHeader><CardTitle>Productos</CardTitle></CardHeader>
-                        <CardContent className="px-1">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Producto</TableHead>
-                                        <TableHead>Cantidad</TableHead>
-                                        <TableHead>Precio Estimado</TableHead>
-                                        <TableHead className="text-right">Subtotal</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {selectedPedido?.items.map((item, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>{item.nombre}</TableCell>
-                                            <TableCell>{item.cantidad}</TableCell>
-                                            <TableCell>${item.precio_estimado.toFixed(2)}</TableCell>
-                                            <TableCell className="text-right">${(item.cantidad * item.precio_estimado).toFixed(2)}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                </ScrollArea>
-                <div className="text-right font-bold text-xl mt-auto pt-4">
-                    Total: ${selectedPedido?.total.toFixed(2)}
-                </div>
+          <DialogHeader>
+            <DialogTitle>Detalles del Pedido: {selectedPedido?.id.substring(0, 7)}</DialogTitle>
+            <DialogDescription>
+              Información detallada del pedido de compra.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4 overflow-hidden">
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="font-semibold">Proveedor:</p>
+                <p>{selectedPedido?.proveedor_nombre}</p>
+              </div>
+              <div>
+                <p className="font-semibold">Depósito Destino:</p>
+                <p>{selectedPedido?.deposito_nombre}</p>
+              </div>
+              <div>
+                <p className="font-semibold">Fecha del Pedido:</p>
+                <p>{selectedPedido?.fecha_pedido}</p>
+              </div>
+              <div>
+                <div className="font-semibold">Estado:</div>
+                {selectedPedido && <Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge>}
+              </div>
+              <div>
+                <p className="font-semibold">Registrado por:</p>
+                <p>{selectedPedido?.usuario_id}</p>
+              </div>
+              <div>
+                <p className="font-semibold">Fecha de Creación:</p>
+                <p>{selectedPedido?.fecha_creacion?.toDate().toLocaleString()}</p>
+              </div>
             </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
-            </DialogFooter>
+            <div>
+              <p className="font-semibold">Observaciones:</p>
+              <p className="text-muted-foreground">{selectedPedido?.observaciones || 'Sin observaciones'}</p>
+            </div>
+            <ScrollArea className="flex-grow">
+              <Card className="border-0 shadow-none">
+                <CardHeader>
+                  <CardTitle>Productos</CardTitle>
+                </CardHeader>
+                <CardContent className="px-1">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Producto</TableHead>
+                        <TableHead>Cantidad</TableHead>
+                        <TableHead>Precio Estimado</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedPedido?.items.map((item, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{item.nombre}</TableCell>
+                          <TableCell>{item.cantidad}</TableCell>
+                          <TableCell>${item.precio_estimado.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">${(item.cantidad * item.precio_estimado).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </ScrollArea>
+            <div className="text-right font-bold text-xl mt-auto pt-4">
+              Total: ${selectedPedido?.total.toFixed(2)}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
