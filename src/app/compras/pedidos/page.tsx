@@ -15,7 +15,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -275,112 +275,111 @@ export default function PedidosPage() {
       </div>
       
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-          <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col">
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>{isEditing ? 'Editar Pedido de Compra' : 'Crear Nuevo Pedido de Compra'}</DialogTitle>
               <DialogDescription>
                 {isEditing ? 'Modifique los detalles del pedido.' : 'Complete los detalles para crear un nuevo pedido.'}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="proveedor">Proveedor</Label>
-                <Combobox
-                    options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
-                    value={currentPedido.proveedor_id}
-                    onChange={(value) => handleInputChange('proveedor_id', value)}
-                    placeholder="Seleccione un proveedor"
-                    searchPlaceholder="Buscar proveedor..."
-                />
+            
+            <div className="flex-grow overflow-y-auto pr-6 -mr-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="space-y-2">
+                  <Label htmlFor="proveedor">Proveedor</Label>
+                  <Combobox
+                      options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
+                      value={currentPedido.proveedor_id}
+                      onChange={(value) => handleInputChange('proveedor_id', value)}
+                      placeholder="Seleccione un proveedor"
+                      searchPlaceholder="Buscar proveedor..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deposito">Depósito Destino</Label>
+                  <Combobox
+                      options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
+                      value={currentPedido.deposito_id}
+                      onChange={(value) => handleInputChange('deposito_id', value)}
+                      placeholder="Seleccione un depósito"
+                      searchPlaceholder="Buscar depósito..."
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="deposito">Depósito Destino</Label>
-                <Combobox
-                    options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
-                    value={currentPedido.deposito_id}
-                    onChange={(value) => handleInputChange('deposito_id', value)}
-                    placeholder="Seleccione un depósito"
-                    searchPlaceholder="Buscar depósito..."
-                />
+              <div className="space-y-2 mb-4">
+                <Label htmlFor="observaciones">Observaciones</Label>
+                <Textarea id="observaciones" value={currentPedido.observaciones} onChange={(e) => handleInputChange('observaciones', e.target.value)} placeholder="Añadir observaciones..."/>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="observaciones">Observaciones</Label>
-              <Textarea id="observaciones" value={currentPedido.observaciones} onChange={(e) => handleInputChange('observaciones', e.target.value)} placeholder="Añadir observaciones..."/>
-            </div>
 
-            {isEditing && (
-              <div className="space-y-2">
-                  <Label htmlFor="estado">Estado</Label>
-                  <Select
-                      value={currentPedido.estado}
-                      onValueChange={(value) => handleInputChange('estado', value)}
-                  >
-                      <SelectTrigger>
-                          <SelectValue placeholder="Seleccione un estado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="Pendiente">Pendiente</SelectItem>
-                          <SelectItem value="Completado">Completado</SelectItem>
-                          <SelectItem value="Cancelado">Cancelado</SelectItem>
-                      </SelectContent>
-                  </Select>
-              </div>
-            )}
+              {isEditing && (
+                <div className="space-y-2 mb-4">
+                    <Label htmlFor="estado">Estado</Label>
+                    <Select
+                        value={currentPedido.estado}
+                        onValueChange={(value) => handleInputChange('estado', value as any)}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Seleccione un estado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Pendiente">Pendiente</SelectItem>
+                            <SelectItem value="Completado">Completado</SelectItem>
+                            <SelectItem value="Cancelado">Cancelado</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+              )}
 
-            <div className="flex-grow flex flex-col overflow-hidden mt-4">
-                <Card className="flex-grow flex flex-col">
-                  <CardHeader>
-                      <CardTitle>Productos</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-grow overflow-hidden p-0">
-                    <ScrollArea className="h-full">
-                      <Table>
-                          <TableHeader>
-                              <TableRow>
-                                  <TableHead>Producto</TableHead>
-                                  <TableHead className="w-[150px]">Cantidad</TableHead>
-                                  <TableHead className="w-[150px]">Precio Estimado</TableHead>
-                                  <TableHead className="w-[150px] text-right">Subtotal</TableHead>
-                                  <TableHead className="w-[50px]"></TableHead>
-                              </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {currentPedido.items.map((item, index) => (
-                                  <TableRow key={index}>
-                                      <TableCell>
-                                          <Combobox
-                                              options={productos.map(p => ({ value: p.id, label: p.nombre }))}
-                                              value={item.producto_id}
-                                              onChange={(value) => handleItemChange(index, 'producto_id', value)}
-                                              placeholder="Seleccione producto"
-                                              searchPlaceholder="Buscar producto..."
-                                          />
-                                      </TableCell>
-                                      <TableCell>
-                                          <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1"/>
-                                      </TableCell>
-                                      <TableCell>
-                                          <Input type="number" value={item.precio_estimado.toFixed(2)} onChange={(e) => handleItemChange(index, 'precio_estimado', e.target.value)} />
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                          ${(item.cantidad * item.precio_estimado).toFixed(2)}
-                                      </TableCell>
-                                      <TableCell>
-                                          <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
-                                              <Trash2 className="h-4 w-4 text-red-500" />
-                                          </Button>
-                                      </TableCell>
-                                  </TableRow>
-                              ))}
-                          </TableBody>
-                      </Table>
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
+              <Card>
+                <CardHeader>
+                    <CardTitle>Productos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Producto</TableHead>
+                                <TableHead className="w-[150px]">Cantidad</TableHead>
+                                <TableHead className="w-[150px]">Precio Estimado</TableHead>
+                                <TableHead className="w-[150px] text-right">Subtotal</TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {currentPedido.items.map((item, index) => (
+                                <TableRow key={index}>
+                                    <TableCell>
+                                        <Combobox
+                                            options={productos.map(p => ({ value: p.id, label: p.nombre }))}
+                                            value={item.producto_id}
+                                            onChange={(value) => handleItemChange(index, 'producto_id', value)}
+                                            placeholder="Seleccione producto"
+                                            searchPlaceholder="Buscar producto..."
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1"/>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Input type="number" value={item.precio_estimado.toFixed(2)} onChange={(e) => handleItemChange(index, 'precio_estimado', e.target.value)} />
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        ${(item.cantidad * item.precio_estimado).toFixed(2)}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
+                                            <Trash2 className="h-4 w-4 text-red-500" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+              </Card>
             </div>
             
-            <DialogFooter>
+            <DialogFooter className="pt-4 border-t">
                <div className="flex w-full justify-between items-center">
                   <Button variant="outline" size="sm" onClick={handleAddItem}>
                       <PlusCircle className="mr-2 h-4 w-4" />
@@ -478,51 +477,50 @@ export default function PedidosPage() {
       </Card>
 
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
-        <DialogContent className="sm:max-w-2xl h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Detalles del Pedido: {selectedPedido?.id.substring(0, 7)}</DialogTitle>
             <DialogDescription>
               Información detallada del pedido de compra.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="font-semibold">Proveedor:</p>
-              <p>{selectedPedido?.proveedor_nombre}</p>
-            </div>
-            <div>
-              <p className="font-semibold">Depósito Destino:</p>
-              <p>{selectedPedido?.deposito_nombre}</p>
-            </div>
-            <div>
-              <p className="font-semibold">Fecha del Pedido:</p>
-              <p>{selectedPedido?.fecha_pedido}</p>
-            </div>
-            <div>
-              <div className="font-semibold">Estado:</div>
-              {selectedPedido && <Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge>}
-            </div>
-            <div>
-              <p className="font-semibold">Registrado por:</p>
-              <p>{selectedPedido?.usuario_id}</p>
-            </div>
-            <div>
-              <p className="font-semibold">Fecha de Creación:</p>
-              <p>{selectedPedido?.fecha_creacion?.toDate().toLocaleString()}</p>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <p className="font-semibold">Observaciones:</p>
-            <p className="text-muted-foreground">{selectedPedido?.observaciones || 'Sin observaciones'}</p>
-          </div>
-          
-          <div className="flex-grow flex flex-col overflow-hidden mt-4">
-            <Card className="flex-grow flex flex-col">
-              <CardHeader>
-                <CardTitle>Productos</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-grow overflow-hidden p-0">
-                  <ScrollArea className="h-full">
+          <div className="flex-grow overflow-y-auto pr-6 -mr-6">
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="font-semibold">Proveedor:</p>
+                  <p>{selectedPedido?.proveedor_nombre}</p>
+                </div>
+                <div>
+                  <p className="font-semibold">Depósito Destino:</p>
+                  <p>{selectedPedido?.deposito_nombre}</p>
+                </div>
+                <div>
+                  <p className="font-semibold">Fecha del Pedido:</p>
+                  <p>{selectedPedido?.fecha_pedido}</p>
+                </div>
+                <div>
+                  <div className="font-semibold">Estado:</div>
+                  {selectedPedido && <Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge>}
+                </div>
+                <div>
+                  <p className="font-semibold">Registrado por:</p>
+                  <p>{selectedPedido?.usuario_id}</p>
+                </div>
+                <div>
+                  <p className="font-semibold">Fecha de Creación:</p>
+                  <p>{selectedPedido?.fecha_creacion?.toDate().toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="space-y-1 mb-4">
+                <p className="font-semibold">Observaciones:</p>
+                <p className="text-muted-foreground">{selectedPedido?.observaciones || 'Sin observaciones'}</p>
+              </div>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Productos</CardTitle>
+                </CardHeader>
+                <CardContent>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -543,12 +541,10 @@ export default function PedidosPage() {
                         ))}
                       </TableBody>
                     </Table>
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
           </div>
-
-          <DialogFooter>
+          <DialogFooter className="pt-4 border-t">
              <div className="flex justify-between items-center w-full">
                 <div className="text-right font-bold text-lg">
                   Total: ${selectedPedido?.total.toFixed(2)}
