@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -21,7 +22,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Combobox } from "@/components/ui/command";
-import { productos as initialProductos, proveedores, depositos } from "@/data";
+
+// Tipos de datos de referenciales
+type Producto = { id: string; nombre: string; precio_referencia: number; };
+type ProveedorRef = { id: string; nombre: string; };
+type DepositoRef = { id: string; nombre: string; };
 
 type ItemPedido = {
   producto_id: string;
@@ -48,34 +53,51 @@ type Pedido = {
 export default function PedidosPage() {
   const { toast } = useToast();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [productos, setProductos] = useState(initialProductos);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [proveedores, setProveedores] = useState<ProveedorRef[]>([]);
+  const [depositos, setDepositos] = useState<DepositoRef[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [openCreate, setOpenCreate] = useState(false);
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
 
+  // Estado del formulario de creación
   const [items, setItems] = useState<ItemPedido[]>([]);
   const [proveedorId, setProveedorId] = useState('');
   const [depositoId, setDepositoId] = useState('');
   const [observaciones, setObservaciones] = useState('');
 
-  const fetchPedidos = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
+      // Pedidos
       const pedidosCollection = collection(db, 'pedidos_compra');
       const q = query(pedidosCollection, orderBy("fecha_creacion", "desc"));
       const pedidosSnapshot = await getDocs(q);
       const pedidosList = pedidosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pedido));
       setPedidos(pedidosList);
+
+      // Referenciales
+      const productosSnapshot = await getDocs(query(collection(db, 'productos'), orderBy("nombre")));
+      setProductos(productosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto)));
+      
+      const proveedoresSnapshot = await getDocs(query(collection(db, 'proveedores'), orderBy("nombre")));
+      setProveedores(proveedoresSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProveedorRef)));
+
+      const depositosSnapshot = await getDocs(query(collection(db, 'depositos'), orderBy("nombre")));
+      setDepositos(depositosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DepositoRef)));
+
     } catch (error) {
-      console.error("Error fetching pedidos: ", error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los pedidos." });
+      console.error("Error fetching data: ", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos." });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPedidos();
+    fetchData();
   }, []);
 
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
@@ -169,7 +191,7 @@ export default function PedidosPage() {
 
         const docRef = await addDoc(collection(db, "pedidos_compra"), nuevoPedido);
         
-        await fetchPedidos(); // Refresh data from Firestore
+        await fetchData(); // Refresh data from Firestore
         
         toast({
             title: "Pedido Creado",
@@ -201,7 +223,7 @@ export default function PedidosPage() {
       setPedidos(pedidos.map(p => p.id === pedidoId ? {...p, estado: 'Cancelado'} : p));
       toast({
           title: "Pedido Cancelado",
-          description: `El pedido ${pedidoId} ha sido cancelado.`,
+          description: `El pedido ${pedidoId.substring(0,7)} ha sido cancelado.`,
           variant: "destructive",
       })
     } catch (error) {
@@ -210,7 +232,7 @@ export default function PedidosPage() {
     }
   }
 
-  if (loading) return <p>Cargando pedidos...</p>;
+  if (loading) return <p>Cargando datos...</p>;
 
   return (
     <>
@@ -482,3 +504,4 @@ export default function PedidosPage() {
     </>
   );
 }
+
