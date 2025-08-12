@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Combobox } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 // Tipos de datos de referenciales
 type Producto = { id: string; nombre: string; precio_referencia: number; };
@@ -50,6 +52,14 @@ type Pedido = {
   fecha_creacion: any;
 };
 
+const initialPedidoState: Omit<Pedido, 'id' | 'fecha_pedido' | 'fecha_creacion' | 'usuario_id' | 'total' | 'proveedor_nombre' | 'deposito_nombre'> = {
+    proveedor_id: '',
+    deposito_id: '',
+    estado: 'Pendiente',
+    items: [],
+    observaciones: '',
+}
+
 export default function PedidosPage() {
   const { toast } = useToast();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -58,16 +68,15 @@ export default function PedidosPage() {
   const [depositos, setDepositos] = useState<DepositoRef[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [openCreate, setOpenCreate] = useState(false);
+  const [openDialog, setOpenDialog] = useState(false);
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
 
-  // Estado del formulario de creación
-  const [items, setItems] = useState<ItemPedido[]>([]);
-  const [proveedorId, setProveedorId] = useState('');
-  const [depositoId, setDepositoId] = useState('');
-  const [observaciones, setObservaciones] = useState('');
-
+  // Estado del formulario (creación/edición)
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentPedido, setCurrentPedido] = useState(initialPedidoState);
+  const [currentPedidoId, setCurrentPedidoId] = useState<string | null>(null);
+  
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -112,25 +121,34 @@ export default function PedidosPage() {
         return "outline";
     }
   };
+  
+  const handleInputChange = (field: keyof Omit<Pedido, 'id' | 'items'>, value: string) => {
+    setCurrentPedido(prev => ({ ...prev, [field]: value }));
+  };
 
   const handleAddItem = () => {
-    setItems([...items, { producto_id: '', nombre: '', cantidad: 1, precio_estimado: 0 }]);
+    setCurrentPedido(prev => ({
+        ...prev,
+        items: [...prev.items, { producto_id: '', nombre: '', cantidad: 1, precio_estimado: 0 }]
+    }));
   };
 
   const handleRemoveItem = (index: number) => {
-    const newItems = items.filter((_, i) => i !== index);
-    setItems(newItems);
+    setCurrentPedido(prev => ({
+        ...prev,
+        items: prev.items.filter((_, i) => i !== index)
+    }));
   };
   
- const handleItemChange = (index: number, field: keyof ItemPedido, value: string | number) => {
-    const newItems = [...items];
+  const handleItemChange = (index: number, field: keyof ItemPedido, value: string | number) => {
+    const newItems = [...currentPedido.items];
     const currentItem = newItems[index];
 
     if (field === 'producto_id') {
         const productoId = value as string;
         const producto = productos.find(p => p.id === productoId);
         
-        if (items.some((item, i) => item.producto_id === productoId && i !== index)) {
+        if (newItems.some((item, i) => item.producto_id === productoId && i !== index)) {
             toast({
                 variant: "destructive",
                 title: "Producto duplicado", 
@@ -148,22 +166,36 @@ export default function PedidosPage() {
         currentItem.precio_estimado = Number(value) < 0 ? 0 : Number(value);
     }
     
-    setItems(newItems);
+    setCurrentPedido(prev => ({ ...prev, items: newItems }));
   };
 
   const calcularTotal = () => {
-    return items.reduce((total, item) => total + (item.cantidad * item.precio_estimado), 0).toFixed(2);
+    return currentPedido.items.reduce((total, item) => total + (item.cantidad * item.precio_estimado), 0).toFixed(2);
   }
 
-  const resetForm = () => {
-    setItems([]);
-    setProveedorId('');
-    setDepositoId('');
-    setObservaciones('');
+  const handleOpenDialog = (pedido: Pedido | null = null) => {
+    if (pedido) {
+      setIsEditing(true);
+      setCurrentPedidoId(pedido.id);
+      setCurrentPedido({
+          proveedor_id: pedido.proveedor_id,
+          deposito_id: pedido.deposito_id,
+          estado: pedido.estado,
+          items: pedido.items,
+          observaciones: pedido.observaciones
+      });
+    } else {
+      setIsEditing(false);
+      setCurrentPedidoId(null);
+      setCurrentPedido(initialPedidoState);
+    }
+    setOpenDialog(true);
   }
 
-  const handleCreatePedido = async () => {
-    if(!proveedorId || !depositoId || items.length === 0 || items.some(i => !i.producto_id)) {
+  const handleSavePedido = async () => {
+    const { proveedor_id, deposito_id, items } = currentPedido;
+
+    if(!proveedor_id || !deposito_id || items.length === 0 || items.some(i => !i.producto_id)) {
         toast({
             variant: "destructive",
             title: "Error de validación",
@@ -171,45 +203,42 @@ export default function PedidosPage() {
         })
         return;
     }
-    const proveedorSeleccionado = proveedores.find(p => p.id === proveedorId);
-    const depositoSeleccionado = depositos.find(d => d.id === depositoId);
+    
+    const proveedorSeleccionado = proveedores.find(p => p.id === proveedor_id);
+    const depositoSeleccionado = depositos.find(d => d.id === deposito_id);
+    const total = parseFloat(calcularTotal());
 
     try {
-        const nuevoPedido = {
-            proveedor_nombre: proveedorSeleccionado?.nombre || 'Desconocido',
-            proveedor_id: proveedorId,
-            deposito_nombre: depositoSeleccionado?.nombre || 'Desconocido',
-            deposito_id: depositoId,
-            fecha_pedido: new Date().toISOString().split('T')[0],
-            estado: 'Pendiente',
-            total: parseFloat(calcularTotal()),
-            items: items,
-            observaciones: observaciones,
-            usuario_id: "user-demo", // Hardcoded for now
-            fecha_creacion: serverTimestamp()
-        };
-
-        const docRef = await addDoc(collection(db, "pedidos_compra"), nuevoPedido);
+        if(isEditing && currentPedidoId) {
+             const pedidoRef = doc(db, 'pedidos_compra', currentPedidoId);
+             await updateDoc(pedidoRef, {
+                 ...currentPedido,
+                 proveedor_nombre: proveedorSeleccionado?.nombre || 'Desconocido',
+                 deposito_nombre: depositoSeleccionado?.nombre || 'Desconocido',
+                 total,
+             });
+             toast({ title: 'Pedido Actualizado', description: 'El pedido ha sido actualizado.' });
+        } else {
+            const nuevoPedido = {
+                ...currentPedido,
+                proveedor_nombre: proveedorSeleccionado?.nombre || 'Desconocido',
+                deposito_nombre: depositoSeleccionado?.nombre || 'Desconocido',
+                total,
+                fecha_pedido: new Date().toISOString().split('T')[0],
+                usuario_id: "user-demo", // Hardcoded
+                fecha_creacion: serverTimestamp()
+            };
+            await addDoc(collection(db, "pedidos_compra"), nuevoPedido);
+            toast({ title: "Pedido Creado", description: `El pedido ha sido creado.` });
+        }
         
-        await fetchData(); // Refresh data from Firestore
-        
-        toast({
-            title: "Pedido Creado",
-            description: `El pedido ha sido creado exitosamente.`,
-        })
-        setOpenCreate(false);
+        await fetchData();
+        setOpenDialog(false);
     } catch (e) {
-        console.error("Error adding document: ", e);
-        toast({ variant: "destructive", title: "Error", description: "No se pudo crear el pedido." });
+        console.error("Error saving document: ", e);
+        toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el pedido." });
     }
   };
-
-  useEffect(() => {
-    if(!openCreate) {
-        resetForm();
-    }
-  }, [openCreate]);
-
 
   const handleOpenDetails = (pedido: Pedido) => {
     setSelectedPedido(pedido);
@@ -238,18 +267,18 @@ export default function PedidosPage() {
     <>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Pedidos de Compra</h1>
-        <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Crear Pedido
-            </Button>
-          </DialogTrigger>
+        <Button onClick={() => handleOpenDialog()}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Crear Pedido
+        </Button>
+      </div>
+      
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogContent className="sm:max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Crear Nuevo Pedido de Compra</DialogTitle>
+              <DialogTitle>{isEditing ? 'Editar Pedido de Compra' : 'Crear Nuevo Pedido de Compra'}</DialogTitle>
               <DialogDescription>
-                Complete los detalles para crear un nuevo pedido.
+                {isEditing ? 'Modifique los detalles del pedido.' : 'Complete los detalles para crear un nuevo pedido.'}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -260,8 +289,8 @@ export default function PedidosPage() {
                  <div className="col-span-3">
                     <Combobox
                         options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
-                        value={proveedorId}
-                        onChange={setProveedorId}
+                        value={currentPedido.proveedor_id}
+                        onChange={(value) => handleInputChange('proveedor_id', value)}
                         placeholder="Seleccione un proveedor"
                         searchPlaceholder="Buscar proveedor..."
                     />
@@ -274,8 +303,8 @@ export default function PedidosPage() {
                  <div className="col-span-3">
                     <Combobox
                         options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
-                        value={depositoId}
-                        onChange={setDepositoId}
+                        value={currentPedido.deposito_id}
+                        onChange={(value) => handleInputChange('deposito_id', value)}
                         placeholder="Seleccione un depósito"
                         searchPlaceholder="Buscar depósito..."
                     />
@@ -285,8 +314,29 @@ export default function PedidosPage() {
                 <Label htmlFor="observaciones" className="text-right">
                   Observaciones
                 </Label>
-                <Textarea id="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} className="col-span-3" placeholder="Añadir observaciones..."/>
+                <Textarea id="observaciones" value={currentPedido.observaciones} onChange={(e) => handleInputChange('observaciones', e.target.value)} className="col-span-3" placeholder="Añadir observaciones..."/>
               </div>
+
+               {isEditing && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="estado" className="text-right">Estado</Label>
+                        <div className="col-span-3">
+                            <Select
+                                value={currentPedido.estado}
+                                onValueChange={(value) => handleInputChange('estado', value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccione un estado" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Pendiente">Pendiente</SelectItem>
+                                    <SelectItem value="Completado">Completado</SelectItem>
+                                    <SelectItem value="Cancelado">Cancelado</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                )}
 
               <Card className="col-span-4">
                 <CardHeader>
@@ -304,7 +354,7 @@ export default function PedidosPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {items.map((item, index) => (
+                            {currentPedido.items.map((item, index) => (
                                 <TableRow key={index}>
                                     <TableCell>
                                         <Combobox
@@ -347,12 +397,13 @@ export default function PedidosPage() {
 
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
-              <Button onClick={handleCreatePedido} disabled={items.length === 0 || items.some(i => !i.producto_id) || !proveedorId || !depositoId}>Crear Pedido</Button>
+              <Button variant="outline" onClick={() => setOpenDialog(false)}>Cancelar</Button>
+              <Button onClick={handleSavePedido} disabled={currentPedido.items.length === 0 || currentPedido.items.some(i => !i.producto_id) || !currentPedido.proveedor_id || !currentPedido.deposito_id}>
+                {isEditing ? 'Guardar Cambios' : 'Crear Pedido'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
 
       <Card>
         <CardHeader>
@@ -396,6 +447,12 @@ export default function PedidosPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleOpenDetails(pedido)}>Ver Detalles</DropdownMenuItem>
+                        <DropdownMenuItem 
+                            onClick={() => handleOpenDialog(pedido)} 
+                            disabled={pedido.estado === 'Cancelado' || pedido.estado === 'Completado'}
+                        >
+                            <Edit className="mr-2 h-4 w-4" />Editar
+                        </DropdownMenuItem>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={pedido.estado === 'Cancelado' || pedido.estado === 'Completado'}>
@@ -505,3 +562,5 @@ export default function PedidosPage() {
   );
 }
 
+
+    
