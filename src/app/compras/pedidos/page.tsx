@@ -329,63 +329,61 @@ export default function PedidosPage() {
                       </div>
                   )}
 
-                <Card className="col-span-4 flex-grow overflow-hidden flex flex-col">
+                <Card className="flex-grow flex flex-col overflow-hidden">
                   <CardHeader>
                       <CardTitle>Productos</CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-grow overflow-hidden flex flex-col gap-4">
-                      <ScrollArea className="flex-grow">
-                          <Table>
-                              <TableHeader>
-                                  <TableRow>
-                                      <TableHead>Producto</TableHead>
-                                      <TableHead className="w-[150px]">Cantidad</TableHead>
-                                      <TableHead className="w-[150px]">Precio Estimado</TableHead>
-                                      <TableHead className="w-[150px] text-right">Subtotal</TableHead>
-                                      <TableHead className="w-[50px]"></TableHead>
+                  <CardContent className="flex-grow overflow-y-auto">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>Producto</TableHead>
+                                  <TableHead className="w-[150px]">Cantidad</TableHead>
+                                  <TableHead className="w-[150px]">Precio Estimado</TableHead>
+                                  <TableHead className="w-[150px] text-right">Subtotal</TableHead>
+                                  <TableHead className="w-[50px]"></TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {currentPedido.items.map((item, index) => (
+                                  <TableRow key={index}>
+                                      <TableCell>
+                                          <Combobox
+                                              options={productos.map(p => ({ value: p.id, label: p.nombre }))}
+                                              value={item.producto_id}
+                                              onChange={(value) => handleItemChange(index, 'producto_id', value)}
+                                              placeholder="Seleccione producto"
+                                              searchPlaceholder="Buscar producto..."
+                                          />
+                                      </TableCell>
+                                      <TableCell>
+                                          <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1"/>
+                                      </TableCell>
+                                      <TableCell>
+                                          <Input type="number" value={item.precio_estimado.toFixed(2)} onChange={(e) => handleItemChange(index, 'precio_estimado', e.target.value)} />
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                          ${(item.cantidad * item.precio_estimado).toFixed(2)}
+                                      </TableCell>
+                                      <TableCell>
+                                          <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
+                                              <Trash2 className="h-4 w-4 text-red-500" />
+                                          </Button>
+                                      </TableCell>
                                   </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                  {currentPedido.items.map((item, index) => (
-                                      <TableRow key={index}>
-                                          <TableCell>
-                                              <Combobox
-                                                  options={productos.map(p => ({ value: p.id, label: p.nombre }))}
-                                                  value={item.producto_id}
-                                                  onChange={(value) => handleItemChange(index, 'producto_id', value)}
-                                                  placeholder="Seleccione producto"
-                                                  searchPlaceholder="Buscar producto..."
-                                              />
-                                          </TableCell>
-                                          <TableCell>
-                                              <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1"/>
-                                          </TableCell>
-                                          <TableCell>
-                                              <Input type="number" value={item.precio_estimado.toFixed(2)} onChange={(e) => handleItemChange(index, 'precio_estimado', e.target.value)} />
-                                          </TableCell>
-                                          <TableCell className="text-right">
-                                              ${(item.cantidad * item.precio_estimado).toFixed(2)}
-                                          </TableCell>
-                                          <TableCell>
-                                              <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
-                                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                              </Button>
-                                          </TableCell>
-                                      </TableRow>
-                                  ))}
-                              </TableBody>
-                          </Table>
-                      </ScrollArea>
-                      <div className="flex justify-between items-center mt-auto pt-4">
-                          <Button variant="outline" size="sm" onClick={handleAddItem}>
-                              <PlusCircle className="mr-2 h-4 w-4" />
-                              Añadir Producto
-                          </Button>
-                          <div className="text-right font-bold text-lg">
-                              Total: ${calcularTotal()}
-                          </div>
-                      </div>
+                              ))}
+                          </TableBody>
+                      </Table>
                   </CardContent>
+                  <div className="flex justify-between items-center p-6 pt-0 mt-auto">
+                      <Button variant="outline" size="sm" onClick={handleAddItem}>
+                          <PlusCircle className="mr-2 h-4 w-4" />
+                          Añadir Producto
+                      </Button>
+                      <div className="text-right font-bold text-lg">
+                          Total: ${calcularTotal()}
+                      </div>
+                  </div>
                 </Card>
             </div>
             <DialogFooter>
@@ -542,11 +540,11 @@ export default function PedidosPage() {
                 </CardContent>
               </Card>
             </ScrollArea>
-            <div className="text-right font-bold text-xl mt-auto pt-4">
-              Total: ${selectedPedido?.total.toFixed(2)}
-            </div>
           </div>
           <DialogFooter>
+             <div className="text-right font-bold text-xl mt-auto pt-4">
+              Total: ${selectedPedido?.total.toFixed(2)}
+            </div>
             <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
@@ -554,3 +552,5 @@ export default function PedidosPage() {
     </>
   );
 }
+
+    
