@@ -275,65 +275,66 @@ export default function PedidosPage() {
       </div>
       
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-          <DialogContent className="sm:max-w-4xl">
+          <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>{isEditing ? 'Editar Pedido de Compra' : 'Crear Nuevo Pedido de Compra'}</DialogTitle>
               <DialogDescription>
                 {isEditing ? 'Modifique los detalles del pedido.' : 'Complete los detalles para crear un nuevo pedido.'}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col gap-4 py-4 overflow-hidden">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="proveedor">Proveedor</Label>
-                    <Combobox
-                        options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
-                        value={currentPedido.proveedor_id}
-                        onChange={(value) => handleInputChange('proveedor_id', value)}
-                        placeholder="Seleccione un proveedor"
-                        searchPlaceholder="Buscar proveedor..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="deposito">Depósito Destino</Label>
-                    <Combobox
-                        options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
-                        value={currentPedido.deposito_id}
-                        onChange={(value) => handleInputChange('deposito_id', value)}
-                        placeholder="Seleccione un depósito"
-                        searchPlaceholder="Buscar depósito..."
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="observaciones">Observaciones</Label>
-                  <Textarea id="observaciones" value={currentPedido.observaciones} onChange={(e) => handleInputChange('observaciones', e.target.value)} placeholder="Añadir observaciones..."/>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="proveedor">Proveedor</Label>
+                <Combobox
+                    options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
+                    value={currentPedido.proveedor_id}
+                    onChange={(value) => handleInputChange('proveedor_id', value)}
+                    placeholder="Seleccione un proveedor"
+                    searchPlaceholder="Buscar proveedor..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deposito">Depósito Destino</Label>
+                <Combobox
+                    options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
+                    value={currentPedido.deposito_id}
+                    onChange={(value) => handleInputChange('deposito_id', value)}
+                    placeholder="Seleccione un depósito"
+                    searchPlaceholder="Buscar depósito..."
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="observaciones">Observaciones</Label>
+              <Textarea id="observaciones" value={currentPedido.observaciones} onChange={(e) => handleInputChange('observaciones', e.target.value)} placeholder="Añadir observaciones..."/>
+            </div>
 
-                 {isEditing && (
-                      <div className="space-y-2">
-                          <Label htmlFor="estado">Estado</Label>
-                          <Select
-                              value={currentPedido.estado}
-                              onValueChange={(value) => handleInputChange('estado', value)}
-                          >
-                              <SelectTrigger>
-                                  <SelectValue placeholder="Seleccione un estado" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                  <SelectItem value="Pendiente">Pendiente</SelectItem>
-                                  <SelectItem value="Completado">Completado</SelectItem>
-                                  <SelectItem value="Cancelado">Cancelado</SelectItem>
-                              </SelectContent>
-                          </Select>
-                      </div>
-                  )}
+            {isEditing && (
+              <div className="space-y-2">
+                  <Label htmlFor="estado">Estado</Label>
+                  <Select
+                      value={currentPedido.estado}
+                      onValueChange={(value) => handleInputChange('estado', value)}
+                  >
+                      <SelectTrigger>
+                          <SelectValue placeholder="Seleccione un estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="Pendiente">Pendiente</SelectItem>
+                          <SelectItem value="Completado">Completado</SelectItem>
+                          <SelectItem value="Cancelado">Cancelado</SelectItem>
+                      </SelectContent>
+                  </Select>
+              </div>
+            )}
 
-                <Card className="flex-grow flex flex-col overflow-hidden">
+            <div className="flex-grow flex flex-col overflow-hidden mt-4">
+                <Card className="flex-grow flex flex-col">
                   <CardHeader>
                       <CardTitle>Productos</CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-grow overflow-y-auto">
+                  <CardContent className="flex-grow overflow-hidden p-0">
+                    <ScrollArea className="h-full">
                       <Table>
                           <TableHeader>
                               <TableRow>
@@ -374,23 +375,27 @@ export default function PedidosPage() {
                               ))}
                           </TableBody>
                       </Table>
+                    </ScrollArea>
                   </CardContent>
-                  <div className="flex justify-between items-center p-6 pt-0 mt-auto">
-                      <Button variant="outline" size="sm" onClick={handleAddItem}>
-                          <PlusCircle className="mr-2 h-4 w-4" />
-                          Añadir Producto
-                      </Button>
-                      <div className="text-right font-bold text-lg">
-                          Total: ${calcularTotal()}
-                      </div>
-                  </div>
                 </Card>
             </div>
+            
             <DialogFooter>
-              <Button variant="outline" onClick={() => setOpenDialog(false)}>Cancelar</Button>
-              <Button onClick={handleSavePedido} disabled={currentPedido.items.length === 0 || currentPedido.items.some(i => !i.producto_id) || !currentPedido.proveedor_id || !currentPedido.deposito_id}>
-                {isEditing ? 'Guardar Cambios' : 'Crear Pedido'}
-              </Button>
+               <div className="flex w-full justify-between items-center">
+                  <Button variant="outline" size="sm" onClick={handleAddItem}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Añadir Producto
+                  </Button>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right font-bold text-lg">
+                        Total: ${calcularTotal()}
+                    </div>
+                    <Button variant="outline" onClick={() => setOpenDialog(false)}>Cancelar</Button>
+                    <Button onClick={handleSavePedido} disabled={currentPedido.items.length === 0 || currentPedido.items.some(i => !i.producto_id) || !currentPedido.proveedor_id || !currentPedido.deposito_id}>
+                      {isEditing ? 'Guardar Cambios' : 'Crear Pedido'}
+                    </Button>
+                  </div>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -473,84 +478,86 @@ export default function PedidosPage() {
       </Card>
 
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Detalles del Pedido: {selectedPedido?.id.substring(0, 7)}</DialogTitle>
             <DialogDescription>
               Información detallada del pedido de compra.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-4 py-4 overflow-hidden">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="font-semibold">Proveedor:</p>
-                <p>{selectedPedido?.proveedor_nombre}</p>
-              </div>
-              <div>
-                <p className="font-semibold">Depósito Destino:</p>
-                <p>{selectedPedido?.deposito_nombre}</p>
-              </div>
-              <div>
-                <p className="font-semibold">Fecha del Pedido:</p>
-                <p>{selectedPedido?.fecha_pedido}</p>
-              </div>
-              <div>
-                <div className="font-semibold">Estado:</div>
-                {selectedPedido && <Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge>}
-              </div>
-              <div>
-                <p className="font-semibold">Registrado por:</p>
-                <p>{selectedPedido?.usuario_id}</p>
-              </div>
-              <div>
-                <p className="font-semibold">Fecha de Creación:</p>
-                <p>{selectedPedido?.fecha_creacion?.toDate().toLocaleString()}</p>
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="font-semibold">Proveedor:</p>
+              <p>{selectedPedido?.proveedor_nombre}</p>
             </div>
-            <div className="flex-grow overflow-hidden">
-              <p className="font-semibold">Observaciones:</p>
-              <p className="text-muted-foreground">{selectedPedido?.observaciones || 'Sin observaciones'}</p>
+            <div>
+              <p className="font-semibold">Depósito Destino:</p>
+              <p>{selectedPedido?.deposito_nombre}</p>
             </div>
-            <ScrollArea className="flex-grow">
-              <Card className="border-0 shadow-none">
-                <CardHeader>
-                  <CardTitle>Productos</CardTitle>
-                </CardHeader>
-                <CardContent className="px-1">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Producto</TableHead>
-                        <TableHead>Cantidad</TableHead>
-                        <TableHead>Precio Estimado</TableHead>
-                        <TableHead className="text-right">Subtotal</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedPedido?.items.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{item.nombre}</TableCell>
-                          <TableCell>{item.cantidad}</TableCell>
-                          <TableCell>${item.precio_estimado.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">${(item.cantidad * item.precio_estimado).toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </ScrollArea>
+            <div>
+              <p className="font-semibold">Fecha del Pedido:</p>
+              <p>{selectedPedido?.fecha_pedido}</p>
+            </div>
+            <div>
+              <div className="font-semibold">Estado:</div>
+              {selectedPedido && <Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge>}
+            </div>
+            <div>
+              <p className="font-semibold">Registrado por:</p>
+              <p>{selectedPedido?.usuario_id}</p>
+            </div>
+            <div>
+              <p className="font-semibold">Fecha de Creación:</p>
+              <p>{selectedPedido?.fecha_creacion?.toDate().toLocaleString()}</p>
+            </div>
           </div>
+          <div className="space-y-1">
+            <p className="font-semibold">Observaciones:</p>
+            <p className="text-muted-foreground">{selectedPedido?.observaciones || 'Sin observaciones'}</p>
+          </div>
+          
+          <div className="flex-grow flex flex-col overflow-hidden mt-4">
+            <Card className="flex-grow flex flex-col">
+              <CardHeader>
+                <CardTitle>Productos</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow overflow-hidden p-0">
+                  <ScrollArea className="h-full">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Producto</TableHead>
+                          <TableHead>Cantidad</TableHead>
+                          <TableHead>Precio Estimado</TableHead>
+                          <TableHead className="text-right">Subtotal</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedPedido?.items.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{item.nombre}</TableCell>
+                            <TableCell>{item.cantidad}</TableCell>
+                            <TableCell>${item.precio_estimado.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">${(item.cantidad * item.precio_estimado).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+
           <DialogFooter>
-             <div className="text-right font-bold text-xl mt-auto pt-4">
-              Total: ${selectedPedido?.total.toFixed(2)}
+             <div className="flex justify-between items-center w-full">
+                <div className="text-right font-bold text-lg">
+                  Total: ${selectedPedido?.total.toFixed(2)}
+                </div>
+                <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
             </div>
-            <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 }
-
-    
