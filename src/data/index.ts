@@ -1,4 +1,5 @@
 // Mapeo de datos para simular la estructura de la base de datos
+// ESTE ARCHIVO SERÁ ELIMINADO PRÓXIMAMENTE Y REEMPLAZADO POR OPERACIONES DIRECTAS A FIRESTORE
 
 // 1. proveedores
 export const proveedores = [
@@ -27,3 +28,5 @@ export const depositos = [
 export const initialPedidos = [];
 export const initialPresupuestos = [];
 export const initialOrdenes = [];
+
+    

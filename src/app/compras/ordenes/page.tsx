@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,13 +15,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Combobox } from "@/components/ui/command";
-import { productos as initialProductos, proveedores, depositos } from "@/data";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+
+type ProductoRef = { id: string; nombre: string; precio_referencia: number; };
+type ProveedorRef = { id: string; nombre: string; };
+type DepositoRef = { id: string; nombre: string; };
 
 type ItemOrden = {
   producto_id: string;
@@ -68,6 +74,9 @@ export default function OrdenesCompraPage() {
   const { toast } = useToast();
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [productos, setProductos] = useState<ProductoRef[]>([]);
+  const [proveedores, setProveedores] = useState<ProveedorRef[]>([]);
+  const [depositos, setDepositos] = useState<DepositoRef[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [selectedOrden, setSelectedOrden] = useState<OrdenCompra | null>(null);
@@ -86,25 +95,34 @@ export default function OrdenesCompraPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch Ordenes
+      // Fetch Ordenes de Compra
       const ordenesCollection = collection(db, 'ordenes_compra');
       const qOrdenes = query(ordenesCollection, orderBy("fecha_creacion", "desc"));
       const ordenesSnapshot = await getDocs(qOrdenes);
       const ordenesList = ordenesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as OrdenCompra));
       setOrdenes(ordenesList);
 
-      // Fetch Pedidos pendientes sin OC y sin Presupuesto
+      // Fetch Pedidos pendientes sin Presupuesto
       const qPedidos = query(collection(db, 'pedidos_compra'), where("estado", "==", "Pendiente"));
       const pedidosSnapshot = await getDocs(qPedidos);
       const pedidosList = pedidosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pedido));
 
-      const qPresupuestos = await getDocs(collection(db, 'presupuesto_proveedor'));
-      const presupuestosPedidosIds = qPresupuestos.docs.map(doc => doc.data().pedido_id);
+      const presupuestosSnapshot = await getDocs(collection(db, 'presupuesto_proveedor'));
+      const presupuestosPedidosIds = presupuestosSnapshot.docs.map(doc => doc.data().pedido_id);
       
-      const ordenesPedidosIds = ordenesList.map(oc => oc.pedido_id);
-
-      const pedidosFiltrados = pedidosList.filter(p => !presupuestosPedidosIds.includes(p.id) && !ordenesPedidosIds.includes(p.id));
+      const pedidosFiltrados = pedidosList.filter(p => !presupuestosPedidosIds.includes(p.id));
       setPedidos(pedidosFiltrados);
+
+      // Fetch Referenciales
+      const productosSnapshot = await getDocs(query(collection(db, 'productos'), orderBy("nombre")));
+      setProductos(productosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductoRef)));
+      
+      const proveedoresSnapshot = await getDocs(query(collection(db, 'proveedores'), orderBy("nombre")));
+      setProveedores(proveedoresSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProveedorRef)));
+
+      const depositosSnapshot = await getDocs(query(collection(db, 'depositos'), orderBy("nombre")));
+      setDepositos(depositosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DepositoRef)));
+
 
     } catch (error) {
       console.error("Error fetching data: ", error);
@@ -152,7 +170,7 @@ export default function OrdenesCompraPage() {
 
     if (field === 'producto_id') {
       const productoId = value as string;
-      const producto = initialProductos.find(p => p.id === productoId);
+      const producto = productos.find(p => p.id === productoId);
        if (items.some((item, i) => item.producto_id === productoId && i !== index)) {
             toast({ variant: "destructive", title: "Producto duplicado", description: "Este producto ya ha sido añadido." });
             return;
@@ -203,8 +221,8 @@ export default function OrdenesCompraPage() {
     
     try {
         const nuevaOrden = {
-          presupuesto_proveedor_id: 'N/A (Directa)',
-          pedido_id: creationMode === 'pedido' ? selectedPedidoId : undefined,
+          presupuesto_proveedor_id: null,
+          pedido_id: creationMode === 'pedido' ? selectedPedidoId : null,
           proveedor_nombre: proveedor?.nombre || 'Desconocido',
           proveedor_id: proveedor?.id || '',
           deposito_nombre: deposito?.nombre || 'Desconocido',
@@ -212,12 +230,12 @@ export default function OrdenesCompraPage() {
           fecha_orden: new Date().toISOString().split('T')[0],
           estado: "Pendiente de Recepción" as "Pendiente de Recepción",
           total: parseFloat(calcularTotal()),
-          items: items,
+          items: items.map(({nombre: _, ...rest}) => rest),
           usuario_id: "user-demo",
           fecha_creacion: serverTimestamp(),
         };
 
-        const docRef = await addDoc(collection(db, "ordenes_compra"), nuevaOrden);
+        await addDoc(collection(db, "ordenes_compra"), nuevaOrden);
         
         if (creationMode === 'pedido' && selectedPedidoId) {
           const pedidoRef = doc(db, 'pedidos_compra', selectedPedidoId);
@@ -248,11 +266,11 @@ export default function OrdenesCompraPage() {
             <DialogTrigger asChild>
                 <Button><PlusCircle className="mr-2 h-4 w-4"/>Registrar Orden de Compra</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-4xl">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Registrar Nueva Orden de Compra</DialogTitle>
                 </DialogHeader>
-                <div className="grid gap-6 py-4">
+                <div className="flex-grow overflow-hidden flex flex-col gap-4 py-4">
                     <RadioGroup value={creationMode} onValueChange={(value) => setCreationMode(value as any)} className="grid grid-cols-2 gap-4">
                         <div>
                             <RadioGroupItem value="manual" id="r1" className="peer sr-only" />
@@ -269,10 +287,9 @@ export default function OrdenesCompraPage() {
                     </RadioGroup>
 
                     {creationMode === 'manual' && (
-                        <>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="proveedor" className="text-right">Proveedor</Label>
-                             <div className="col-span-3">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="proveedor">Proveedor</Label>
                                 <Combobox
                                     options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
                                     value={selectedProveedorId}
@@ -281,10 +298,8 @@ export default function OrdenesCompraPage() {
                                     searchPlaceholder="Buscar proveedor..."
                                 />
                             </div>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="deposito" className="text-right">Depósito</Label>
-                             <div className="col-span-3">
+                            <div className="space-y-2">
+                                <Label htmlFor="deposito">Depósito</Label>
                                 <Combobox
                                     options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
                                     value={selectedDepositoId}
@@ -294,77 +309,79 @@ export default function OrdenesCompraPage() {
                                 />
                             </div>
                         </div>
-                        </>
                     )}
 
                     {creationMode === 'pedido' && (
-                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="pedido" className="text-right">Pedido de Compra</Label>
-                            <div className="col-span-3">
-                                <Combobox
-                                    options={pedidos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor_nombre}` }))}
-                                    value={selectedPedidoId}
-                                    onChange={setSelectedPedidoId}
-                                    placeholder="Seleccione un pedido pendiente"
-                                    searchPlaceholder="Buscar pedido..."
-                                />
-                            </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="pedido">Pedido de Compra</Label>
+                            <Combobox
+                                options={pedidos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor_nombre}` }))}
+                                value={selectedPedidoId}
+                                onChange={setSelectedPedidoId}
+                                placeholder="Seleccione un pedido pendiente"
+                                searchPlaceholder="Buscar pedido..."
+                            />
                         </div>
                     )}
                     
-                    <Card className="col-span-4">
-                        <CardHeader><CardTitle>Productos de la Orden</CardTitle></CardHeader>
-                        <CardContent>
-                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Producto</TableHead>
-                                        <TableHead className="w-[150px]">Cantidad</TableHead>
-                                        <TableHead className="w-[150px]">Precio Unit.</TableHead>
-                                        <TableHead className="w-[150px] text-right">Subtotal</TableHead>
-                                        <TableHead className="w-[50px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {items.map((item, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>
-                                                <Combobox
-                                                    options={initialProductos.map(p => ({ value: p.id, label: p.nombre }))}
-                                                    value={item.producto_id}
-                                                    onChange={(value) => handleItemChange(index, 'producto_id', value)}
-                                                    disabled={creationMode === 'pedido'}
-                                                    placeholder="Seleccione producto"
-                                                    searchPlaceholder="Buscar producto..."
-                                                />
-                                            </TableCell>
-                                            <TableCell><Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" disabled={creationMode === 'pedido'}/></TableCell>
-                                            <TableCell><Input type="number" value={item.precio_unitario} onChange={(e) => handleItemChange(index, 'precio_unitario', e.target.value)} min="0"/></TableCell>
-                                            <TableCell className="text-right">${(item.cantidad * item.precio_unitario).toFixed(2)}</TableCell>
-                                            <TableCell>
-                                                <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={creationMode === 'pedido'}>
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                                </Button>
-                                            </TableCell>
+                    <div className="flex-grow overflow-y-auto -mr-6 pr-6">
+                        <Card className="col-span-4">
+                            <CardHeader><CardTitle>Productos de la Orden</CardTitle></CardHeader>
+                            <CardContent>
+                                <ScrollArea className="h-[300px]">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Producto</TableHead>
+                                            <TableHead className="w-[150px]">Cantidad</TableHead>
+                                            <TableHead className="w-[150px]">Precio Unit.</TableHead>
+                                            <TableHead className="w-[150px] text-right">Subtotal</TableHead>
+                                            <TableHead className="w-[50px]"></TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                            {creationMode === 'manual' && (
-                                <div className="flex justify-between items-center mt-4">
-                                    <Button variant="outline" size="sm" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Añadir Producto</Button>
-                                    <div className="text-right font-bold text-lg">Total: ${calcularTotal()}</div>
-                                </div>
-                            )}
-                             {creationMode === 'pedido' && (
-                                <div className="text-right font-bold text-lg mt-4">Total: ${calcularTotal()}</div>
-                            )}
-                        </CardContent>
-                    </Card>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {items.map((item, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>
+                                                    <Combobox
+                                                        options={productos.map(p => ({ value: p.id, label: p.nombre }))}
+                                                        value={item.producto_id}
+                                                        onChange={(value) => handleItemChange(index, 'producto_id', value)}
+                                                        disabled={creationMode === 'pedido'}
+                                                        placeholder="Seleccione producto"
+                                                        searchPlaceholder="Buscar producto..."
+                                                    />
+                                                </TableCell>
+                                                <TableCell><Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" disabled={creationMode === 'pedido'}/></TableCell>
+                                                <TableCell><Input type="number" value={item.precio_unitario} onChange={(e) => handleItemChange(index, 'precio_unitario', e.target.value)} min="0"/></TableCell>
+                                                <TableCell className="text-right">${(item.cantidad * item.precio_unitario).toFixed(2)}</TableCell>
+                                                <TableCell>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={creationMode === 'pedido'}>
+                                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                                </ScrollArea>
+                                {creationMode === 'manual' && (
+                                    <div className="flex justify-between items-center mt-4">
+                                        <Button variant="outline" size="sm" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Añadir Producto</Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
-                    <Button onClick={handleCreateOC}>Crear Orden</Button>
+                <DialogFooter className="border-t pt-4">
+                    <div className="flex w-full justify-between items-center">
+                        <div className="text-right font-bold text-lg">Total: ${calcularTotal()}</div>
+                        <div>
+                            <Button variant="outline" onClick={() => setOpenCreate(false)} className="mr-2">Cancelar</Button>
+                            <Button onClick={handleCreateOC}>Crear Orden</Button>
+                        </div>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -392,7 +409,7 @@ export default function OrdenesCompraPage() {
               {ordenes.map((orden) => (
                 <TableRow key={orden.id}>
                   <TableCell className="font-medium">{orden.id.substring(0,7)}</TableCell>
-                  <TableCell>{orden.presupuesto_proveedor_id ? `Presupuesto (${orden.presupuesto_proveedor_id.substring(0,7)})` : `Pedido (${orden.pedido_id?.substring(0,7)})`}</TableCell>
+                  <TableCell>{orden.presupuesto_proveedor_id ? `Presupuesto` : (orden.pedido_id ? 'Pedido' : 'Manual')}</TableCell>
                   <TableCell>{orden.proveedor_nombre}</TableCell>
                   <TableCell>{orden.deposito_nombre}</TableCell>
                   <TableCell>{orden.fecha_orden}</TableCell>
@@ -429,17 +446,17 @@ export default function OrdenesCompraPage() {
       </Card>
 
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
             <DialogHeader>
                 <DialogTitle>Detalles de la Orden: {selectedOrden?.id.substring(0,7)}</DialogTitle>
             </DialogHeader>
             {selectedOrden && (
-                <div className="grid gap-4 py-4">
+                <div className="flex-grow overflow-y-auto pr-6 -mr-6">
                     <div className="grid grid-cols-2 gap-4 mb-4">
                         <div><p className="font-semibold">Proveedor:</p><p>{selectedOrden.proveedor_nombre}</p></div>
                         <div><p className="font-semibold">Depósito:</p><p>{selectedOrden.deposito_nombre}</p></div>
                         <div><p className="font-semibold">Fecha de la Orden:</p><p>{selectedOrden.fecha_orden}</p></div>
-                         <div><p className="font-semibold">Origen:</p><p>{selectedOrden.presupuesto_proveedor_id ? `Presupuesto (${selectedOrden.presupuesto_proveedor_id.substring(0,7)})` : `Pedido (${selectedOrden.pedido_id?.substring(0,7)})`}</p></div>
+                         <div><p className="font-semibold">Origen:</p><p>{selectedOrden.presupuesto_proveedor_id ? `Presupuesto` : (selectedOrden.pedido_id ? 'Pedido' : 'Manual')}</p></div>
                         <div><div className="font-semibold">Estado:</div><Badge variant={getStatusVariant(selectedOrden.estado)}>{selectedOrden.estado}</Badge></div>
                         <div><p className="font-semibold">Generado por:</p><p>{selectedOrden.usuario_id}</p></div>
                          <div><p className="font-semibold">Fecha de Generación:</p><p>{selectedOrden.fecha_creacion?.toDate().toLocaleString()}</p></div>
@@ -447,6 +464,7 @@ export default function OrdenesCompraPage() {
                     <Card>
                         <CardHeader><CardTitle>Productos</CardTitle></CardHeader>
                         <CardContent>
+                             <ScrollArea className="h-[300px]">
                              <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -456,7 +474,7 @@ export default function OrdenesCompraPage() {
                                 <TableBody>
                                     {selectedOrden.items.map((item, index) => (
                                         <TableRow key={index}>
-                                            <TableCell>{item.nombre}</TableCell>
+                                            <TableCell>{productos.find(p => p.id === item.producto_id)?.nombre || item.producto_id}</TableCell>
                                             <TableCell>{item.cantidad}</TableCell>
                                             <TableCell>${item.precio_unitario.toFixed(2)}</TableCell>
                                             <TableCell className="text-right">${(item.cantidad * item.precio_unitario).toFixed(2)}</TableCell>
@@ -464,16 +482,21 @@ export default function OrdenesCompraPage() {
                                     ))}
                                 </TableBody>
                             </Table>
+                            </ScrollArea>
                         </CardContent>
                     </Card>
-                     <div className="text-right font-bold text-xl mt-4">Total: ${selectedOrden.total.toFixed(2)}</div>
                 </div>
             )}
-            <DialogFooter>
+            <DialogFooter className="border-t pt-4">
+              <div className="flex w-full justify-between items-center">
+                <div className="text-right font-bold text-lg">Total: ${selectedOrden?.total.toFixed(2)}</div>
                 <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
+              </div>
             </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 }
+
+    
