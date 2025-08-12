@@ -283,8 +283,7 @@ export default function PedidosPage() {
               </DialogDescription>
             </DialogHeader>
             
-            <div className="flex-grow overflow-y-auto pr-6 -mr-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="proveedor">Proveedor</Label>
                   <Combobox
@@ -306,13 +305,13 @@ export default function PedidosPage() {
                   />
                 </div>
               </div>
-              <div className="space-y-2 mb-4">
+              <div className="space-y-2">
                 <Label htmlFor="observaciones">Observaciones</Label>
                 <Textarea id="observaciones" value={currentPedido.observaciones} onChange={(e) => handleInputChange('observaciones', e.target.value)} placeholder="Añadir observaciones..."/>
               </div>
 
               {isEditing && (
-                <div className="space-y-2 mb-4">
+                <div className="space-y-2">
                     <Label htmlFor="estado">Estado</Label>
                     <Select
                         value={currentPedido.estado}
@@ -330,11 +329,13 @@ export default function PedidosPage() {
                 </div>
               )}
 
+            <div className="flex-grow overflow-y-auto pr-2 -mr-2">
               <Card>
                 <CardHeader>
                     <CardTitle>Productos</CardTitle>
                 </CardHeader>
                 <CardContent>
+                    <ScrollArea className="h-[300px]">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -375,6 +376,7 @@ export default function PedidosPage() {
                             ))}
                         </TableBody>
                     </Table>
+                    </ScrollArea>
                 </CardContent>
               </Card>
             </div>
@@ -521,6 +523,7 @@ export default function PedidosPage() {
                   <CardTitle>Productos</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <ScrollArea className="h-[300px]">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -541,6 +544,7 @@ export default function PedidosPage() {
                         ))}
                       </TableBody>
                     </Table>
+                  </ScrollArea>
                 </CardContent>
               </Card>
           </div>
@@ -557,3 +561,5 @@ export default function PedidosPage() {
     </>
   );
 }
+
+    
