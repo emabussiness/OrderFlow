@@ -491,8 +491,8 @@ export default function PedidosPage() {
                     Información detallada del pedido de compra.
                 </DialogDescription>
             </DialogHeader>
-            {selectedPedido && (
-                 <ScrollArea className="max-h-[70vh]">
+            <ScrollArea className="overflow-auto">
+                {selectedPedido && (
                     <div className="grid gap-4 py-4 pr-6">
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
@@ -554,8 +554,8 @@ export default function PedidosPage() {
                             Total: ${selectedPedido.total.toFixed(2)}
                         </div>
                     </div>
-                </ScrollArea>
-            )}
+                )}
+            </ScrollArea>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
             </DialogFooter>
