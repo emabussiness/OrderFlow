@@ -22,7 +22,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/command";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { productos as initialProductos, proveedores, depositos } from "@/data";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+// Types from Firestore
+type ProductoRef = { id: string; nombre: string; precio_referencia: number; };
+type ProveedorRef = { id: string; nombre: string; };
+type DepositoRef = { id: string; nombre: string; };
 
 type ItemPresupuesto = {
   producto_id: string;
@@ -69,6 +74,10 @@ type Presupuesto = {
 export default function PresupuestosProveedorPage() {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [productos, setProductos] = useState<ProductoRef[]>([]);
+  const [proveedores, setProveedores] = useState<ProveedorRef[]>([]);
+  const [depositos, setDepositos] = useState<DepositoRef[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [selectedPresupuesto, setSelectedPresupuesto] = useState<Presupuesto | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
@@ -94,14 +103,26 @@ export default function PresupuestosProveedorPage() {
       const presupuestosList = presupuestosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Presupuesto));
       setPresupuestos(presupuestosList);
 
-      // Fetch Pedidos
+      // Fetch Pedidos Pendientes
       const pedidosCollection = collection(db, 'pedidos_compra');
       const qPedidos = query(pedidosCollection, where("estado", "==", "Pendiente"));
       const pedidosSnapshot = await getDocs(qPedidos);
       const pedidosList = pedidosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pedido));
 
-      const pedidosConPresupuesto = presupuestosList.map(p => p.pedido_id);
-      setPedidos(pedidosList.filter(p => !pedidosConPresupuesto.includes(p.id)));
+      // Filter out pedidos that already have a budget
+      const pedidosConPresupuestoIds = presupuestosList.map(p => p.pedido_id);
+      setPedidos(pedidosList.filter(p => !pedidosConPresupuestoIds.includes(p.id)));
+      
+      // Fetch Referenciales
+      const productosSnapshot = await getDocs(query(collection(db, 'productos'), orderBy("nombre")));
+      setProductos(productosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductoRef)));
+      
+      const proveedoresSnapshot = await getDocs(query(collection(db, 'proveedores'), orderBy("nombre")));
+      setProveedores(proveedoresSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProveedorRef)));
+
+      const depositosSnapshot = await getDocs(query(collection(db, 'depositos'), orderBy("nombre")));
+      setDepositos(depositosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DepositoRef)));
+
 
     } catch (error) {
       console.error("Error fetching data: ", error);
@@ -157,7 +178,7 @@ export default function PresupuestosProveedorPage() {
 
     if (field === 'producto_id') {
       const productoId = value as string;
-      const producto = initialProductos.find(p => p.id === productoId);
+      const producto = productos.find(p => p.id === productoId);
        if (items.some((item, i) => item.producto_id === productoId && i !== index)) {
             toast({ variant: "destructive", title: "Producto duplicado", description: "Este producto ya ha sido añadido." });
             return;
@@ -215,6 +236,12 @@ export default function PresupuestosProveedorPage() {
         }
 
         const docRef = await addDoc(collection(db, "presupuesto_proveedor"), nuevoPresupuesto);
+        
+        // Mark pedido as "Completado" since it now has a budget and an OC will be generated from it
+        if(creationMode === 'pedido' && selectedPedidoId) {
+            const pedidoRef = doc(db, 'pedidos_compra', selectedPedidoId);
+            await updateDoc(pedidoRef, { estado: "Completado" });
+        }
 
         await fetchData(); // Refresh lists
         
@@ -236,25 +263,23 @@ export default function PresupuestosProveedorPage() {
     setOpenDetails(true);
   }
 
-  const handleUpdateStatus = async (presupuestoId: string, newStatus: "Aprobado" | "Rechazado") => {
-    const presupuestoRef = doc(db, 'presupuesto_proveedor', presupuestoId);
+  const handleUpdateStatus = async (presupuesto: Presupuesto, newStatus: "Aprobado" | "Rechazado") => {
+    const presupuestoRef = doc(db, 'presupuesto_proveedor', presupuesto.id);
     try {
         await updateDoc(presupuestoRef, { estado: newStatus });
         
-        const presupuestoAprobado = presupuestos.find(p => p.id === presupuestoId);
-        
-        if (newStatus === 'Aprobado' && presupuestoAprobado) {
+        if (newStatus === 'Aprobado') {
             const nuevaOrden = {
-                presupuesto_proveedor_id: presupuestoAprobado.id,
-                pedido_id: presupuestoAprobado.pedido_id,
-                proveedor_nombre: presupuestoAprobado.proveedor_nombre,
-                proveedor_id: presupuestoAprobado.proveedor_id,
-                deposito_nombre: presupuestoAprobado.deposito_nombre,
-                deposito_id: presupuestoAprobado.deposito_id,
+                presupuesto_proveedor_id: presupuesto.id,
+                pedido_id: presupuesto.pedido_id,
+                proveedor_nombre: presupuesto.proveedor_nombre,
+                proveedor_id: presupuesto.proveedor_id,
+                deposito_nombre: presupuesto.deposito_nombre,
+                deposito_id: presupuesto.deposito_id,
                 fecha_orden: new Date().toISOString().split('T')[0],
                 estado: "Pendiente de Recepción",
-                total: presupuestoAprobado.total,
-                items: presupuestoAprobado.items.map(i => ({...i, precio_unitario: i.precio_presupuestado})),
+                total: presupuesto.total,
+                items: presupuesto.items.map(i => ({...i, precio_unitario: i.precio_presupuestado})),
                 usuario_id: "user-demo",
                 fecha_creacion: serverTimestamp(),
             };
@@ -283,141 +308,136 @@ export default function PresupuestosProveedorPage() {
               Registrar Presupuesto
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-4xl">
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Registrar Nuevo Presupuesto</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-               <RadioGroup value={creationMode} onValueChange={(value) => setCreationMode(value as any)} className="grid grid-cols-2 gap-4">
-                  <div>
-                      <RadioGroupItem value="pedido" id="r1" className="peer sr-only" />
-                      <Label htmlFor="r1" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                          Basado en Pedido
-                      </Label>
-                  </div>
-                  <div>
-                      <RadioGroupItem value="manual" id="r2" className="peer sr-only" />
-                      <Label htmlFor="r2" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                          Registro Manual
-                      </Label>
-                  </div>
-              </RadioGroup>
+            <div className="flex-grow overflow-y-auto pr-2 -mr-2">
+                <div className="grid gap-4 py-4">
+                <RadioGroup value={creationMode} onValueChange={(value) => setCreationMode(value as any)} className="grid grid-cols-2 gap-4">
+                    <div>
+                        <RadioGroupItem value="pedido" id="r1" className="peer sr-only" />
+                        <Label htmlFor="r1" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                            Basado en Pedido
+                        </Label>
+                    </div>
+                    <div>
+                        <RadioGroupItem value="manual" id="r2" className="peer sr-only" />
+                        <Label htmlFor="r2" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                            Registro Manual
+                        </Label>
+                    </div>
+                </RadioGroup>
 
-              {creationMode === 'pedido' ? (
-                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="pedido" className="text-right">
-                    Pedido de Compra
-                  </Label>
-                  <div className="col-span-3">
-                      <Combobox
-                          options={pedidos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor_nombre}` }))}
-                          value={selectedPedidoId}
-                          onChange={setSelectedPedidoId}
-                          placeholder="Seleccione un pedido pendiente"
-                          searchPlaceholder="Buscar pedido..."
-                      />
-                  </div>
+                {creationMode === 'pedido' ? (
+                    <div className="space-y-2">
+                    <Label htmlFor="pedido">Pedido de Compra</Label>
+                        <Combobox
+                            options={pedidos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor_nombre}` }))}
+                            value={selectedPedidoId}
+                            onChange={setSelectedPedidoId}
+                            placeholder="Seleccione un pedido pendiente"
+                            searchPlaceholder="Buscar pedido..."
+                        />
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                    <Label htmlFor="proveedor">Proveedor</Label>
+                        <Combobox
+                            options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
+                            value={selectedProveedorId}
+                            onChange={setSelectedProveedorId}
+                            placeholder="Seleccione un proveedor"
+                            searchPlaceholder="Buscar proveedor..."
+                        />
+                    </div>
+                    <div className="space-y-2">
+                    <Label htmlFor="deposito">Depósito</Label>
+                        <Combobox
+                            options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
+                            value={selectedDepositoId}
+                            onChange={setSelectedDepositoId}
+                            placeholder="Seleccione un depósito"
+                            searchPlaceholder="Buscar depósito..."
+                        />
+                    </div>
+                    </div>
+                )}
+                
+                <div className="space-y-2">
+                    <Label htmlFor="observaciones">Observaciones</Label>
+                    <Textarea id="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Añadir observaciones..."/>
                 </div>
-              ) : (
-                <>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="proveedor" className="text-right">Proveedor</Label>
-                   <div className="col-span-3">
-                      <Combobox
-                          options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
-                          value={selectedProveedorId}
-                          onChange={setSelectedProveedorId}
-                          placeholder="Seleccione un proveedor"
-                          searchPlaceholder="Buscar proveedor..."
-                      />
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="deposito" className="text-right">Depósito</Label>
-                   <div className="col-span-3">
-                      <Combobox
-                          options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
-                          value={selectedDepositoId}
-                          onChange={setSelectedDepositoId}
-                          placeholder="Seleccione un depósito"
-                          searchPlaceholder="Buscar depósito..."
-                      />
-                  </div>
-                </div>
-                </>
-              )}
-             
-               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="observaciones" className="text-right">
-                  Observaciones
-                </Label>
-                <Textarea id="observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} className="col-span-3" placeholder="Añadir observaciones..."/>
-              </div>
 
-              {(selectedPedido || creationMode === 'manual') && (
-                 <Card className="col-span-4">
-                    <CardHeader>
-                        <CardTitle>Productos del Presupuesto</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Producto</TableHead>
-                                    <TableHead className="w-[150px]">Cantidad</TableHead>
-                                    <TableHead className="w-[150px]">Precio Cotizado</TableHead>
-                                    <TableHead className="w-[150px] text-right">Subtotal</TableHead>
-                                    <TableHead className="w-[50px]"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {items.map((item, index) => (
-                                    <TableRow key={index}>
-                                        <TableCell>
-                                             <Combobox
-                                                options={initialProductos.map(p => ({ value: p.id, label: p.nombre }))}
-                                                value={item.producto_id}
-                                                onChange={(value) => handleItemChange(index, 'producto_id', value)}
-                                                disabled={creationMode === 'pedido' && !!item.producto_id}
-                                                placeholder="Seleccione producto"
-                                                searchPlaceholder="Buscar producto..."
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" disabled={creationMode === 'pedido'}/>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Input type="number" value={item.precio_presupuestado} onChange={(e) => handleItemChange(index, 'precio_presupuestado', e.target.value)} min="0"/>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                          ${(item.cantidad * item.precio_presupuestado).toFixed(2)}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={creationMode === 'pedido'}>
-                                                <Trash2 className="h-4 w-4 text-red-500" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                         <div className="flex justify-between items-center mt-4">
-                            <Button variant="outline" size="sm" onClick={handleAddItem} disabled={creationMode === 'pedido'}>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Añadir Producto
-                            </Button>
-                            <div className="text-right font-bold text-lg">
-                                Total: ${calcularTotal()}
-                            </div>
-                        </div>
-                    </CardContent>
-                 </Card>
-              )}
-             
+                {(selectedPedido || creationMode === 'manual') && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Productos del Presupuesto</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <ScrollArea className="h-[300px]">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Producto</TableHead>
+                                            <TableHead className="w-[150px]">Cantidad</TableHead>
+                                            <TableHead className="w-[150px]">Precio Cotizado</TableHead>
+                                            <TableHead className="w-[150px] text-right">Subtotal</TableHead>
+                                            <TableHead className="w-[50px]"></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {items.map((item, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>
+                                                    <Combobox
+                                                        options={productos.map(p => ({ value: p.id, label: p.nombre }))}
+                                                        value={item.producto_id}
+                                                        onChange={(value) => handleItemChange(index, 'producto_id', value)}
+                                                        disabled={creationMode === 'pedido'}
+                                                        placeholder="Seleccione producto"
+                                                        searchPlaceholder="Buscar producto..."
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" disabled={creationMode === 'pedido'}/>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input type="number" value={item.precio_presupuestado} onChange={(e) => handleItemChange(index, 'precio_presupuestado', e.target.value)} min="0"/>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                ${(item.cantidad * item.precio_presupuestado).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={creationMode === 'pedido'}>
+                                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                             </ScrollArea>
+                        </CardContent>
+                    </Card>
+                )}
+                </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
-              <Button onClick={handleCreatePresupuesto} disabled={(creationMode === 'pedido' && !selectedPedidoId) || (creationMode === 'manual' && (!selectedProveedorId || !selectedDepositoId || items.length === 0))}>Registrar</Button>
+            <DialogFooter className="border-t pt-4">
+                <div className="flex justify-between w-full items-center">
+                    <Button variant="outline" size="sm" onClick={handleAddItem} disabled={creationMode === 'pedido'}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Añadir Producto
+                    </Button>
+                    <div className="flex items-center gap-4">
+                        <div className="text-right font-bold text-lg">
+                            Total: ${calcularTotal()}
+                        </div>
+                        <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
+                        <Button onClick={handleCreatePresupuesto} disabled={(creationMode === 'pedido' && !selectedPedidoId) || (creationMode === 'manual' && (!selectedProveedorId || !selectedDepositoId || items.length === 0))}>Registrar</Button>
+                    </div>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -478,7 +498,7 @@ export default function PresupuestosProveedorPage() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cerrar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleUpdateStatus(presupuesto.id, 'Aprobado')}>Confirmar</AlertDialogAction>
+                              <AlertDialogAction onClick={() => handleUpdateStatus(presupuesto, 'Aprobado')}>Confirmar</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -497,7 +517,7 @@ export default function PresupuestosProveedorPage() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cerrar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleUpdateStatus(presupuesto.id, 'Rechazado')} className="bg-destructive hover:bg-destructive/90">Confirmar</AlertDialogAction>
+                              <AlertDialogAction onClick={() => handleUpdateStatus(presupuesto, 'Rechazado')} className="bg-destructive hover:bg-destructive/90">Confirmar</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -512,52 +532,58 @@ export default function PresupuestosProveedorPage() {
       </Card>
 
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
             <DialogHeader>
                 <DialogTitle>Detalles del Presupuesto: {selectedPresupuesto?.id.substring(0,7)}</DialogTitle>
                 <DialogDescription>
                     Información detallada del presupuesto recibido del proveedor.
                 </DialogDescription>
             </DialogHeader>
-            {selectedPresupuesto && (
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div><p className="font-semibold">Proveedor:</p><p>{selectedPresupuesto.proveedor_nombre}</p></div>
-                        <div><p className="font-semibold">Depósito:</p><p>{selectedPresupuesto.deposito_nombre}</p></div>
-                        <div><p className="font-semibold">Fecha:</p><p>{selectedPresupuesto.fecha_presupuesto}</p></div>
-                        <div><p className="font-semibold">Pedido ID:</p><p>{selectedPresupuesto.pedido_id?.substring(0,7) ?? 'N/A'}</p></div>
-                        <div><div className="font-semibold">Estado:</div><Badge variant={getStatusVariant(selectedPresupuesto.estado)}>{selectedPresupuesto.estado}</Badge></div>
-                        <div><p className="font-semibold">Registrado por:</p><p>{selectedPresupuesto.usuario_id}</p></div>
-                        <div><p className="font-semibold">Fecha de Registro:</p><p>{selectedPresupuesto.fecha_creacion?.toDate().toLocaleString()}</p></div>
+            <div className="flex-grow overflow-y-auto pr-6 -mr-6">
+                {selectedPresupuesto && (
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div><p className="font-semibold">Proveedor:</p><p>{selectedPresupuesto.proveedor_nombre}</p></div>
+                            <div><p className="font-semibold">Depósito:</p><p>{selectedPresupuesto.deposito_nombre}</p></div>
+                            <div><p className="font-semibold">Fecha:</p><p>{selectedPresupuesto.fecha_presupuesto}</p></div>
+                            <div><p className="font-semibold">Pedido ID:</p><p>{selectedPresupuesto.pedido_id?.substring(0,7) ?? 'N/A'}</p></div>
+                            <div><div className="font-semibold">Estado:</div><Badge variant={getStatusVariant(selectedPresupuesto.estado)}>{selectedPresupuesto.estado}</Badge></div>
+                            <div><p className="font-semibold">Registrado por:</p><p>{selectedPresupuesto.usuario_id}</p></div>
+                            <div><p className="font-semibold">Fecha de Registro:</p><p>{selectedPresupuesto.fecha_creacion?.toDate().toLocaleString()}</p></div>
+                        </div>
+                        <div><p className="font-semibold">Observaciones:</p><p className="text-muted-foreground">{selectedPresupuesto.observaciones || 'Sin observaciones'}</p></div>
+                        <Card>
+                            <CardHeader><CardTitle>Productos Cotizados</CardTitle></CardHeader>
+                            <CardContent>
+                                <ScrollArea className="h-[300px]">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead className="text-right">Subtotal</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {selectedPresupuesto.items.map((item, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell>{item.nombre}</TableCell>
+                                                    <TableCell>{item.cantidad}</TableCell>
+                                                    <TableCell>${item.precio_presupuestado.toFixed(2)}</TableCell>
+                                                    <TableCell className="text-right">${(item.cantidad * item.precio_presupuestado).toFixed(2)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </ScrollArea>
+                            </CardContent>
+                        </Card>
                     </div>
-                     <div><p className="font-semibold">Observaciones:</p><p className="text-muted-foreground">{selectedPresupuesto.observaciones || 'Sin observaciones'}</p></div>
-                    <Card>
-                        <CardHeader><CardTitle>Productos Cotizados</CardTitle></CardHeader>
-                        <CardContent>
-                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead className="text-right">Subtotal</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {selectedPresupuesto.items.map((item, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>{item.nombre}</TableCell>
-                                            <TableCell>{item.cantidad}</TableCell>
-                                            <TableCell>${item.precio_presupuestado.toFixed(2)}</TableCell>
-                                            <TableCell className="text-right">${(item.cantidad * item.precio_presupuestado).toFixed(2)}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                     <div className="text-right font-bold text-xl mt-4">Total Presupuestado: ${selectedPresupuesto.total.toFixed(2)}</div>
+                )}
+            </div>
+            <DialogFooter className="border-t pt-4">
+                <div className="flex justify-between w-full items-center">
+                    <div className="text-right font-bold text-lg">Total Presupuestado: ${selectedPresupuesto?.total.toFixed(2)}</div>
+                    <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
                 </div>
-            )}
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
