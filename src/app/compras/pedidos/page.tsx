@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Combobox } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 
 // Tipos de datos de referenciales
@@ -491,67 +492,69 @@ export default function PedidosPage() {
                 </DialogDescription>
             </DialogHeader>
             {selectedPedido && (
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <p className="font-semibold">Proveedor:</p>
-                            <p>{selectedPedido.proveedor_nombre}</p>
+                 <ScrollArea className="max-h-[70vh]">
+                    <div className="grid gap-4 py-4 pr-6">
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <p className="font-semibold">Proveedor:</p>
+                                <p>{selectedPedido.proveedor_nombre}</p>
+                            </div>
+                            <div>
+                                <p className="font-semibold">Depósito Destino:</p>
+                                <p>{selectedPedido.deposito_nombre}</p>
+                            </div>
+                            <div>
+                                <p className="font-semibold">Fecha del Pedido:</p>
+                                <p>{selectedPedido.fecha_pedido}</p>
+                            </div>
+                            <div>
+                                <div className="font-semibold">Estado:</div>
+                                <Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge>
+                            </div>
+                            <div>
+                                <p className="font-semibold">Registrado por:</p>
+                                <p>{selectedPedido.usuario_id}</p>
+                            </div>
+                            <div>
+                                <p className="font-semibold">Fecha de Creación:</p>
+                                <p>{selectedPedido.fecha_creacion?.toDate().toLocaleString()}</p>
+                            </div>
                         </div>
                         <div>
-                            <p className="font-semibold">Depósito Destino:</p>
-                            <p>{selectedPedido.deposito_nombre}</p>
+                            <p className="font-semibold">Observaciones:</p>
+                            <p className="text-muted-foreground">{selectedPedido.observaciones || 'Sin observaciones'}</p>
                         </div>
-                        <div>
-                            <p className="font-semibold">Fecha del Pedido:</p>
-                            <p>{selectedPedido.fecha_pedido}</p>
-                        </div>
-                        <div>
-                            <div className="font-semibold">Estado:</div>
-                            <Badge variant={getStatusVariant(selectedPedido.estado)}>{selectedPedido.estado}</Badge>
-                        </div>
-                        <div>
-                            <p className="font-semibold">Registrado por:</p>
-                            <p>{selectedPedido.usuario_id}</p>
-                        </div>
-                         <div>
-                            <p className="font-semibold">Fecha de Creación:</p>
-                            <p>{selectedPedido.fecha_creacion?.toDate().toLocaleString()}</p>
-                        </div>
-                    </div>
-                     <div>
-                        <p className="font-semibold">Observaciones:</p>
-                        <p className="text-muted-foreground">{selectedPedido.observaciones || 'Sin observaciones'}</p>
-                    </div>
 
-                    <Card>
-                        <CardHeader><CardTitle>Productos</CardTitle></CardHeader>
-                        <CardContent>
-                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Producto</TableHead>
-                                        <TableHead>Cantidad</TableHead>
-                                        <TableHead>Precio Estimado</TableHead>
-                                        <TableHead className="text-right">Subtotal</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {selectedPedido.items.map((item, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>{item.nombre}</TableCell>
-                                            <TableCell>{item.cantidad}</TableCell>
-                                            <TableCell>${item.precio_estimado.toFixed(2)}</TableCell>
-                                            <TableCell className="text-right">${(item.cantidad * item.precio_estimado).toFixed(2)}</TableCell>
+                        <Card>
+                            <CardHeader><CardTitle>Productos</CardTitle></CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Producto</TableHead>
+                                            <TableHead>Cantidad</TableHead>
+                                            <TableHead>Precio Estimado</TableHead>
+                                            <TableHead className="text-right">Subtotal</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                     <div className="text-right font-bold text-xl mt-4">
-                        Total: ${selectedPedido.total.toFixed(2)}
+                                    </TableHeader>
+                                    <TableBody>
+                                        {selectedPedido.items.map((item, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>{item.nombre}</TableCell>
+                                                <TableCell>{item.cantidad}</TableCell>
+                                                <TableCell>${item.precio_estimado.toFixed(2)}</TableCell>
+                                                <TableCell className="text-right">${(item.cantidad * item.precio_estimado).toFixed(2)}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                        <div className="text-right font-bold text-xl mt-4">
+                            Total: ${selectedPedido.total.toFixed(2)}
+                        </div>
                     </div>
-                </div>
+                </ScrollArea>
             )}
             <DialogFooter>
                 <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
@@ -561,6 +564,3 @@ export default function PedidosPage() {
     </>
   );
 }
-
-
-    
