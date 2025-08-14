@@ -97,10 +97,10 @@ const PedidoSelectorDialog = ({ pedidos, onSelectPedido }: { pedidos: Pedido[], 
                     <DialogDescription>Selecciona un pedido para ver sus detalles y cargarlo en el presupuesto.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden">
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 overflow-hidden">
                         <h3 className="text-lg font-medium">Listado de Pedidos</h3>
                         <ScrollArea className="flex-grow border rounded-md">
-                            <Table>
+                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>ID</TableHead>
@@ -120,39 +120,37 @@ const PedidoSelectorDialog = ({ pedidos, onSelectPedido }: { pedidos: Pedido[], 
                             </Table>
                         </ScrollArea>
                     </div>
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 overflow-hidden">
                         <h3 className="text-lg font-medium">Vista Previa del Pedido</h3>
-                        <Card className="flex-grow flex flex-col">
+                        <Card className="flex-grow flex flex-col overflow-hidden">
                            {selectedPedidoPreview ? (
                             <>
-                             <CardHeader>
+                             <CardHeader className="flex-shrink-0">
                                 <CardTitle>{`Pedido: ${selectedPedidoPreview.id.substring(0,7)}`}</CardTitle>
                                 <CardDescription>{`Proveedor: ${selectedPedidoPreview.proveedor_nombre}`}</CardDescription>
                              </CardHeader>
                              <CardContent className="flex-grow overflow-y-auto">
-                                <ScrollArea className="h-full pr-6 -mr-6">
-                                    <div className="space-y-4">
-                                        <div><strong>Fecha:</strong> {selectedPedidoPreview.fecha_pedido}</div>
-                                        <div><strong>Depósito:</strong> {selectedPedidoPreview.deposito_nombre}</div>
-                                        <div><strong>Observaciones:</strong> {selectedPedidoPreview.observaciones || 'N/A'}</div>
-                                        <Separator />
-                                        <h4 className="font-semibold">Items del Pedido</h4>
-                                        <Table>
-                                            <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">P. Est.</TableHead></TableRow></TableHeader>
-                                            <TableBody>
-                                                {selectedPedidoPreview.items.map(item => (
-                                                    <TableRow key={item.producto_id}>
-                                                        <TableCell>{item.nombre}</TableCell>
-                                                        <TableCell>{item.cantidad}</TableCell>
-                                                        <TableCell className="text-right">${item.precio_estimado.toFixed(2)}</TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                </ScrollArea>
+                                <div className="space-y-4">
+                                    <div><strong>Fecha:</strong> {selectedPedidoPreview.fecha_pedido}</div>
+                                    <div><strong>Depósito:</strong> {selectedPedidoPreview.deposito_nombre}</div>
+                                    <div><strong>Observaciones:</strong> {selectedPedidoPreview.observaciones || 'N/A'}</div>
+                                    <Separator />
+                                    <h4 className="font-semibold">Items del Pedido</h4>
+                                    <Table>
+                                        <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">P. Est.</TableHead></TableRow></TableHeader>
+                                        <TableBody>
+                                            {selectedPedidoPreview.items.map(item => (
+                                                <TableRow key={item.producto_id}>
+                                                    <TableCell>{item.nombre}</TableCell>
+                                                    <TableCell>{item.cantidad}</TableCell>
+                                                    <TableCell className="text-right">${item.precio_estimado.toFixed(2)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                              </CardContent>
-                             <CardFooter className="p-6 border-t">
+                             <CardFooter className="p-6 border-t flex-shrink-0">
                                 <div className="w-full flex justify-between items-center">
                                     <span className="font-bold text-lg">Total: ${selectedPedidoPreview.total.toFixed(2)}</span>
                                     <Button onClick={handleSelectAndClose}>Confirmar Selección</Button>
@@ -670,5 +668,3 @@ export default function PresupuestosProveedorPage() {
     </>
   );
 }
-
-    
