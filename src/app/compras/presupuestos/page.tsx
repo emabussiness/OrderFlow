@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
@@ -223,7 +223,7 @@ export default function PresupuestosProveedorPage() {
 
     try {
         const nuevoPresupuesto = {
-            pedido_id: creationMode === 'pedido' ? selectedPedidoId : 'N/A (Manual)',
+            pedido_id: creationMode === 'pedido' ? selectedPedidoId : null,
             proveedor_nombre: proveedor?.nombre || 'N/A',
             proveedor_id: proveedor?.id || '',
             deposito_nombre: deposito?.nombre || 'N/A',
@@ -237,14 +237,8 @@ export default function PresupuestosProveedorPage() {
             fecha_creacion: serverTimestamp(),
         }
 
-        const docRef = await addDoc(collection(db, "presupuesto_proveedor"), nuevoPresupuesto);
+        await addDoc(collection(db, "presupuesto_proveedor"), nuevoPresupuesto);
         
-        // Mark pedido as "Completado" since it now has a budget and an OC will be generated from it
-        if(creationMode === 'pedido' && selectedPedidoId) {
-            const pedidoRef = doc(db, 'pedidos_compra', selectedPedidoId);
-            await updateDoc(pedidoRef, { estado: "Completado" });
-        }
-
         await fetchData(); // Refresh lists
         
         toast({ title: "Presupuesto Registrado", description: `El presupuesto ha sido creado.` });
@@ -312,6 +306,7 @@ export default function PresupuestosProveedorPage() {
                 </RadioGroup>
 
                 {creationMode === 'pedido' ? (
+                  <>
                     <div className="space-y-2">
                     <Label htmlFor="pedido">Pedido de Compra</Label>
                         <Combobox
@@ -322,6 +317,30 @@ export default function PresupuestosProveedorPage() {
                             searchPlaceholder="Buscar pedido..."
                         />
                     </div>
+                    {selectedPedido && (
+                      <Card className="bg-muted/50">
+                        <CardHeader>
+                          <CardTitle className="text-base">Resumen del Pedido</CardTitle>
+                          <CardDescription>ID: {selectedPedido.id.substring(0,7)}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="text-sm">
+                           <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                              <div><strong>Proveedor:</strong> {selectedPedido.proveedor_nombre}</div>
+                              <div><strong>Depósito:</strong> {selectedPedido.deposito_nombre}</div>
+                              <div><strong>Fecha:</strong> {selectedPedido.fecha_pedido}</div>
+                              <div><strong>Total Estimado:</strong> ${selectedPedido.total.toFixed(2)}</div>
+                           </div>
+                           <div className="mt-2">
+                              <strong>Items:</strong>
+                              <ul className="list-disc list-inside text-muted-foreground">
+                                {selectedPedido.items.slice(0,3).map(item => <li key={item.producto_id}>{item.nombre} (Cant: {item.cantidad})</li>)}
+                                {selectedPedido.items.length > 3 && <li>...y {selectedPedido.items.length - 3} más.</li>}
+                              </ul>
+                           </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
                 ) : (
                     <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -573,3 +592,6 @@ export default function PresupuestosProveedorPage() {
   );
 }
 
+
+
+    
