@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -39,6 +38,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
        if (pathname.includes('referenciales/bancos')) return 'Referenciales - Bancos';
       if (pathname.includes('referenciales')) return `Referenciales - ${title}`;
       if (pathname.includes('movimientos')) return `Movimientos - ${title}`;
+      if (pathname.includes('registros')) return `Registros - ${title}`;
       if (pathname.includes('informes')) return `Informes - ${title}`;
       return title;
     }
@@ -121,9 +121,26 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                       <SidebarMenuItem><Link href="/compras/pedidos"><SidebarMenuButton isActive={pathname.startsWith('/compras/pedidos')}>Pedido</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/presupuestos"><SidebarMenuButton isActive={pathname.startsWith('/compras/presupuestos')}>Presupuesto proveedor</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/ordenes"><SidebarMenuButton isActive={pathname.startsWith('/compras/ordenes')}>Orden de compra</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="/compras/registros"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros')}>Compra</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton>Notas Crédito/Débito</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="#"><SidebarMenuButton>Ajustes de Stock</SidebarMenuButton></Link></SidebarMenuItem>
+                    </SidebarMenu>
+                  </CollapsibleContent>
+                </Collapsible>
+                <Collapsible className="ml-4">
+                   <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton className="justify-between">
+                        <div className="flex items-center gap-2">
+                          <Receipt />
+                          <span>Registros</span>
+                        </div>
+                        <ChevronDown className="h-4 w-4" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                  </SidebarMenuItem>
+                  <CollapsibleContent className="ml-4">
+                    <SidebarMenu>
+                      <SidebarMenuItem><Link href="/compras/registros"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros')}>Compras</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
