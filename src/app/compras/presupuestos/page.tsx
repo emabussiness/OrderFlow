@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Search } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +54,7 @@ type Pedido = {
   estado: "Pendiente" | "Completado" | "Cancelado";
   total: number;
   items: ItemPedido[];
+  observaciones?: string;
 };
 
 type Presupuesto = {
@@ -71,6 +72,102 @@ type Presupuesto = {
   usuario_id: string;
   fecha_creacion: any;
 };
+
+const PedidoSelectorDialog = ({ pedidos, onSelectPedido }: { pedidos: Pedido[], onSelectPedido: (pedidoId: string) => void }) => {
+    const [open, setOpen] = useState(false);
+    const [selectedPedidoPreview, setSelectedPedidoPreview] = useState<Pedido | null>(null);
+
+    const handleSelectAndClose = () => {
+        if (selectedPedidoPreview) {
+            onSelectPedido(selectedPedidoPreview.id);
+            setOpen(false);
+            setSelectedPedidoPreview(null);
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><Search className="mr-2 h-4 w-4"/>Seleccionar un Pedido...</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>Explorador de Pedidos Pendientes</DialogTitle>
+                    <DialogDescription>Selecciona un pedido para ver sus detalles y cargarlo en el presupuesto.</DialogDescription>
+                </DialogHeader>
+                <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden">
+                    <div className="flex flex-col gap-4">
+                        <h3 className="text-lg font-medium">Listado de Pedidos</h3>
+                        <ScrollArea className="flex-grow border rounded-md">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>ID</TableHead>
+                                        <TableHead>Proveedor</TableHead>
+                                        <TableHead>Fecha</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {pedidos.map(p => (
+                                        <TableRow key={p.id} onClick={() => setSelectedPedidoPreview(p)} className="cursor-pointer hover:bg-muted/50">
+                                            <TableCell>{p.id.substring(0, 7)}</TableCell>
+                                            <TableCell>{p.proveedor_nombre}</TableCell>
+                                            <TableCell>{p.fecha_pedido}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </ScrollArea>
+                    </div>
+                    <div className="flex flex-col gap-4">
+                        <h3 className="text-lg font-medium">Vista Previa del Pedido</h3>
+                        <Card className="flex-grow flex flex-col">
+                           {selectedPedidoPreview ? (
+                            <>
+                             <CardHeader>
+                                <CardTitle>{`Pedido: ${selectedPedidoPreview.id.substring(0,7)}`}</CardTitle>
+                                <CardDescription>{`Proveedor: ${selectedPedidoPreview.proveedor_nombre}`}</CardDescription>
+                             </CardHeader>
+                             <CardContent className="flex-grow overflow-y-auto">
+                                <div className="space-y-4">
+                                     <div><strong>Fecha:</strong> {selectedPedidoPreview.fecha_pedido}</div>
+                                     <div><strong>Depósito:</strong> {selectedPedidoPreview.deposito_nombre}</div>
+                                     <div><strong>Observaciones:</strong> {selectedPedidoPreview.observaciones || 'N/A'}</div>
+                                     <Separator />
+                                     <h4 className="font-semibold">Items del Pedido</h4>
+                                     <Table>
+                                         <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">P. Est.</TableHead></TableRow></TableHeader>
+                                         <TableBody>
+                                             {selectedPedidoPreview.items.map(item => (
+                                                 <TableRow key={item.producto_id}>
+                                                     <TableCell>{item.nombre}</TableCell>
+                                                     <TableCell>{item.cantidad}</TableCell>
+                                                     <TableCell className="text-right">${item.precio_estimado.toFixed(2)}</TableCell>
+                                                 </TableRow>
+                                             ))}
+                                         </TableBody>
+                                     </Table>
+                                </div>
+                             </CardContent>
+                             <DialogFooter className="p-6 border-t">
+                                <div className="w-full flex justify-between items-center">
+                                    <span className="font-bold text-lg">Total: ${selectedPedidoPreview.total.toFixed(2)}</span>
+                                    <Button onClick={handleSelectAndClose}>Confirmar Selección</Button>
+                                </div>
+                             </DialogFooter>
+                             </>
+                           ) : (
+                             <div className="h-full flex items-center justify-center text-muted-foreground">
+                                 <p>Seleccione un pedido para ver los detalles</p>
+                             </div>
+                           )}
+                        </Card>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 export default function PresupuestosProveedorPage() {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
@@ -152,6 +249,9 @@ export default function PresupuestosProveedorPage() {
       setItems([]);
       setSelectedProveedorId('');
       setSelectedDepositoId('');
+      if (creationMode === 'pedido') {
+          setSelectedPedidoId('');
+      }
     }
   }, [creationMode, selectedPedidoId, selectedPedido]); 
   
@@ -306,41 +406,17 @@ export default function PresupuestosProveedorPage() {
                 </RadioGroup>
 
                 {creationMode === 'pedido' ? (
-                  <>
-                    <div className="space-y-2">
+                  <div className="space-y-2">
                     <Label htmlFor="pedido">Pedido de Compra</Label>
-                        <Combobox
-                            options={pedidos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor_nombre}` }))}
-                            value={selectedPedidoId}
-                            onChange={setSelectedPedidoId}
-                            placeholder="Seleccione un pedido pendiente"
-                            searchPlaceholder="Buscar pedido..."
-                        />
-                    </div>
-                    {selectedPedido && (
-                      <Card className="bg-muted/50">
-                        <CardHeader>
-                          <CardTitle className="text-base">Resumen del Pedido</CardTitle>
-                          <CardDescription>ID: {selectedPedido.id.substring(0,7)}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="text-sm">
-                           <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                              <div><strong>Proveedor:</strong> {selectedPedido.proveedor_nombre}</div>
-                              <div><strong>Depósito:</strong> {selectedPedido.deposito_nombre}</div>
-                              <div><strong>Fecha:</strong> {selectedPedido.fecha_pedido}</div>
-                              <div><strong>Total Estimado:</strong> ${selectedPedido.total.toFixed(2)}</div>
-                           </div>
-                           <div className="mt-2">
-                              <strong>Items:</strong>
-                              <ul className="list-disc list-inside text-muted-foreground">
-                                {selectedPedido.items.slice(0,3).map(item => <li key={item.producto_id}>{item.nombre} (Cant: {item.cantidad})</li>)}
-                                {selectedPedido.items.length > 3 && <li>...y {selectedPedido.items.length - 3} más.</li>}
-                              </ul>
-                           </div>
-                        </CardContent>
-                      </Card>
+                    {selectedPedido ? (
+                         <div className="flex items-center gap-2">
+                            <Input value={`Pedido ID: ${selectedPedido.id.substring(0,7)} - ${selectedPedido.proveedor_nombre}`} readOnly/>
+                            <Button variant="secondary" onClick={() => setSelectedPedidoId('')}>Cambiar</Button>
+                         </div>
+                    ) : (
+                        <PedidoSelectorDialog pedidos={pedidos} onSelectPedido={setSelectedPedidoId} />
                     )}
-                  </>
+                  </div>
                 ) : (
                     <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -591,7 +667,5 @@ export default function PresupuestosProveedorPage() {
     </>
   );
 }
-
-
 
     
