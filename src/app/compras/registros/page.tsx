@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,6 +9,7 @@ import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle, Calendar as CalendarIcon, Search } from "lucide-react";
 import {
   DropdownMenu,
@@ -597,3 +599,5 @@ export default function ComprasPage() {
     </>
   );
 }
+
+    
