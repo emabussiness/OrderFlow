@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle, Trash2, Search } from "lucide-react";
@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter as DialogFooterComponent, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -130,8 +130,8 @@ const PedidoSelectorDialog = ({ pedidos, onSelectPedido }: { pedidos: Pedido[], 
                                 <CardDescription>{`Proveedor: ${selectedPedidoPreview.proveedor_nombre}`}</CardDescription>
                              </CardHeader>
                              <CardContent className="flex-grow overflow-y-auto">
-                                <ScrollArea className="h-full">
-                                    <div className="space-y-4 pr-6">
+                                <ScrollArea className="h-full pr-6 -mr-6">
+                                    <div className="space-y-4">
                                         <div><strong>Fecha:</strong> {selectedPedidoPreview.fecha_pedido}</div>
                                         <div><strong>Depósito:</strong> {selectedPedidoPreview.deposito_nombre}</div>
                                         <div><strong>Observaciones:</strong> {selectedPedidoPreview.observaciones || 'N/A'}</div>
@@ -504,7 +504,7 @@ export default function PresupuestosProveedorPage() {
                 )}
                 </div>
             </div>
-            <DialogFooter className="border-t pt-4">
+            <DialogFooterComponent className="border-t pt-4">
                 <div className="flex justify-between w-full items-center">
                     <Button variant="outline" size="sm" onClick={handleAddItem} disabled={creationMode === 'pedido'}>
                         <PlusCircle className="mr-2 h-4 w-4" />
@@ -518,7 +518,7 @@ export default function PresupuestosProveedorPage() {
                         <Button onClick={handleCreatePresupuesto} disabled={(creationMode === 'pedido' && !selectedPedidoId) || (creationMode === 'manual' && (!selectedProveedorId || !selectedDepositoId || items.length === 0))}>Registrar</Button>
                     </div>
               </div>
-            </DialogFooter>
+            </DialogFooterComponent>
           </DialogContent>
         </Dialog>
       </div>
@@ -659,12 +659,12 @@ export default function PresupuestosProveedorPage() {
                     </div>
                 )}
             </div>
-            <DialogFooter className="border-t pt-4">
+            <DialogFooterComponent className="border-t pt-4">
                 <div className="flex justify-between w-full items-center">
                     <div className="text-right font-bold text-lg">Total Presupuestado: ${selectedPresupuesto?.total.toFixed(2)}</div>
                     <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
                 </div>
-            </DialogFooter>
+            </DialogFooterComponent>
         </DialogContent>
       </Dialog>
     </>
