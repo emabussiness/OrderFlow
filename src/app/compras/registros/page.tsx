@@ -67,7 +67,7 @@ type OrdenCompra = {
   id: string;
   proveedor_id: string;
   proveedor_nombre: string;
-  proveedor_ruc: string; // Asumiendo que podemos obtener el RUC
+  proveedor_ruc: string; 
   deposito_id: string;
   deposito_nombre: string;
   estado: "Pendiente de Recepción" | "Recibido Parcial" | "Recibido Completo" | "Cancelada";
@@ -311,7 +311,13 @@ export default function ComprasPage() {
             total: totalCompra,
             total_iva_10: totalIva10,
             total_iva_5: totalIva5,
-            items: items.filter(i => i.cantidad_recibida > 0),
+            items: items.filter(i => i.cantidad_recibida > 0).map(i => ({
+                producto_id: i.producto_id,
+                nombre: i.nombre,
+                cantidad_recibida: i.cantidad_recibida,
+                precio_unitario: i.precio_unitario,
+                iva_tipo: i.iva_tipo
+            })),
             usuario_id: 'user-demo',
             fecha_creacion: serverTimestamp()
         });
@@ -601,5 +607,3 @@ export default function ComprasPage() {
     </>
   );
 }
-
-    

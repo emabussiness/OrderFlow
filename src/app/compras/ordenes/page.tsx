@@ -25,7 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 
 type ProductoRef = { id: string; nombre: string; precio_referencia: number; };
-type ProveedorRef = { id: string; nombre: string; };
+type ProveedorRef = { id: string; nombre: string; ruc: string;};
 type DepositoRef = { id: string; nombre: string; };
 
 type ItemOrden = {
@@ -55,6 +55,7 @@ type OrdenCompra = {
   pedido_id?: string;
   proveedor_nombre: string;
   proveedor_id: string;
+  proveedor_ruc: string;
   deposito_nombre: string;
   deposito_id: string;
   fecha_orden: string;
@@ -269,6 +270,7 @@ export default function OrdenesCompraPage() {
           pedido_id: creationMode === 'pedido' ? selectedPedidoId : (creationMode === 'presupuesto' ? selectedPresupuesto?.pedido_id : null),
           proveedor_nombre: proveedor?.nombre || 'Desconocido',
           proveedor_id: proveedor?.id || '',
+          proveedor_ruc: proveedor?.ruc || '',
           deposito_nombre: deposito?.nombre || 'Desconocido',
           deposito_id: deposito?.id || '',
           fecha_orden: new Date().toISOString().split('T')[0],
