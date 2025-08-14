@@ -42,6 +42,13 @@ type ItemPedido = {
   precio_estimado: number;
 };
 
+type ItemPresupuesto = {
+  producto_id: string;
+  nombre: string;
+  cantidad: number;
+  precio_presupuestado: number;
+};
+
 type OrdenCompra = {
   id: string;
   presupuesto_proveedor_id?: string;
@@ -70,10 +77,23 @@ type Pedido = {
   items: ItemPedido[];
 };
 
+type Presupuesto = {
+  id: string;
+  pedido_id: string;
+  proveedor_nombre: string;
+  proveedor_id: string;
+  deposito_nombre: string;
+  deposito_id: string;
+  total: number;
+  items: ItemPresupuesto[];
+  estado: "Recibido" | "Aprobado" | "Rechazado" | "Procesado";
+};
+
 export default function OrdenesCompraPage() {
   const { toast } = useToast();
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [productos, setProductos] = useState<ProductoRef[]>([]);
   const [proveedores, setProveedores] = useState<ProveedorRef[]>([]);
   const [depositos, setDepositos] = useState<DepositoRef[]>([]);
@@ -84,13 +104,15 @@ export default function OrdenesCompraPage() {
   const [openCreate, setOpenCreate] = useState(false);
 
   // Form state
-  const [creationMode, setCreationMode] = useState<"pedido" | "manual">("manual");
+  const [creationMode, setCreationMode] = useState<"manual" | "pedido" | "presupuesto">("manual");
   const [selectedPedidoId, setSelectedPedidoId] = useState('');
+  const [selectedPresupuestoId, setSelectedPresupuestoId] = useState('');
   const [selectedProveedorId, setSelectedProveedorId] = useState('');
   const [selectedDepositoId, setSelectedDepositoId] = useState('');
   const [items, setItems] = useState<ItemOrden[]>([]);
 
   const selectedPedido = pedidos.find(p => p.id === selectedPedidoId);
+  const selectedPresupuesto = presupuestos.find(p => p.id === selectedPresupuestoId);
 
   const fetchData = async () => {
     setLoading(true);
@@ -107,11 +129,17 @@ export default function OrdenesCompraPage() {
       const pedidosSnapshot = await getDocs(qPedidos);
       const pedidosList = pedidosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pedido));
 
-      const presupuestosSnapshot = await getDocs(collection(db, 'presupuesto_proveedor'));
-      const presupuestosPedidosIds = presupuestosSnapshot.docs.map(doc => doc.data().pedido_id);
+      const presupuestosExistentesSnapshot = await getDocs(collection(db, 'presupuesto_proveedor'));
+      const presupuestosPedidosIds = presupuestosExistentesSnapshot.docs.map(doc => doc.data().pedido_id);
       
       const pedidosFiltrados = pedidosList.filter(p => !presupuestosPedidosIds.includes(p.id));
       setPedidos(pedidosFiltrados);
+
+      // Fetch Presupuestos Aprobados que no han sido procesados
+      const qPresupuestos = query(collection(db, 'presupuesto_proveedor'), where("estado", "==", "Aprobado"));
+      const presupuestosSnapshot = await getDocs(qPresupuestos);
+      const presupuestosList = presupuestosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Presupuesto));
+      setPresupuestos(presupuestosList);
 
       // Fetch Referenciales
       const productosSnapshot = await getDocs(query(collection(db, 'productos'), orderBy("nombre")));
@@ -142,12 +170,16 @@ export default function OrdenesCompraPage() {
       setItems(selectedPedido.items.map(item => ({...item, precio_unitario: item.precio_estimado})));
       setSelectedProveedorId(selectedPedido.proveedor_id);
       setSelectedDepositoId(selectedPedido.deposito_id);
+    } else if(creationMode === 'presupuesto' && selectedPresupuesto) {
+        setItems(selectedPresupuesto.items.map(item => ({...item, precio_unitario: item.precio_presupuestado})));
+        setSelectedProveedorId(selectedPresupuesto.proveedor_id);
+        setSelectedDepositoId(selectedPresupuesto.deposito_id);
     } else {
       setItems([]);
       setSelectedProveedorId('');
       setSelectedDepositoId('');
     }
-   }, [creationMode, selectedPedidoId, selectedPedido]);
+   }, [creationMode, selectedPedidoId, selectedPedido, selectedPresupuestoId, selectedPresupuesto]);
 
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
@@ -202,17 +234,29 @@ export default function OrdenesCompraPage() {
   const resetForm = () => {
     setCreationMode('manual');
     setSelectedPedidoId('');
+    setSelectedPresupuestoId('');
     setSelectedProveedorId('');
     setSelectedDepositoId('');
     setItems([]);
   }
 
   const handleCreateOC = async () => {
-    const proveedorId = creationMode === 'pedido' ? selectedPedido?.proveedor_id : selectedProveedorId;
-    const depositoId = creationMode === 'pedido' ? selectedPedido?.deposito_id : selectedDepositoId;
+    let proveedorId = '';
+    let depositoId = '';
+    
+    if (creationMode === 'manual') {
+        proveedorId = selectedProveedorId;
+        depositoId = selectedDepositoId;
+    } else if (creationMode === 'pedido' && selectedPedido) {
+        proveedorId = selectedPedido.proveedor_id;
+        depositoId = selectedPedido.deposito_id;
+    } else if (creationMode === 'presupuesto' && selectedPresupuesto) {
+        proveedorId = selectedPresupuesto.proveedor_id;
+        depositoId = selectedPresupuesto.deposito_id;
+    }
 
     if (!proveedorId || !depositoId || items.length === 0 || items.some(i => !i.producto_id)) {
-      toast({ variant: "destructive", title: "Error", description: "Proveedor, depósito y productos son requeridos." });
+      toast({ variant: "destructive", title: "Error", description: "Todos los campos son requeridos." });
       return;
     }
 
@@ -221,8 +265,8 @@ export default function OrdenesCompraPage() {
     
     try {
         const nuevaOrden = {
-          presupuesto_proveedor_id: null,
-          pedido_id: creationMode === 'pedido' ? selectedPedidoId : null,
+          presupuesto_proveedor_id: creationMode === 'presupuesto' ? selectedPresupuestoId : null,
+          pedido_id: creationMode === 'pedido' ? selectedPedidoId : (creationMode === 'presupuesto' ? selectedPresupuesto?.pedido_id : null),
           proveedor_nombre: proveedor?.nombre || 'Desconocido',
           proveedor_id: proveedor?.id || '',
           deposito_nombre: deposito?.nombre || 'Desconocido',
@@ -230,7 +274,7 @@ export default function OrdenesCompraPage() {
           fecha_orden: new Date().toISOString().split('T')[0],
           estado: "Pendiente de Recepción" as "Pendiente de Recepción",
           total: parseFloat(calcularTotal()),
-          items: items.map(({nombre: _, ...rest}) => rest),
+          items: items.map(({nombre, ...rest}) => rest),
           usuario_id: "user-demo",
           fecha_creacion: serverTimestamp(),
         };
@@ -240,6 +284,11 @@ export default function OrdenesCompraPage() {
         if (creationMode === 'pedido' && selectedPedidoId) {
           const pedidoRef = doc(db, 'pedidos_compra', selectedPedidoId);
           await updateDoc(pedidoRef, { estado: "Completado" });
+        }
+        
+        if (creationMode === 'presupuesto' && selectedPresupuestoId) {
+          const presupuestoRef = doc(db, 'presupuesto_proveedor', selectedPresupuestoId);
+          await updateDoc(presupuestoRef, { estado: "Procesado" });
         }
 
         toast({ title: "Orden de Compra Creada", description: `La OC ha sido creada exitosamente.` });
@@ -271,7 +320,7 @@ export default function OrdenesCompraPage() {
                     <DialogTitle>Registrar Nueva Orden de Compra</DialogTitle>
                 </DialogHeader>
                 <div className="flex-grow overflow-hidden flex flex-col gap-4 py-4">
-                    <RadioGroup value={creationMode} onValueChange={(value) => setCreationMode(value as any)} className="grid grid-cols-2 gap-4">
+                    <RadioGroup value={creationMode} onValueChange={(value) => setCreationMode(value as any)} className="grid grid-cols-3 gap-4">
                         <div>
                             <RadioGroupItem value="manual" id="r1" className="peer sr-only" />
                             <Label htmlFor="r1" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
@@ -282,6 +331,12 @@ export default function OrdenesCompraPage() {
                             <RadioGroupItem value="pedido" id="r2" className="peer sr-only" />
                             <Label htmlFor="r2" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
                                 Basado en Pedido
+                            </Label>
+                        </div>
+                         <div>
+                            <RadioGroupItem value="presupuesto" id="r3" className="peer sr-only" />
+                            <Label htmlFor="r3" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                Basado en Presupuesto
                             </Label>
                         </div>
                     </RadioGroup>
@@ -324,6 +379,19 @@ export default function OrdenesCompraPage() {
                         </div>
                     )}
                     
+                     {creationMode === 'presupuesto' && (
+                         <div className="space-y-2">
+                            <Label htmlFor="presupuesto">Presupuesto Aprobado</Label>
+                            <Combobox
+                                options={presupuestos.map(p => ({ value: p.id, label: `${p.id.substring(0,7)} - ${p.proveedor_nombre} - Total: ${p.total}` }))}
+                                value={selectedPresupuestoId}
+                                onChange={setSelectedPresupuestoId}
+                                placeholder="Seleccione un presupuesto aprobado"
+                                searchPlaceholder="Buscar presupuesto..."
+                            />
+                        </div>
+                    )}
+
                     <div className="flex-grow overflow-y-auto -mr-6 pr-6">
                         <Card className="col-span-4">
                             <CardHeader><CardTitle>Productos de la Orden</CardTitle></CardHeader>
@@ -347,16 +415,16 @@ export default function OrdenesCompraPage() {
                                                         options={productos.map(p => ({ value: p.id, label: p.nombre }))}
                                                         value={item.producto_id}
                                                         onChange={(value) => handleItemChange(index, 'producto_id', value)}
-                                                        disabled={creationMode === 'pedido'}
+                                                        disabled={creationMode !== 'manual'}
                                                         placeholder="Seleccione producto"
                                                         searchPlaceholder="Buscar producto..."
                                                     />
                                                 </TableCell>
-                                                <TableCell><Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" disabled={creationMode === 'pedido'}/></TableCell>
-                                                <TableCell><Input type="number" value={item.precio_unitario} onChange={(e) => handleItemChange(index, 'precio_unitario', e.target.value)} min="0"/></TableCell>
+                                                <TableCell><Input type="number" value={item.cantidad} onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)} min="1" disabled={creationMode !== 'manual'}/></TableCell>
+                                                <TableCell><Input type="number" value={item.precio_unitario} onChange={(e) => handleItemChange(index, 'precio_unitario', e.target.value)} min="0" disabled={creationMode === 'presupuesto'}/></TableCell>
                                                 <TableCell className="text-right">${(item.cantidad * item.precio_unitario).toFixed(2)}</TableCell>
                                                 <TableCell>
-                                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={creationMode === 'pedido'}>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={creationMode !== 'manual'}>
                                                         <Trash2 className="h-4 w-4 text-red-500" />
                                                     </Button>
                                                 </TableCell>
@@ -498,3 +566,4 @@ export default function OrdenesCompraPage() {
     </>
   );
 }
+

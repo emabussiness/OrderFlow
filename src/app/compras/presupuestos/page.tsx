@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -64,7 +65,7 @@ type Presupuesto = {
   deposito_nombre: string;
   fecha_presupuesto: string;
   total: number;
-  estado: "Recibido" | "Aprobado" | "Rechazado";
+  estado: "Recibido" | "Aprobado" | "Rechazado" | "Procesado";
   items: ItemPresupuesto[];
   observaciones?: string;
   usuario_id: string;
@@ -159,6 +160,7 @@ export default function PresupuestosProveedorPage() {
       case "Recibido": return "secondary";
       case "Aprobado": return "default";
       case "Rechazado": return "destructive";
+      case "Procesado": return "outline";
       default: return "outline";
     }
   };
@@ -229,7 +231,7 @@ export default function PresupuestosProveedorPage() {
             fecha_presupuesto: new Date().toISOString().split('T')[0],
             total: parseFloat(calcularTotal()),
             estado: 'Recibido' as 'Recibido',
-            items: items,
+            items: items.map(item => ({ producto_id: item.producto_id, cantidad: item.cantidad, precio_presupuestado: item.precio_presupuestado, nombre: item.nombre })),
             observaciones,
             usuario_id: "user-demo", // Hardcoded
             fecha_creacion: serverTimestamp(),
@@ -267,27 +269,7 @@ export default function PresupuestosProveedorPage() {
     const presupuestoRef = doc(db, 'presupuesto_proveedor', presupuesto.id);
     try {
         await updateDoc(presupuestoRef, { estado: newStatus });
-        
-        if (newStatus === 'Aprobado') {
-            const nuevaOrden = {
-                presupuesto_proveedor_id: presupuesto.id,
-                pedido_id: presupuesto.pedido_id,
-                proveedor_nombre: presupuesto.proveedor_nombre,
-                proveedor_id: presupuesto.proveedor_id,
-                deposito_nombre: presupuesto.deposito_nombre,
-                deposito_id: presupuesto.deposito_id,
-                fecha_orden: new Date().toISOString().split('T')[0],
-                estado: "Pendiente de Recepción",
-                total: presupuesto.total,
-                items: presupuesto.items.map(i => ({...i, precio_unitario: i.precio_presupuestado})),
-                usuario_id: "user-demo",
-                fecha_creacion: serverTimestamp(),
-            };
-            await addDoc(collection(db, "ordenes_compra"), nuevaOrden);
-            toast({ title: "Presupuesto Aprobado y OC Generada", description: `La Orden de Compra ha sido creada.` });
-        } else {
-             toast({ title: `Presupuesto ${newStatus}`, description: `El estado del presupuesto ha sido actualizado.` });
-        }
+        toast({ title: `Presupuesto ${newStatus}`, description: `El estado del presupuesto ha sido actualizado.` });
         await fetchData();
     } catch(e) {
         console.error("Error updating status:", e);
@@ -493,7 +475,7 @@ export default function PresupuestosProveedorPage() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>¿Confirmar Aprobación?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                ¿Estás seguro de que deseas aprobar este presupuesto? Esta acción generará una Orden de Compra.
+                                ¿Estás seguro de que deseas aprobar este presupuesto? Podrás generar una OC desde la pantalla de Órdenes de Compra.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -590,3 +572,4 @@ export default function PresupuestosProveedorPage() {
     </>
   );
 }
+
