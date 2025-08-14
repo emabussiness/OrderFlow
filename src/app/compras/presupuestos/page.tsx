@@ -130,32 +130,34 @@ const PedidoSelectorDialog = ({ pedidos, onSelectPedido }: { pedidos: Pedido[], 
                                 <CardDescription>{`Proveedor: ${selectedPedidoPreview.proveedor_nombre}`}</CardDescription>
                              </CardHeader>
                              <CardContent className="flex-grow overflow-y-auto">
-                                <div className="space-y-4">
-                                     <div><strong>Fecha:</strong> {selectedPedidoPreview.fecha_pedido}</div>
-                                     <div><strong>Depósito:</strong> {selectedPedidoPreview.deposito_nombre}</div>
-                                     <div><strong>Observaciones:</strong> {selectedPedidoPreview.observaciones || 'N/A'}</div>
-                                     <Separator />
-                                     <h4 className="font-semibold">Items del Pedido</h4>
-                                     <Table>
-                                         <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">P. Est.</TableHead></TableRow></TableHeader>
-                                         <TableBody>
-                                             {selectedPedidoPreview.items.map(item => (
-                                                 <TableRow key={item.producto_id}>
-                                                     <TableCell>{item.nombre}</TableCell>
-                                                     <TableCell>{item.cantidad}</TableCell>
-                                                     <TableCell className="text-right">${item.precio_estimado.toFixed(2)}</TableCell>
-                                                 </TableRow>
-                                             ))}
-                                         </TableBody>
-                                     </Table>
-                                </div>
+                                <ScrollArea className="h-full">
+                                    <div className="space-y-4 pr-6">
+                                        <div><strong>Fecha:</strong> {selectedPedidoPreview.fecha_pedido}</div>
+                                        <div><strong>Depósito:</strong> {selectedPedidoPreview.deposito_nombre}</div>
+                                        <div><strong>Observaciones:</strong> {selectedPedidoPreview.observaciones || 'N/A'}</div>
+                                        <Separator />
+                                        <h4 className="font-semibold">Items del Pedido</h4>
+                                        <Table>
+                                            <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">P. Est.</TableHead></TableRow></TableHeader>
+                                            <TableBody>
+                                                {selectedPedidoPreview.items.map(item => (
+                                                    <TableRow key={item.producto_id}>
+                                                        <TableCell>{item.nombre}</TableCell>
+                                                        <TableCell>{item.cantidad}</TableCell>
+                                                        <TableCell className="text-right">${item.precio_estimado.toFixed(2)}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </ScrollArea>
                              </CardContent>
-                             <DialogFooter className="p-6 border-t">
+                             <CardFooter className="p-6 border-t">
                                 <div className="w-full flex justify-between items-center">
                                     <span className="font-bold text-lg">Total: ${selectedPedidoPreview.total.toFixed(2)}</span>
                                     <Button onClick={handleSelectAndClose}>Confirmar Selección</Button>
                                 </div>
-                             </DialogFooter>
+                             </CardFooter>
                              </>
                            ) : (
                              <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -668,7 +670,5 @@ export default function PresupuestosProveedorPage() {
     </>
   );
 }
-
-    
 
     
