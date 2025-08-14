@@ -34,7 +34,6 @@ type ItemOrden = {
   nombre: string;
   cantidad: number;
   precio_unitario: number;
-  iva_tipo: number;
 };
 
 type ItemCompra = {
@@ -78,6 +77,7 @@ type OrdenCompra = {
 
 type Producto = {
   id: string;
+  nombre: string;
   iva_tipo: number;
 };
 
@@ -223,11 +223,13 @@ export default function ComprasPage() {
 
   useEffect(() => {
     if (selectedOC) {
+      const productosMap = new Map(productos.map(p => [p.id, p]));
       setItems(selectedOC.items.map(item => ({
         ...item,
         cantidad_ordenada: item.cantidad,
         cantidad_recibida: item.cantidad,
-        iva_tipo: productos.find(p => p.id === item.producto_id)?.iva_tipo ?? 0,
+        iva_tipo: productosMap.get(item.producto_id)?.iva_tipo ?? 0,
+        nombre: productosMap.get(item.producto_id)?.nombre ?? item.producto_id,
       })));
     } else {
       setItems([]);
