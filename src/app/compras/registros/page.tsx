@@ -84,7 +84,7 @@ type Producto = {
 
 // --- Helper Components ---
 
-const OrdenSelectorDialog = ({ ordenes, onSelectOrden }: { ordenes: OrdenCompra[], onSelectOrden: (ordenId: string) => void }) => {
+const OrdenSelectorDialog = ({ ordenes, productos, onSelectOrden }: { ordenes: OrdenCompra[], productos: Producto[], onSelectOrden: (ordenId: string) => void }) => {
     const [open, setOpen] = useState(false);
     const [selectedOrdenPreview, setSelectedOrdenPreview] = useState<OrdenCompra | null>(null);
 
@@ -147,7 +147,7 @@ const OrdenSelectorDialog = ({ ordenes, onSelectOrden }: { ordenes: OrdenCompra[
                                     <TableBody>
                                         {selectedOrdenPreview.items.map(item => (
                                             <TableRow key={item.producto_id}>
-                                                <TableCell>{item.nombre}</TableCell>
+                                                <TableCell>{productos.find(p => p.id === item.producto_id)?.nombre || item.producto_id}</TableCell>
                                                 <TableCell>{item.cantidad}</TableCell>
                                                 <TableCell className="text-right">${item.precio_unitario.toFixed(2)}</TableCell>
                                             </TableRow>
@@ -229,7 +229,7 @@ export default function ComprasPage() {
         cantidad_ordenada: item.cantidad,
         cantidad_recibida: item.cantidad,
         iva_tipo: productosMap.get(item.producto_id)?.iva_tipo ?? 0,
-        nombre: productosMap.get(item.producto_id)?.nombre ?? item.producto_id,
+        nombre: productosMap.get(item.producto_id)?.nombre ?? 'Producto no encontrado',
       })));
     } else {
       setItems([]);
@@ -400,7 +400,7 @@ export default function ComprasPage() {
                                 <Button variant="secondary" onClick={() => setSelectedOCId('')}>Cambiar</Button>
                              </div>
                         ) : (
-                            <OrdenSelectorDialog ordenes={ordenes} onSelectOrden={setSelectedOCId} />
+                            <OrdenSelectorDialog ordenes={ordenes} productos={productos} onSelectOrden={setSelectedOCId} />
                         )}
                     </div>
 
