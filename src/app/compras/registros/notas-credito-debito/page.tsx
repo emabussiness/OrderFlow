@@ -96,7 +96,7 @@ const CompraSelectorDialog = ({ compras, onSelectCompra }: { compras: Compra[], 
             <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Explorador de Compras Registradas</DialogTitle>
-                    <DialogDescription>Selecciona una factura de compra para aplicarle una nota de crédito/débito.</DialogDescription>
+                    <DialogDescription>Selecciona una factura de compra para aplicarle una nota de crédito.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden">
                     <div className="flex flex-col gap-4 overflow-hidden">
@@ -328,15 +328,15 @@ export default function NotasCreditoDebitoPage() {
   return (
     <>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Notas de Crédito/Débito (Compras)</h1>
+        <h1 className="text-2xl font-bold">Notas de Crédito de Compras</h1>
         <Dialog open={openCreate} onOpenChange={setOpenCreate}>
             <DialogTrigger asChild>
                 <Button><PlusCircle className="mr-2 h-4 w-4"/>Registrar Nota de Crédito</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Registrar Nueva Nota de Crédito/Débito</DialogTitle>
-                    <DialogDescription>Este proceso ajustará la cuenta a pagar y el stock de los productos devueltos.</DialogDescription>
+                    <DialogTitle>Registrar Nueva Nota de Crédito por Devolución</DialogTitle>
+                    <DialogDescription>Este proceso ajustará la cuenta a pagar y el stock de los productos devueltos a un proveedor.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-grow grid gap-4 py-4 overflow-y-auto pr-2 -mr-2">
                     <div className="space-y-2">
@@ -388,7 +388,7 @@ export default function NotasCreditoDebitoPage() {
                             </div>
 
                             <Card className="col-span-4">
-                                <CardHeader><CardTitle>Productos a Ajustar</CardTitle></CardHeader>
+                                <CardHeader><CardTitle>Productos a Devolver/Ajustar</CardTitle></CardHeader>
                                 <CardContent>
                                     <ScrollArea className="h-[300px]">
                                     <Table>
@@ -396,7 +396,7 @@ export default function NotasCreditoDebitoPage() {
                                             <TableRow>
                                                 <TableHead>Producto</TableHead>
                                                 <TableHead className="w-[120px]">Cant. Comprada</TableHead>
-                                                <TableHead className="w-[120px]">Cant. a Ajustar</TableHead>
+                                                <TableHead className="w-[120px]">Cant. a Devolver</TableHead>
                                                 <TableHead className="w-[120px]">P. Unit.</TableHead>
                                                 <TableHead className="text-right w-[150px]">Subtotal Ajuste</TableHead>
                                             </TableRow>
@@ -434,8 +434,8 @@ export default function NotasCreditoDebitoPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Historial de Notas de Crédito/Débito</CardTitle>
-          <CardDescription>Ajustes realizados a las facturas de compra.</CardDescription>
+          <CardTitle>Historial de Notas de Crédito</CardTitle>
+          <CardDescription>Ajustes por devolución realizados a las facturas de compra.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -474,7 +474,7 @@ export default function NotasCreditoDebitoPage() {
               ))}
             </TableBody>
           </Table>
-           {notas.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay notas de crédito/débito registradas.</p>}
+           {notas.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay notas de crédito registradas.</p>}
         </CardContent>
       </Card>
     </>
