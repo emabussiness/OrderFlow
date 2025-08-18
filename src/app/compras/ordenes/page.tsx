@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
@@ -702,7 +703,12 @@ export default function OrdenesCompraPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleOpenDetails(orden)}>Ver Detalles</DropdownMenuItem>
-                        <DropdownMenuItem disabled>Registrar Recepción</DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={orden.estado !== 'Pendiente de Recepción' && orden.estado !== 'Recibido Parcial'}
+                          asChild
+                        >
+                           <Link href="/compras/registros">Registrar Recepción</Link>
+                        </DropdownMenuItem>
                          <DropdownMenuItem disabled={orden.estado !== 'Pendiente de Recepción'}>
                             <span className="text-red-500">Cancelar Orden</span>
                         </DropdownMenuItem>
@@ -769,4 +775,6 @@ export default function OrdenesCompraPage() {
     </>
   );
 }
+    
+
     
