@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -23,6 +24,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
   const getPageTitle = () => {
     if (pathname === '/') return 'Dashboard';
     if (pathname.startsWith('/compras/referenciales/proveedores')) return 'Referenciales - Proveedores';
+    if (pathname.startsWith('/inventario/stock-actual')) return 'Inventario - Stock Actual';
     if (pathname.startsWith('/compras')) {
       const pathParts = pathname.split('/');
       const lastPart = pathParts[pathParts.length - 1].replace(/-/g, ' ');
@@ -168,6 +170,25 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                 </Collapsible>
               </CollapsibleContent>
             </Collapsible>
+            
+            <Collapsible>
+              <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="justify-between">
+                      <div className="flex items-center gap-2">
+                        <Boxes />
+                        <span>Inventario</span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+              </SidebarMenuItem>
+               <CollapsibleContent className="ml-4">
+                    <SidebarMenu>
+                      <SidebarMenuItem><Link href="/inventario/stock-actual"><SidebarMenuButton isActive={pathname.startsWith('/inventario/stock-actual')}>Stock Actual</SidebarMenuButton></Link></SidebarMenuItem>
+                    </SidebarMenu>
+                  </CollapsibleContent>
+            </Collapsible>
 
              <Collapsible>
               <SidebarMenuItem>
@@ -252,3 +273,5 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
     </>
   );
 }
+
+    

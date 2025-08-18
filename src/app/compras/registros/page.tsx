@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, orderBy, writeBatch } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, orderBy, writeBatch, getDoc, runTransaction } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -26,6 +26,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { increment } from "firebase/firestore";
+
 
 // --- Types ---
 
@@ -377,11 +379,40 @@ export default function ComprasPage() {
         const ordenRef = doc(db, 'ordenes_compra', selectedOCId);
         batch.update(ordenRef, { estado: nuevoEstado });
 
-        // TODO: 5. Update stock and product cost average
-
+        // 5. Update stock for each item
+        const productosRecibidos = items.filter(i => i.cantidad_recibida > 0);
+        for (const item of productosRecibidos) {
+            const stockQuery = query(
+                collection(db, 'stock'),
+                where('producto_id', '==', item.producto_id),
+                where('deposito_id', '==', selectedOC.deposito_id)
+            );
+            const stockSnapshot = await getDocs(stockQuery);
+            if (stockSnapshot.empty) {
+                // Create new stock document
+                const stockRef = doc(collection(db, 'stock'));
+                const productoInfo = productos.find(p => p.id === item.producto_id);
+                batch.set(stockRef, {
+                    producto_id: item.producto_id,
+                    producto_nombre: productoInfo?.nombre || 'N/A',
+                    deposito_id: selectedOC.deposito_id,
+                    deposito_nombre: selectedOC.deposito_nombre,
+                    cantidad: item.cantidad_recibida,
+                    fecha_actualizacion: serverTimestamp()
+                });
+            } else {
+                // Update existing stock document
+                const stockDoc = stockSnapshot.docs[0];
+                batch.update(stockDoc.ref, { 
+                    cantidad: increment(item.cantidad_recibida),
+                    fecha_actualizacion: serverTimestamp()
+                });
+            }
+        }
+        
         await batch.commit();
 
-        toast({ title: 'Compra Registrada', description: `La compra y los asientos relacionados han sido generados.`});
+        toast({ title: 'Compra Registrada', description: `La compra, el stock y los asientos relacionados han sido generados.`});
         setOpenCreate(false);
         await fetchData();
     } catch(e) {
@@ -631,3 +662,5 @@ export default function ComprasPage() {
     </>
   );
 }
+
+    
