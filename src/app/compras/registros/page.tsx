@@ -205,12 +205,25 @@ export default function ComprasPage() {
       const comprasSnapshot = await getDocs(query(collection(db, 'compras'), orderBy("fecha_creacion", "desc")));
       setCompras(comprasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Compra)));
 
+      const productosSnapshot = await getDocs(collection(db, 'productos'));
+      const productosList = productosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto));
+      setProductos(productosList);
+      const productosMap = new Map(productosList.map(p => [p.id, p]));
+
       const qOrdenes = query(collection(db, 'ordenes_compra'), where("estado", "in", ["Pendiente de Recepción", "Recibido Parcial"]));
       const ordenesSnapshot = await getDocs(qOrdenes);
-      setOrdenes(ordenesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as OrdenCompra)));
-
-      const productosSnapshot = await getDocs(collection(db, 'productos'));
-      setProductos(productosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto)));
+      const ordenesList = ordenesSnapshot.docs.map(doc => {
+          const data = doc.data() as Omit<OrdenCompra, 'id'>;
+          return {
+              id: doc.id,
+              ...data,
+              items: data.items.map(item => ({
+                  ...item,
+                  nombre: productosMap.get(item.producto_id)?.nombre || 'Producto no encontrado'
+              }))
+          } as OrdenCompra
+      });
+      setOrdenes(ordenesList);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -219,6 +232,7 @@ export default function ComprasPage() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchData();
