@@ -84,7 +84,7 @@ type Producto = {
 
 // --- Helper Components ---
 
-const OrdenSelectorDialog = ({ ordenes, productos, onSelectOrden }: { ordenes: OrdenCompra[], productos: Producto[], onSelectOrden: (ordenId: string) => void }) => {
+const OrdenSelectorDialog = ({ ordenes, onSelectOrden }: { ordenes: OrdenCompra[], onSelectOrden: (ordenId: string) => void }) => {
     const [open, setOpen] = useState(false);
     const [selectedOrdenPreview, setSelectedOrdenPreview] = useState<OrdenCompra | null>(null);
 
@@ -147,7 +147,7 @@ const OrdenSelectorDialog = ({ ordenes, productos, onSelectOrden }: { ordenes: O
                                     <TableBody>
                                         {selectedOrdenPreview.items.map(item => (
                                             <TableRow key={item.producto_id}>
-                                                <TableCell>{productos.find(p => p.id === item.producto_id)?.nombre || item.producto_id}</TableCell>
+                                                <TableCell>{item.nombre}</TableCell>
                                                 <TableCell>{item.cantidad}</TableCell>
                                                 <TableCell className="text-right">${item.precio_unitario.toFixed(2)}</TableCell>
                                             </TableRow>
@@ -251,9 +251,31 @@ export default function ComprasPage() {
     setItems(newItems);
   }
 
-  const calcularTotal = () => {
-     return items.reduce((total, item) => total + (item.cantidad_recibida * item.precio_unitario), 0);
-  }
+  const calcularTotales = () => {
+    let totalFactura = 0;
+    let totalIva10 = 0;
+    let totalIva5 = 0;
+  
+    items.forEach(item => {
+      const subtotal = item.cantidad_recibida * item.precio_unitario;
+      totalFactura += subtotal;
+      if (item.iva_tipo === 10) {
+        totalIva10 += subtotal - (subtotal / 1.1);
+      } else if (item.iva_tipo === 5) {
+        totalIva5 += subtotal - (subtotal / 1.05);
+      }
+    });
+  
+    return {
+      totalFactura,
+      totalIva10,
+      totalIva5,
+      totalIva: totalIva10 + totalIva5,
+    };
+  };
+
+  const totales = calcularTotales();
+
 
   const resetForm = () => {
     setSelectedOCId('');
@@ -274,9 +296,6 @@ export default function ComprasPage() {
         return;
     }
     
-    const totalCompra = calcularTotal();
-    let totalIva10 = 0;
-    let totalIva5 = 0;
     let gravada10 = 0;
     let gravada5 = 0;
     let exenta = 0;
@@ -285,10 +304,8 @@ export default function ComprasPage() {
         const subtotal = item.cantidad_recibida * item.precio_unitario;
         if (item.iva_tipo === 10) {
             gravada10 += subtotal / 1.1;
-            totalIva10 += subtotal - (subtotal / 1.1);
         } else if (item.iva_tipo === 5) {
             gravada5 += subtotal / 1.05;
-            totalIva5 += subtotal - (subtotal / 1.05);
         } else {
             exenta += subtotal;
         }
@@ -308,9 +325,9 @@ export default function ComprasPage() {
             deposito_nombre: selectedOC.deposito_nombre,
             fecha_compra: format(fechaFactura, "yyyy-MM-dd"),
             numero_factura: numeroFactura,
-            total: totalCompra,
-            total_iva_10: totalIva10,
-            total_iva_5: totalIva5,
+            total: totales.totalFactura,
+            total_iva_10: totales.totalIva10,
+            total_iva_5: totales.totalIva5,
             items: items.filter(i => i.cantidad_recibida > 0).map(i => ({
                 producto_id: i.producto_id,
                 nombre: i.nombre,
@@ -330,11 +347,11 @@ export default function ComprasPage() {
             proveedor_nombre: selectedOC.proveedor_nombre,
             proveedor_ruc: selectedOC.proveedor_ruc,
             numero_factura: numeroFactura,
-            total_compra: totalCompra,
+            total_compra: totales.totalFactura,
             gravada_10: gravada10,
-            iva_10: totalIva10,
+            iva_10: totales.totalIva10,
             gravada_5: gravada5,
-            iva_5: totalIva5,
+            iva_5: totales.totalIva5,
             exenta: exenta,
         });
         
@@ -347,9 +364,9 @@ export default function ComprasPage() {
            numero_factura: numeroFactura,
            fecha_emision: format(fechaFactura, "yyyy-MM-dd"),
            // Vencimiento a 30 días por defecto
-           fecha_vencimiento: format(new Date(fechaFactura.setDate(fechaFactura.getDate() + 30)), "yyyy-MM-dd"),
-           monto_total: totalCompra,
-           saldo_pendiente: totalCompra,
+           fecha_vencimiento: format(new Date(new Date(fechaFactura).setDate(fechaFactura.getDate() + 30)), "yyyy-MM-dd"),
+           monto_total: totales.totalFactura,
+           saldo_pendiente: totales.totalFactura,
            estado: 'Pendiente',
         });
 
@@ -406,7 +423,7 @@ export default function ComprasPage() {
                                 <Button variant="secondary" onClick={() => setSelectedOCId('')}>Cambiar</Button>
                              </div>
                         ) : (
-                            <OrdenSelectorDialog ordenes={ordenes} productos={productos} onSelectOrden={setSelectedOCId} />
+                            <OrdenSelectorDialog ordenes={ordenes} onSelectOrden={setSelectedOCId} />
                         )}
                     </div>
 
@@ -453,6 +470,7 @@ export default function ComprasPage() {
                                                 <TableHead className="w-[120px]">Cant. Pedida</TableHead>
                                                 <TableHead className="w-[120px]">Cant. Recibida</TableHead>
                                                 <TableHead className="w-[120px]">P. Unit.</TableHead>
+                                                <TableHead className="w-[80px]">IVA %</TableHead>
                                                 <TableHead className="text-right w-[150px]">Subtotal</TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -463,6 +481,7 @@ export default function ComprasPage() {
                                                     <TableCell>{item.cantidad_ordenada}</TableCell>
                                                     <TableCell><Input type="number" value={item.cantidad_recibida} onChange={e => handleItemChange(index, e.target.value)} min="0"/></TableCell>
                                                     <TableCell>${item.precio_unitario.toFixed(2)}</TableCell>
+                                                    <TableCell>{item.iva_tipo}%</TableCell>
                                                     <TableCell className="text-right">${(item.cantidad_recibida * item.precio_unitario).toFixed(2)}</TableCell>
                                                 </TableRow>
                                             ))}
@@ -476,7 +495,11 @@ export default function ComprasPage() {
                  </div>
                 <DialogFooterComponent className="border-t pt-4">
                      <div className="flex w-full justify-between items-center">
-                        <div className="text-right font-bold text-lg">Total Factura: ${calcularTotal().toFixed(2)}</div>
+                        <div className="flex gap-4 text-right">
+                           <div className="text-sm"><span className="font-semibold">IVA 5%:</span> ${totales.totalIva5.toFixed(2)}</div>
+                           <div className="text-sm"><span className="font-semibold">IVA 10%:</span> ${totales.totalIva10.toFixed(2)}</div>
+                           <div className="text-lg font-bold">Total Factura: ${totales.totalFactura.toFixed(2)}</div>
+                        </div>
                         <div>
                             <Button variant="outline" onClick={() => setOpenCreate(false)} className="mr-2">Cancelar</Button>
                             <Button onClick={handleCreateCompra} disabled={!selectedOCId || !numeroFactura || !fechaFactura}>Confirmar Recepción</Button>
@@ -558,7 +581,7 @@ export default function ComprasPage() {
                              <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>P. Unit.</TableHead><TableHead className="text-right">Subtotal</TableHead>
+                                        <TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>P. Unit.</TableHead><TableHead>%IVA</TableHead><TableHead className="text-right">Subtotal</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -567,6 +590,7 @@ export default function ComprasPage() {
                                             <TableCell>{item.nombre}</TableCell>
                                             <TableCell>{item.cantidad_recibida}</TableCell>
                                             <TableCell>${item.precio_unitario.toFixed(2)}</TableCell>
+                                            <TableCell>{item.iva_tipo}%</TableCell>
                                             <TableCell className="text-right">${(item.cantidad_recibida * item.precio_unitario).toFixed(2)}</TableCell>
                                         </TableRow>
                                     ))}
@@ -607,4 +631,3 @@ export default function ComprasPage() {
     </>
   );
 }
-
