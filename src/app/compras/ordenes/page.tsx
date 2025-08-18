@@ -451,23 +451,35 @@ export default function OrdenesCompraPage() {
     const deposito = depositos.find(d => d.id === depositoId);
     
     try {
-        const nuevaOrden = {
-          presupuesto_proveedor_id: creationMode === 'presupuesto' ? selectedPresupuestoId : undefined,
-          pedido_id: creationMode === 'pedido' ? selectedPedidoId : (creationMode === 'presupuesto' ? selectedPresupuesto?.pedido_id : undefined),
+        const baseOrden: any = {
           proveedor_nombre: proveedor?.nombre || 'Desconocido',
           proveedor_id: proveedor?.id || '',
           proveedor_ruc: proveedor?.ruc || '',
           deposito_nombre: deposito?.nombre || 'Desconocido',
           deposito_id: deposito?.id || '',
           fecha_orden: new Date().toISOString().split('T')[0],
-          estado: "Pendiente de Recepción" as "Pendiente de Recepción",
+          estado: "Pendiente de Recepción",
           total: parseFloat(calcularTotal()),
-          items: items.map(item => ({ producto_id: item.producto_id, cantidad: item.cantidad, precio_unitario: item.precio_unitario })),
+          items: items.map(item => ({ 
+            producto_id: item.producto_id, 
+            nombre: productos.find(p => p.id === item.producto_id)?.nombre || item.nombre,
+            cantidad: item.cantidad, 
+            precio_unitario: item.precio_unitario 
+          })),
           usuario_id: "user-demo",
           fecha_creacion: serverTimestamp(),
         };
 
-        await addDoc(collection(db, "ordenes_compra"), nuevaOrden);
+        if (creationMode === 'presupuesto' && selectedPresupuestoId) {
+          baseOrden.presupuesto_proveedor_id = selectedPresupuestoId;
+          if (selectedPresupuesto?.pedido_id) {
+            baseOrden.pedido_id = selectedPresupuesto.pedido_id;
+          }
+        } else if (creationMode === 'pedido' && selectedPedidoId) {
+          baseOrden.pedido_id = selectedPedidoId;
+        }
+
+        await addDoc(collection(db, "ordenes_compra"), baseOrden);
         
         if (creationMode === 'pedido' && selectedPedidoId) {
           const pedidoRef = doc(db, 'pedidos_compra', selectedPedidoId);
@@ -487,6 +499,7 @@ export default function OrdenesCompraPage() {
         toast({ variant: "destructive", title: "Error", description: "No se pudo crear la Orden de Compra." });
     }
   }
+
 
   useEffect(() => {
     if(!openCreate) resetForm();
