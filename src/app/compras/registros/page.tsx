@@ -83,6 +83,12 @@ type Producto = {
   iva_tipo: number;
 };
 
+type Proveedor = {
+  id: string;
+  nombre: string;
+  ruc: string;
+};
+
 
 // --- Helper Components ---
 
@@ -184,6 +190,7 @@ export default function ComprasPage() {
   const [compras, setCompras] = useState<Compra[]>([]);
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [openCreate, setOpenCreate] = useState(false);
@@ -202,14 +209,21 @@ export default function ComprasPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Fetch core data
       const comprasSnapshot = await getDocs(query(collection(db, 'compras'), orderBy("fecha_creacion", "desc")));
       setCompras(comprasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Compra)));
 
+      // Fetch reference data
       const productosSnapshot = await getDocs(collection(db, 'productos'));
       const productosList = productosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto));
       setProductos(productosList);
       const productosMap = new Map(productosList.map(p => [p.id, p]));
 
+      const proveedoresSnapshot = await getDocs(collection(db, 'proveedores'));
+      const proveedoresList = proveedoresSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Proveedor));
+      setProveedores(proveedoresList);
+
+      // Fetch open orders
       const qOrdenes = query(collection(db, 'ordenes_compra'), where("estado", "in", ["Pendiente de Recepción", "Recibido Parcial"]));
       const ordenesSnapshot = await getDocs(qOrdenes);
       const ordenesList = ordenesSnapshot.docs.map(doc => {
@@ -314,6 +328,12 @@ export default function ComprasPage() {
         return;
     }
     
+    const proveedorSeleccionado = proveedores.find(p => p.id === selectedOC.proveedor_id);
+    if (!proveedorSeleccionado) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Proveedor no encontrado.'});
+        return;
+    }
+
     let gravada10 = 0;
     let gravada5 = 0;
     let exenta = 0;
@@ -338,7 +358,7 @@ export default function ComprasPage() {
             orden_compra_id: selectedOCId,
             proveedor_id: selectedOC.proveedor_id,
             proveedor_nombre: selectedOC.proveedor_nombre,
-            proveedor_ruc: selectedOC.proveedor_ruc,
+            proveedor_ruc: proveedorSeleccionado.ruc,
             deposito_id: selectedOC.deposito_id,
             deposito_nombre: selectedOC.deposito_nombre,
             fecha_compra: format(fechaFactura, "yyyy-MM-dd"),
@@ -363,7 +383,7 @@ export default function ComprasPage() {
             compra_id: compraRef.id,
             fecha_factura: format(fechaFactura, "yyyy-MM-dd"),
             proveedor_nombre: selectedOC.proveedor_nombre,
-            proveedor_ruc: selectedOC.proveedor_ruc,
+            proveedor_ruc: proveedorSeleccionado.ruc,
             numero_factura: numeroFactura,
             total_compra: totales.totalFactura,
             gravada_10: gravada10,
