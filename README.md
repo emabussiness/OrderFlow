@@ -95,8 +95,8 @@ Antes de nada, comprueba si el proyecto ya tiene una configuración de Git.
     ```bash
     git remote -v
     ```
-    *   Si este comando muestra una o varias URLs (apuntando a `github.com` o similar), el proyecto ya está conectado a un repositorio remoto.
-    *   Si el comando no muestra nada, o dice `fatal: not a git repository`, puedes seguir al siguiente paso para conectarlo.
+    *   Si este comando muestra una o varias URLs (apuntando a `github.com` o similar), el proyecto **YA ESTÁ CONECTADO** a un repositorio remoto.
+    *   Si el comando no muestra nada, o dice `fatal: not a git repository`, el proyecto **NO ESTÁ CONECTADO** y puedes seguir al siguiente paso para conectarlo.
 
 ### 2. Pasos para conectar a un nuevo repositorio
 
