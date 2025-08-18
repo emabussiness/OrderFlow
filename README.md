@@ -8,7 +8,6 @@ Este es un proyecto ERP (Enterprise Resource Planning) construido con Next.js y 
 *   **Lenguaje**: TypeScript
 *   **UI**: React, ShadCN/UI, Tailwind CSS
 *   **Base de Datos**: Firebase (Firestore)
-*   **Funcionalidad IA**: Genkit (Google AI)
 *   **Iconos**: Lucide React
 
 ---
@@ -35,16 +34,12 @@ npm install
 
 ### 3. Configuración de Variables de Entorno
 
-Para que la aplicación se conecte a Firebase y a los servicios de IA de Google, necesitas configurar tus credenciales.
+Para que la aplicación se conecte a Firebase, necesitas configurar tus credenciales.
 
 1.  Crea un nuevo archivo en la raíz del proyecto llamado `.env.local`.
-2.  Copia el contenido de tu objeto de configuración de Firebase (lo puedes encontrar en la configuración de tu proyecto en la consola de Firebase) y tus credenciales de Google AI en este archivo, con el siguiente formato:
+2.  Copia el contenido de tu objeto de configuración de Firebase (lo puedes encontrar en la configuración de tu proyecto en la consola de Firebase) en este archivo, con el siguiente formato:
 
     ```env
-    # Credenciales de Google AI para Genkit
-    # Puedes obtener tu clave desde Google AI Studio: https://aistudio.google.com/app/apikey
-    GEMINI_API_KEY="AIzaSy...tu...api...key..."
-
     # Estas son las credenciales de configuración de tu app web de Firebase
     # Las puedes encontrar en la Consola de Firebase > Configuración del Proyecto > Tus Apps
     NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSy...firebase...key..."
@@ -55,27 +50,62 @@ Para que la aplicación se conecte a Firebase y a los servicios de IA de Google,
     NEXT_PUBLIC_FIREBASE_APP_ID="1:1234567890:web:abcdef123456"
     ```
 
-    **Importante**: Para que la aplicación funcione correctamente, he actualizado el archivo `src/lib/firebase/firebase.ts` para que lea estas variables de entorno en lugar de tener los valores codificados.
+    **Importante**: Para que la aplicación funcione correctamente, el archivo `src/lib/firebase/firebase.ts` ya está configurado para leer estas variables de entorno.
 
 ### 4. Ejecutar la Aplicación
 
-El proyecto necesita dos servidores corriendo simultáneamente:
+Abre una terminal en Visual Studio Code y ejecuta el servidor de desarrollo de Next.js:
 
-*   El servidor de desarrollo de **Next.js** para la interfaz de usuario.
-*   El servidor de **Genkit** para las funciones de IA.
+```bash
+npm run dev
+```
 
-Abre **dos terminales** en Visual Studio Code:
+Esto levantará la aplicación, generalmente en `http://localhost:9002`.
 
-*   **En la Terminal 1**, inicia el servidor de Next.js:
+¡Y listo! Con estos pasos, tendrás la aplicación corriendo en tu máquina local y conectada a tu propio servicio de Firebase.
+
+---
+
+## Cómo Conectar el Proyecto a tu Repositorio de GitHub
+
+### 1. ¿Cómo saber si ya está conectado?
+
+En la terminal de VSC, ejecuta el siguiente comando:
+
+```bash
+git remote -v
+```
+*   Si ves URLs que apuntan a GitHub, el proyecto ya está conectado.
+*   Si no devuelve nada, sigue los pasos a continuación.
+
+### 2. Pasos para conectar a un nuevo repositorio
+
+1.  **Crear un Repositorio en GitHub**: Ve a [GitHub](https://github.com/new) y crea un nuevo repositorio. No lo inicialices con un archivo `README` o `.gitignore`. Copia la URL del nuevo repositorio.
+
+2.  **Inicializar Git Localmente (si no lo está)**:
     ```bash
-    npm run dev
+    git init
     ```
-    Esto levantará la aplicación, generalmente en `http://localhost:9002`.
 
-*   **En la Terminal 2**, inicia el servidor de Genkit:
+3.  **Conectar tu Repositorio Local al Remoto**:
     ```bash
-    npm run genkit:watch
+    git remote add origin TU_URL_DE_GITHUB
     ```
-    Esto iniciará el servidor de IA y lo mantendrá observando cambios en los archivos de flujos.
+    (Reemplaza `TU_URL_DE_GITHUB` con la URL que copiaste).
 
-¡Y listo! Con estos pasos, tendrás la aplicación corriendo en tu máquina local y conectada a tus propios servicios de Firebase y Google AI.
+4.  **Subir tu Código**:
+    ```bash
+    # Añadir todos los archivos
+    git add .
+    
+    # Crear el primer commit
+    git commit -m "Commit inicial del proyecto OrderFlow"
+    
+    # Especificar la rama principal (usualmente 'main')
+    git branch -M main
+    
+    # Subir el código a GitHub
+    git push -u origin main
+    ```
+
+Ahora tu proyecto estará seguro y versionado en tu propia cuenta de GitHub.
