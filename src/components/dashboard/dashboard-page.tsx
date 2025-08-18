@@ -42,6 +42,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
       if (pathname.includes('movimientos')) return `Movimientos - ${title}`;
       if (pathname.includes('registros/libro-iva-compras')) return 'Registros - Libro IVA Compras';
       if (pathname.includes('registros/cuentas-a-pagar')) return 'Registros - Cuentas a Pagar';
+      if (pathname.includes('registros/notas-credito-debito')) return 'Registros - Notas de Crédito/Débito';
       if (pathname.includes('registros')) return `Registros - ${title}`;
       if (pathname.includes('informes')) return `Informes - ${title}`;
       return title;
@@ -144,9 +145,9 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
                       <SidebarMenuItem><Link href="/compras/registros"><SidebarMenuButton isActive={pathname ==='/compras/registros'}>Compras</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/registros/notas-credito-debito"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/notas-credito-debito')}>Notas Crédito/Débito</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/registros/libro-iva-compras"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/libro-iva-compras')}><BookCopy />Libro IVA Compras</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/registros/cuentas-a-pagar"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/cuentas-a-pagar')}><HandCoins />Cuentas a Pagar</SidebarMenuButton></Link></SidebarMenuItem>
-                       <SidebarMenuItem><Link href="#"><SidebarMenuButton>Notas Crédito/Débito</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
@@ -273,5 +274,3 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
     </>
   );
 }
-
-    
