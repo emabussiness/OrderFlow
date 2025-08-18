@@ -11,7 +11,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark } from "lucide-react";
+import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Link from "next/link";
@@ -25,8 +25,8 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/compras/referenciales/proveedores')) return 'Referenciales - Proveedores';
     if (pathname.startsWith('/compras')) {
       const pathParts = pathname.split('/');
-      const lastPart = pathParts[pathParts.length - 1];
-      const title = lastPart.charAt(0).toUpperCase() + lastPart.slice(1).replace('-', ' ');
+      const lastPart = pathParts[pathParts.length - 1].replace(/-/g, ' ');
+      const title = lastPart.charAt(0).toUpperCase() + lastPart.slice(1);
       if (pathname.includes('referenciales/productos')) return 'Referenciales - Productos';
       if (pathname.includes('referenciales/categorias')) return 'Referenciales - Categorías';
       if (pathname.includes('referenciales/unidades-medida')) return 'Referenciales - Unidades de Medida';
@@ -38,6 +38,8 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
        if (pathname.includes('referenciales/bancos')) return 'Referenciales - Bancos';
       if (pathname.includes('referenciales')) return `Referenciales - ${title}`;
       if (pathname.includes('movimientos')) return `Movimientos - ${title}`;
+      if (pathname.includes('registros/libro-iva-compras')) return 'Registros - Libro IVA Compras';
+      if (pathname.includes('registros/cuentas-a-pagar')) return 'Registros - Cuentas a Pagar';
       if (pathname.includes('registros')) return `Registros - ${title}`;
       if (pathname.includes('informes')) return `Informes - ${title}`;
       return title;
@@ -140,7 +142,9 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                   </SidebarMenuItem>
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
-                      <SidebarMenuItem><Link href="/compras/registros"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros')}>Compras</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/registros"><SidebarMenuButton isActive={pathname ==='/compras/registros'}>Compras</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/registros/libro-iva-compras"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/libro-iva-compras')}><BookCopy />Libro IVA Compras</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/registros/cuentas-a-pagar"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/cuentas-a-pagar')}><HandCoins />Cuentas a Pagar</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
