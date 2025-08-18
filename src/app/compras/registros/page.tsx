@@ -194,6 +194,7 @@ export default function ComprasPage() {
   const [selectedOCId, setSelectedOCId] = useState('');
   const [numeroFactura, setNumeroFactura] = useState('');
   const [fechaFactura, setFechaFactura] = useState<Date | undefined>(new Date());
+  const [plazoPagoDias, setPlazoPagoDias] = useState(30);
   const [items, setItems] = useState<ItemCompra[]>([]);
   
   const selectedOC = ordenes.find(oc => oc.id === selectedOCId);
@@ -283,6 +284,7 @@ export default function ComprasPage() {
     setSelectedOCId('');
     setNumeroFactura('');
     setFechaFactura(new Date());
+    setPlazoPagoDias(30);
     setItems([]);
   }
 
@@ -358,6 +360,9 @@ export default function ComprasPage() {
         });
         
         // 3. Create Cuentas a Pagar entry
+        const fechaVencimiento = new Date(fechaFactura);
+        fechaVencimiento.setDate(fechaVencimiento.getDate() + plazoPagoDias);
+
         const cuentaPagarRef = doc(collection(db, 'cuentas_a_pagar'));
         batch.set(cuentaPagarRef, {
            compra_id: compraRef.id,
@@ -365,8 +370,7 @@ export default function ComprasPage() {
            proveedor_nombre: selectedOC.proveedor_nombre,
            numero_factura: numeroFactura,
            fecha_emision: format(fechaFactura, "yyyy-MM-dd"),
-           // Vencimiento a 30 días por defecto
-           fecha_vencimiento: format(new Date(new Date(fechaFactura).setDate(fechaFactura.getDate() + 30)), "yyyy-MM-dd"),
+           fecha_vencimiento: format(fechaVencimiento, "yyyy-MM-dd"),
            monto_total: totales.totalFactura,
            saldo_pendiente: totales.totalFactura,
            estado: 'Pendiente',
@@ -460,7 +464,7 @@ export default function ComprasPage() {
 
                     {selectedOC && (
                         <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="factura-num">Número de Factura</Label>
                                     <Input id="factura-num" value={numeroFactura} onChange={e => setNumeroFactura(e.target.value)} />
@@ -487,6 +491,10 @@ export default function ComprasPage() {
                                         />
                                         </PopoverContent>
                                     </Popover>
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label htmlFor="plazo-pago">Plazo de Pago (días)</Label>
+                                    <Input id="plazo-pago" type="number" value={plazoPagoDias} onChange={e => setPlazoPagoDias(Number(e.target.value) || 0)} />
                                 </div>
                             </div>
 
@@ -662,5 +670,6 @@ export default function ComprasPage() {
     </>
   );
 }
+    
 
     
