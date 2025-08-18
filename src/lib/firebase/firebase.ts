@@ -1,15 +1,16 @@
+
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  apiKey: "AIzaSyDE0EGTX6Bny_Ie0S5uBRLe8NbbAuz8tEY",
+  authDomain: "orderflow-yqf9u.firebaseapp.com",
+  projectId: "orderflow-yqf9u",
+  storageBucket: "orderflow-yqf9u.firebasestorage.app",
+  messagingSenderId: "727657225590",
+  appId: "1:727657225590:web:8f4e5160657ff6e5066e57"
 };
 
 // Initialize Firebase
