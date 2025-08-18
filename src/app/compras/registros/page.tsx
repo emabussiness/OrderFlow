@@ -464,7 +464,7 @@ export default function ComprasPage() {
 
                     {selectedOC && (
                         <>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="factura-num">Número de Factura</Label>
                                     <Input id="factura-num" value={numeroFactura} onChange={e => setNumeroFactura(e.target.value)} />
