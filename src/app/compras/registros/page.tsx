@@ -230,7 +230,7 @@ export default function ComprasPage() {
       setItems(selectedOC.items.map(item => ({
         ...item,
         cantidad_ordenada: item.cantidad,
-        cantidad_recibida: item.cantidad,
+        cantidad_recibida: item.cantidad, // Por defecto, se sugiere recibir todo lo pendiente
         iva_tipo: productosMap.get(item.producto_id)?.iva_tipo ?? 0,
         nombre: productosMap.get(item.producto_id)?.nombre ?? 'Producto no encontrado',
       })));
@@ -376,12 +376,32 @@ export default function ComprasPage() {
            estado: 'Pendiente',
         });
 
-        // 4. Update OC status
-        const totalOrdenado = selectedOC.items.reduce((sum, item) => sum + item.cantidad, 0);
-        // This needs to fetch previous receptions to be accurate, simplified for now
-        const nuevoEstado = totalRecibido < totalOrdenado ? 'Recibido Parcial' : 'Recibido Completo';
+        // 4. Update OC status (Robust logic)
+        const qComprasAnteriores = query(collection(db, 'compras'), where("orden_compra_id", "==", selectedOCId));
+        const comprasAnterioresSnap = await getDocs(qComprasAnteriores);
+        
+        const recepcionesAnteriores = new Map<string, number>();
+        comprasAnterioresSnap.forEach(doc => {
+            const compra = doc.data() as Compra;
+            compra.items.forEach(item => {
+                recepcionesAnteriores.set(item.producto_id, (recepcionesAnteriores.get(item.producto_id) || 0) + item.cantidad_recibida);
+            });
+        });
+
+        let completamenteRecibido = true;
+        for(const itemOC of selectedOC.items) {
+            const yaRecibido = recepcionesAnteriores.get(itemOC.producto_id) || 0;
+            const actualmenteRecibido = items.find(i => i.producto_id === itemOC.producto_id)?.cantidad_recibida || 0;
+            if(yaRecibido + actualmenteRecibido < itemOC.cantidad) {
+                completamenteRecibido = false;
+                break;
+            }
+        }
+        
+        const nuevoEstado = completamenteRecibido ? 'Recibido Completo' : 'Recibido Parcial';
         const ordenRef = doc(db, 'ordenes_compra', selectedOCId);
         batch.update(ordenRef, { estado: nuevoEstado });
+
 
         // 5. Update stock for each item
         const productosRecibidos = items.filter(i => i.cantidad_recibida > 0);
@@ -464,7 +484,7 @@ export default function ComprasPage() {
 
                     {selectedOC && (
                         <>
-                            <div className="grid grid-cols-1 gap-4">
+                           <div className="grid grid-cols-1 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="factura-num">Número de Factura</Label>
                                     <Input id="factura-num" value={numeroFactura} onChange={e => setNumeroFactura(e.target.value)} />
