@@ -237,7 +237,8 @@ export default function NotasCreditoDebitoPage() {
   const calcularTotalNota = () => {
     return items.reduce((sum, item) => sum + (item.cantidad_ajustada * item.precio_unitario), 0);
   };
-
+  
+  const totalAjustado = items.reduce((sum, item) => sum + item.cantidad_ajustada, 0);
   const totalNota = calcularTotalNota();
 
   const resetForm = () => {
@@ -254,7 +255,6 @@ export default function NotasCreditoDebitoPage() {
         return;
     }
 
-    const totalAjustado = items.reduce((sum, item) => sum + item.cantidad_ajustada, 0);
     if (totalAjustado === 0) {
         toast({ variant: 'destructive', title: 'Error', description: 'Debe ajustar la cantidad de al menos un producto.'});
         return;
@@ -335,7 +335,7 @@ export default function NotasCreditoDebitoPage() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Registrar Nueva Nota de Crédito por Devolución</DialogTitle>
+                    <DialogTitle>Registrar Nueva Nota de Crédito por Devolución o Ajuste</DialogTitle>
                     <DialogDescription>Este proceso ajustará la cuenta a pagar y el stock de los productos devueltos a un proveedor.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-grow grid gap-4 py-4 overflow-y-auto pr-2 -mr-2">
