@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins } from "lucide-react";
+import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Link from "next/link";
@@ -25,6 +25,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
     if (pathname === '/') return 'Dashboard';
     if (pathname.startsWith('/compras/referenciales/proveedores')) return 'Referenciales - Proveedores';
     if (pathname.startsWith('/inventario/stock-actual')) return 'Inventario - Stock Actual';
+    if (pathname.startsWith('/inventario/ajustes')) return 'Inventario - Ajustes de Stock';
     if (pathname.startsWith('/compras')) {
       const pathParts = pathname.split('/');
       const lastPart = pathParts[pathParts.length - 1].replace(/-/g, ' ');
@@ -126,7 +127,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                       <SidebarMenuItem><Link href="/compras/pedidos"><SidebarMenuButton isActive={pathname.startsWith('/compras/pedidos')}>Pedido</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/presupuestos"><SidebarMenuButton isActive={pathname.startsWith('/compras/presupuestos')}>Presupuesto proveedor</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/ordenes"><SidebarMenuButton isActive={pathname.startsWith('/compras/ordenes')}>Orden de compra</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="#"><SidebarMenuButton>Ajustes de Stock</SidebarMenuButton></Link></SidebarMenuItem>
+                      
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
@@ -187,6 +188,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                <CollapsibleContent className="ml-4">
                     <SidebarMenu>
                       <SidebarMenuItem><Link href="/inventario/stock-actual"><SidebarMenuButton isActive={pathname.startsWith('/inventario/stock-actual')}>Stock Actual</SidebarMenuButton></Link></SidebarMenuItem>
+                       <SidebarMenuItem><Link href="/inventario/ajustes"><SidebarMenuButton isActive={pathname.startsWith('/inventario/ajustes')}><ArrowRightLeft />Ajustes de Stock</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
             </Collapsible>

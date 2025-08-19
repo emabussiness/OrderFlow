@@ -292,7 +292,7 @@ export default function ComprasPage() {
     };
 
     calculatePendingItems();
-  }, [selectedOC, productos]);
+  }, [selectedOCId, selectedOC, productos]);
   
   const handleItemChange = (index: number, value: string) => {
     const newItems = [...items];
@@ -765,5 +765,6 @@ export default function ComprasPage() {
     
 
     
+
 
 
