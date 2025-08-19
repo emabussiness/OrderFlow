@@ -218,60 +218,62 @@ export default function AjustesStockPage() {
             <DialogTrigger asChild>
                 <Button><PlusCircle className="mr-2 h-4 w-4"/>Registrar Ajuste</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Registrar Ajuste Manual de Stock</DialogTitle>
                     <CardDescription>Use este formulario para registrar mermas, roturas, sobrantes u otras diferencias de inventario.</CardDescription>
                 </DialogHeader>
-                <div className="grid gap-6 py-4">
-                    <div className="space-y-2">
-                        <Label>Tipo de Ajuste</Label>
-                        <RadioGroup value={tipoAjuste} onValueChange={(v) => setTipoAjuste(v as any)} className="grid grid-cols-2 gap-4">
-                            <div>
-                                <RadioGroupItem value="Entrada" id="r-entrada" className="peer sr-only" />
-                                <Label htmlFor="r-entrada" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                                    Entrada (+)
-                                </Label>
-                            </div>
-                            <div>
-                                <RadioGroupItem value="Salida" id="r-salida" className="peer sr-only" />
-                                <Label htmlFor="r-salida" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-destructive [&:has([data-state=checked])]:border-destructive">
-                                    Salida (-)
-                                </Label>
-                            </div>
-                        </RadioGroup>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="deposito">Depósito</Label>
-                        <Combobox
-                            options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
-                            value={selectedDepositoId}
-                            onChange={setSelectedDepositoId}
-                            placeholder="Seleccione un depósito"
-                            searchPlaceholder="Buscar depósito..."
-                        />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="producto">Producto</Label>
-                        <Combobox
-                            options={filteredProducts.map(p => ({ value: p.id, label: p.nombre }))}
-                            value={selectedProductoId}
-                            onChange={setSelectedProductoId}
-                            placeholder="Seleccione un producto"
-                            searchPlaceholder="Buscar producto..."
-                            disabled={!selectedDepositoId && tipoAjuste === 'Salida'}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="cantidad">Cantidad</Label>
-                        <Input id="cantidad" type="number" value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} min="1" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="motivo">Motivo del Ajuste</Label>
-                        <Textarea id="motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ej: Rotura por mal manejo, Diferencia de inventario, etc."/>
-                    </div>
+                <div className="flex-grow overflow-y-auto pr-4 -mr-4">
+                  <div className="grid gap-6 py-4">
+                      <div className="space-y-2">
+                          <Label>Tipo de Ajuste</Label>
+                          <RadioGroup value={tipoAjuste} onValueChange={(v) => setTipoAjuste(v as any)} className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <RadioGroupItem value="Entrada" id="r-entrada" className="peer sr-only" />
+                                  <Label htmlFor="r-entrada" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                      Entrada (+)
+                                  </Label>
+                              </div>
+                              <div>
+                                  <RadioGroupItem value="Salida" id="r-salida" className="peer sr-only" />
+                                  <Label htmlFor="r-salida" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-destructive [&:has([data-state=checked])]:border-destructive">
+                                      Salida (-)
+                                  </Label>
+                              </div>
+                          </RadioGroup>
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="deposito">Depósito</Label>
+                          <Combobox
+                              options={depositos.map(d => ({ value: d.id, label: d.nombre }))}
+                              value={selectedDepositoId}
+                              onChange={setSelectedDepositoId}
+                              placeholder="Seleccione un depósito"
+                              searchPlaceholder="Buscar depósito..."
+                          />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="producto">Producto</Label>
+                          <Combobox
+                              options={filteredProducts.map(p => ({ value: p.id, label: p.nombre }))}
+                              value={selectedProductoId}
+                              onChange={setSelectedProductoId}
+                              placeholder="Seleccione un producto"
+                              searchPlaceholder="Buscar producto..."
+                              disabled={!selectedDepositoId}
+                          />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="cantidad">Cantidad</Label>
+                          <Input id="cantidad" type="number" value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} min="1" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="motivo">Motivo del Ajuste</Label>
+                          <Textarea id="motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ej: Rotura por mal manejo, Diferencia de inventario, etc."/>
+                      </div>
+                  </div>
                 </div>
-                <DialogFooterComponent>
+                <DialogFooterComponent className="border-t pt-4">
                     <Button variant="outline" onClick={() => setOpenCreate(false)}>Cancelar</Button>
                     <Button onClick={handleCreateAjuste}>Confirmar Ajuste</Button>
                 </DialogFooterComponent>
