@@ -368,9 +368,7 @@ export default function CuentasPagarPage() {
       const qCuentas = query(collection(db, 'cuentas_a_pagar'), orderBy("fecha_vencimiento", "asc"));
       const snapshotCuentas = await getDocs(qCuentas);
       
-      const dataListCuentas = snapshotCuentas.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as CuentaPagar))
-        .filter(cuenta => cuenta.estado === "Pendiente" || cuenta.estado === "Pagado Parcial");
+      const dataListCuentas = snapshotCuentas.docs.map(doc => ({ id: doc.id, ...doc.data() } as CuentaPagar));
       
       setCuentas(dataListCuentas);
 
@@ -428,65 +426,74 @@ export default function CuentasPagarPage() {
         <h1 className="text-2xl font-bold">Cuentas a Pagar</h1>
       </div>
 
-      {Object.entries(cuentasAgrupadas).map(([proveedorId, facturas]) => (
-        <Card key={proveedorId} className="mb-6">
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>{facturas[0].proveedor_nombre}</CardTitle>
-                    <CardDescription>{facturas.length} factura(s) pendiente(s).</CardDescription>
-                </div>
-                <RegistrarPagoDialog 
-                    proveedorId={proveedorId} 
-                    facturas={facturas}
-                    formasPago={formasPago}
-                    bancos={bancos}
-                    onSuccessfulPayment={fetchData}
-                />
-            </CardHeader>
-            <CardContent>
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>Factura Nro.</TableHead>
-                    <TableHead>Fecha Emisión</TableHead>
-                    <TableHead>Fecha Venc.</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Monto Total</TableHead>
-                    <TableHead className="text-right">Saldo Pendiente</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {facturas.map((cuenta) => (
-                    <TableRow key={cuenta.id}>
-                    <TableCell>{cuenta.numero_factura}</TableCell>
-                    <TableCell>{cuenta.fecha_emision}</TableCell>
-                    <TableCell>{cuenta.fecha_vencimiento}</TableCell>
-                    <TableCell>
-                        <Badge variant={getStatusVariant(cuenta.estado)}>{cuenta.estado}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">{currencyFormatter.format(cuenta.monto_total)}</TableCell>
-                    <TableCell className="text-right font-medium">{currencyFormatter.format(cuenta.saldo_pendiente)}</TableCell>
-                    <TableCell>
-                        <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Abrir menú</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenDetails(cuenta)}>Ver Compra Asociada</DropdownMenuItem>
-                        </DropdownMenuContent>
-                        </DropdownMenu>
-                    </TableCell>
+      {Object.entries(cuentasAgrupadas).map(([proveedorId, facturas]) => {
+        const facturasPendientes = facturas.filter(f => f.estado === 'Pendiente' || f.estado === 'Pagado Parcial');
+        const totalDeuda = facturasPendientes.reduce((sum, f) => sum + f.saldo_pendiente, 0);
+
+        return (
+            <Card key={proveedorId} className="mb-6">
+                <CardHeader className="flex flex-row items-start justify-between">
+                    <div>
+                        <CardTitle>{facturas[0].proveedor_nombre}</CardTitle>
+                        <CardDescription>
+                            {facturasPendientes.length > 0 
+                                ? `${facturasPendientes.length} factura(s) con saldo. Deuda total: ${currencyFormatter.format(totalDeuda)}`
+                                : `No hay facturas pendientes de pago.`
+                            }
+                        </CardDescription>
+                    </div>
+                    <RegistrarPagoDialog 
+                        proveedorId={proveedorId} 
+                        facturas={facturasPendientes}
+                        formasPago={formasPago}
+                        bancos={bancos}
+                        onSuccessfulPayment={fetchData}
+                    />
+                </CardHeader>
+                <CardContent>
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Factura Nro.</TableHead>
+                        <TableHead>Fecha Emisión</TableHead>
+                        <TableHead>Fecha Venc.</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="text-right">Monto Total</TableHead>
+                        <TableHead className="text-right">Saldo Pendiente</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
-                ))}
-                </TableBody>
-            </Table>
-            </CardContent>
-        </Card>
-      ))}
+                    </TableHeader>
+                    <TableBody>
+                    {facturas.map((cuenta) => (
+                        <TableRow key={cuenta.id} className={cn(cuenta.estado === 'Pagado' && 'text-muted-foreground bg-muted/30')}>
+                        <TableCell>{cuenta.numero_factura}</TableCell>
+                        <TableCell>{cuenta.fecha_emision}</TableCell>
+                        <TableCell>{cuenta.fecha_vencimiento}</TableCell>
+                        <TableCell>
+                            <Badge variant={getStatusVariant(cuenta.estado)}>{cuenta.estado}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{currencyFormatter.format(cuenta.monto_total)}</TableCell>
+                        <TableCell className="text-right font-medium">{currencyFormatter.format(cuenta.saldo_pendiente)}</TableCell>
+                        <TableCell>
+                            <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Abrir menú</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenDetails(cuenta)}>Ver Compra Asociada</DropdownMenuItem>
+                            </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+                </CardContent>
+            </Card>
+      )})}
 
       {cuentas.length === 0 && (
         <Card>
@@ -571,5 +578,3 @@ export default function CuentasPagarPage() {
     </>
   );
 }
-
-    
