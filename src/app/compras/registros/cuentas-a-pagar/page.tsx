@@ -276,7 +276,7 @@ export default function CuentasPagarPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const qCuentas = query(collection(db, 'cuentas_a_pagar'), where("estado", "!=", "Pagado"), orderBy("estado"), orderBy("fecha_vencimiento", "asc"));
+      const qCuentas = query(collection(db, 'cuentas_a_pagar'), where("estado", "in", ["Pendiente", "Pagado Parcial"]), orderBy("fecha_vencimiento", "asc"));
       const snapshotCuentas = await getDocs(qCuentas);
       const dataListCuentas = snapshotCuentas.docs.map(doc => ({ id: doc.id, ...doc.data() } as CuentaPagar));
       setCuentas(dataListCuentas);
