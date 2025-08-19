@@ -45,6 +45,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
       if (pathname.includes('registros/libro-iva-compras')) return 'Registros - Libro IVA Compras';
       if (pathname.includes('registros/cuentas-a-pagar')) return 'Registros - Cuentas a Pagar';
       if (pathname.includes('registros/notas-credito-debito')) return 'Registros - Notas de Crédito';
+      if (pathname.includes('registros/notas-debito')) return 'Registros - Notas de Débito';
       if (pathname.includes('registros/pagos')) return 'Registros - Pagos a Proveedores';
       if (pathname.includes('registros')) return `Registros - ${title}`;
       if (pathname.includes('informes')) return `Informes - ${title}`;
@@ -149,6 +150,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                     <SidebarMenu>
                       <SidebarMenuItem><Link href="/compras/registros"><SidebarMenuButton isActive={pathname ==='/compras/registros'}>Compras</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/registros/notas-credito-debito"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/notas-credito-debito')}>Notas de Crédito</SidebarMenuButton></Link></SidebarMenuItem>
+                       <SidebarMenuItem><Link href="/compras/registros/notas-debito"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/notas-debito')}>Notas de Débito</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/registros/cuentas-a-pagar"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/cuentas-a-pagar')}><HandCoins />Cuentas a Pagar</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/registros/pagos"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/pagos')}><Banknote />Pagos a Proveedores</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/registros/libro-iva-compras"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/libro-iva-compras')}><BookCopy />Libro IVA Compras</SidebarMenuButton></Link></SidebarMenuItem>
