@@ -273,9 +273,6 @@ export default function CuentasPagarPage() {
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
 
-  const [selectedProveedorId, setSelectedProveedorId] = useState<string | null>(null);
-
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -315,10 +312,6 @@ export default function CuentasPagarPage() {
     }
   }
   
-  const handleOpenPaymentDialog = (proveedorId: string) => {
-      setSelectedProveedorId(proveedorId);
-  }
-
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
       case "Pendiente": return "destructive";
