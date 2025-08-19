@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { collection, getDocs, query, orderBy, where, writeBatch, serverTimestamp, doc, increment } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, writeBatch, serverTimestamp, doc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -365,6 +365,7 @@ export default function CuentasPagarPage() {
   // Filtros
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDate, setSearchDate] = useState<Date | undefined>();
+  const [statusFilter, setStatusFilter] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
@@ -423,7 +424,9 @@ export default function CuentasPagarPage() {
       
       const matchDate = !searchDate || cuenta.fecha_emision === format(searchDate, "yyyy-MM-dd");
 
-      return matchTerm && matchDate;
+      const matchStatus = statusFilter === '' || cuenta.estado === statusFilter;
+
+      return matchTerm && matchDate && matchStatus;
   });
   
   const cuentasAgrupadas = filteredCuentas.reduce((acc, cuenta) => {
@@ -438,17 +441,18 @@ export default function CuentasPagarPage() {
     <>
       <div className="flex justify-between items-center mb-6 gap-4">
         <h1 className="text-2xl font-bold">Cuentas a Pagar</h1>
-        <div className="flex gap-2 w-full max-w-lg">
+        <div className="flex gap-2 w-full max-w-3xl">
             <Input 
                 placeholder="Buscar por proveedor o factura..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
             />
             <Popover>
                 <PopoverTrigger asChild>
                     <Button variant={"outline"} className={cn("w-[280px] justify-start text-left font-normal", !searchDate && "text-muted-foreground")}>
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {searchDate ? format(searchDate, "PPP", { locale: es }) : <span>Filtrar por fecha de emisión</span>}
+                        {searchDate ? format(searchDate, "PPP", { locale: es }) : <span>Filtrar por fecha</span>}
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="flex w-auto p-0">
@@ -456,6 +460,18 @@ export default function CuentasPagarPage() {
                     <Button variant="ghost" size="icon" className="m-2" onClick={() => setSearchDate(undefined)}><XIcon className="h-4 w-4"/></Button>
                 </PopoverContent>
             </Popover>
+             <Combobox
+                options={[
+                    { value: "", label: "Todos los estados" },
+                    { value: "Pendiente", label: "Pendiente" },
+                    { value: "Pagado Parcial", label: "Pagado Parcial" },
+                    { value: "Pagado", label: "Pagado" },
+                ]}
+                value={statusFilter}
+                onChange={setStatusFilter}
+                placeholder="Filtrar por estado"
+                searchPlaceholder="Buscar estado..."
+            />
         </div>
       </div>
 
@@ -611,4 +627,3 @@ export default function CuentasPagarPage() {
     </>
   );
 }
-
