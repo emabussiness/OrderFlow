@@ -452,7 +452,7 @@ export default function OrdenesCompraPage() {
     const deposito = depositos.find(d => d.id === depositoId);
     
     try {
-        const baseOrden: any = {
+        const nuevaOrden: Omit<OrdenCompra, 'id'> = {
           proveedor_nombre: proveedor?.nombre || 'Desconocido',
           proveedor_id: proveedor?.id || '',
           proveedor_ruc: proveedor?.ruc || '',
@@ -472,15 +472,15 @@ export default function OrdenesCompraPage() {
         };
 
         if (creationMode === 'presupuesto' && selectedPresupuestoId) {
-          baseOrden.presupuesto_proveedor_id = selectedPresupuestoId;
+          nuevaOrden.presupuesto_proveedor_id = selectedPresupuestoId;
           if (selectedPresupuesto?.pedido_id) {
-            baseOrden.pedido_id = selectedPresupuesto.pedido_id;
+            nuevaOrden.pedido_id = selectedPresupuesto.pedido_id;
           }
         } else if (creationMode === 'pedido' && selectedPedidoId) {
-          baseOrden.pedido_id = selectedPedidoId;
+          nuevaOrden.pedido_id = selectedPedidoId;
         }
 
-        await addDoc(collection(db, "ordenes_compra"), baseOrden);
+        await addDoc(collection(db, "ordenes_compra"), nuevaOrden);
         
         if (creationMode === 'pedido' && selectedPedidoId) {
           const pedidoRef = doc(db, 'pedidos_compra', selectedPedidoId);

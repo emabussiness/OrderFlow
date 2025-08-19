@@ -43,6 +43,7 @@ type ItemCompra = {
   nombre: string;
   cantidad_ordenada: number;
   cantidad_recibida: number;
+  cantidad_pendiente: number;
   precio_unitario: number;
   iva_tipo: number;
 };
@@ -157,7 +158,7 @@ const OrdenSelectorDialog = ({ ordenes, onSelectOrden }: { ordenes: OrdenCompra[
                                             <TableRow key={item.producto_id}>
                                                 <TableCell>{item.nombre}</TableCell>
                                                 <TableCell>{item.cantidad}</TableCell>
-                                                <TableCell className="text-right">${item.precio_unitario.toFixed(2)}</TableCell>
+                                                <TableCell>${item.precio_unitario.toFixed(2)}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -209,41 +210,40 @@ export default function ComprasPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch core data
-      const comprasSnapshot = await getDocs(query(collection(db, 'compras'), orderBy("fecha_creacion", "desc")));
-      setCompras(comprasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Compra)));
+        const [comprasSnap, productosSnap, proveedoresSnap, ordenesSnap] = await Promise.all([
+            getDocs(query(collection(db, 'compras'), orderBy("fecha_creacion", "desc"))),
+            getDocs(collection(db, 'productos')),
+            getDocs(collection(db, 'proveedores')),
+            getDocs(query(collection(db, 'ordenes_compra'), where("estado", "in", ["Pendiente de Recepción", "Recibido Parcial"])))
+        ]);
 
-      // Fetch reference data
-      const productosSnapshot = await getDocs(collection(db, 'productos'));
-      const productosList = productosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto));
-      setProductos(productosList);
-      const productosMap = new Map(productosList.map(p => [p.id, p]));
+        setCompras(comprasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Compra)));
 
-      const proveedoresSnapshot = await getDocs(collection(db, 'proveedores'));
-      const proveedoresList = proveedoresSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Proveedor));
-      setProveedores(proveedoresList);
+        const productosList = productosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto));
+        setProductos(productosList);
+        const productosMap = new Map(productosList.map(p => [p.id, p]));
 
-      // Fetch open orders
-      const qOrdenes = query(collection(db, 'ordenes_compra'), where("estado", "in", ["Pendiente de Recepción", "Recibido Parcial"]));
-      const ordenesSnapshot = await getDocs(qOrdenes);
-      const ordenesList = ordenesSnapshot.docs.map(doc => {
-          const data = doc.data() as Omit<OrdenCompra, 'id'>;
-          return {
-              id: doc.id,
-              ...data,
-              items: data.items.map(item => ({
-                  ...item,
-                  nombre: productosMap.get(item.producto_id)?.nombre || 'Producto no encontrado'
-              }))
-          } as OrdenCompra
-      });
-      setOrdenes(ordenesList);
+        const proveedoresList = proveedoresSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Proveedor));
+        setProveedores(proveedoresList);
+
+        const ordenesList = ordenesSnap.docs.map(doc => {
+            const data = doc.data() as Omit<OrdenCompra, 'id' | 'items'> & { items: ItemOrden[] };
+            return {
+                id: doc.id,
+                ...data,
+                items: data.items.map(item => ({
+                    ...item,
+                    nombre: productosMap.get(item.producto_id)?.nombre || 'Producto no encontrado'
+                }))
+            } as OrdenCompra;
+        });
+        setOrdenes(ordenesList);
 
     } catch (error) {
-      console.error("Error fetching data:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos.' });
+        console.error("Error fetching data:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos.' });
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
@@ -253,29 +253,54 @@ export default function ComprasPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedOC) {
-      const productosMap = new Map(productos.map(p => [p.id, p]));
-      setItems(selectedOC.items.map(item => ({
-        ...item,
-        cantidad_ordenada: item.cantidad,
-        cantidad_recibida: item.cantidad, // Por defecto, se sugiere recibir todo lo pendiente
-        iva_tipo: productosMap.get(item.producto_id)?.iva_tipo ?? 0,
-        nombre: productosMap.get(item.producto_id)?.nombre ?? 'Producto no encontrado',
-      })));
-    } else {
-      setItems([]);
-    }
-  }, [selectedOCId, selectedOC, productos]);
+    const calculatePendingItems = async () => {
+        if (!selectedOC) {
+            setItems([]);
+            return;
+        }
+
+        const productosMap = new Map(productos.map(p => [p.id, p]));
+        const q = query(collection(db, 'compras'), where("orden_compra_id", "==", selectedOC.id));
+        const prevComprasSnap = await getDocs(q);
+
+        const receivedQuantities = new Map<string, number>();
+        prevComprasSnap.forEach(doc => {
+            const compraData = doc.data() as Compra;
+            compraData.items.forEach(item => {
+                receivedQuantities.set(item.producto_id, (receivedQuantities.get(item.producto_id) || 0) + item.cantidad_recibida);
+            });
+        });
+
+        const pendingItems = selectedOC.items.map(itemOC => {
+            const totalReceived = receivedQuantities.get(itemOC.producto_id) || 0;
+            const pending = itemOC.cantidad - totalReceived;
+            return {
+                producto_id: itemOC.producto_id,
+                nombre: itemOC.nombre,
+                cantidad_ordenada: itemOC.cantidad,
+                cantidad_pendiente: pending,
+                cantidad_recibida: pending, // Default to receive all pending
+                precio_unitario: itemOC.precio_unitario,
+                iva_tipo: productosMap.get(itemOC.producto_id)?.iva_tipo ?? 0,
+            };
+        });
+
+        setItems(pendingItems);
+    };
+
+    calculatePendingItems();
+  }, [selectedOC, productos]);
   
   const handleItemChange = (index: number, value: string) => {
     const newItems = [...items];
-    const originalQty = newItems[index].cantidad_ordenada;
+    const itemToChange = newItems[index];
+    const pendingQty = itemToChange.cantidad_pendiente;
     let receivedQty = Number(value);
     
     if (isNaN(receivedQty) || receivedQty < 0) receivedQty = 0;
-    if (receivedQty > originalQty) {
-        toast({ variant: 'destructive', title: 'Cantidad inválida', description: `No puede recibir más de lo solicitado (${originalQty}).`})
-        receivedQty = originalQty;
+    if (receivedQty > pendingQty) {
+        toast({ variant: 'destructive', title: 'Cantidad inválida', description: `No puede recibir más de lo pendiente (${pendingQty}).`})
+        receivedQty = pendingQty;
     }
 
     newItems[index].cantidad_recibida = receivedQty;
@@ -560,7 +585,8 @@ export default function ComprasPage() {
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Producto</TableHead>
-                                                <TableHead className="w-[120px]">Cant. Pedida</TableHead>
+                                                <TableHead className="w-[120px]">Cant. Ordenada</TableHead>
+                                                <TableHead className="w-[120px]">Cant. Pendiente</TableHead>
                                                 <TableHead className="w-[120px]">Cant. Recibida</TableHead>
                                                 <TableHead className="w-[120px]">P. Unit.</TableHead>
                                                 <TableHead className="w-[80px]">IVA %</TableHead>
@@ -572,7 +598,17 @@ export default function ComprasPage() {
                                                 <TableRow key={index}>
                                                     <TableCell>{item.nombre}</TableCell>
                                                     <TableCell>{item.cantidad_ordenada}</TableCell>
-                                                    <TableCell><Input type="number" value={item.cantidad_recibida} onChange={e => handleItemChange(index, e.target.value)} min="0"/></TableCell>
+                                                    <TableCell>{item.cantidad_pendiente}</TableCell>
+                                                    <TableCell>
+                                                        <Input 
+                                                            type="number" 
+                                                            value={item.cantidad_recibida} 
+                                                            onChange={e => handleItemChange(index, e.target.value)} 
+                                                            min="0"
+                                                            max={item.cantidad_pendiente}
+                                                            disabled={item.cantidad_pendiente === 0}
+                                                        />
+                                                    </TableCell>
                                                     <TableCell>${item.precio_unitario.toFixed(2)}</TableCell>
                                                     <TableCell>{item.iva_tipo}%</TableCell>
                                                     <TableCell className="text-right">${(item.cantidad_recibida * item.precio_unitario).toFixed(2)}</TableCell>
@@ -727,3 +763,4 @@ export default function ComprasPage() {
     
 
     
+
