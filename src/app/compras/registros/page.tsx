@@ -222,15 +222,18 @@ export default function ComprasPage() {
         const productosList = productosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto));
         setProductos(productosList);
         const productosMap = new Map(productosList.map(p => [p.id, p]));
-
+        
         const proveedoresList = proveedoresSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Proveedor));
         setProveedores(proveedoresList);
+        const proveedoresMap = new Map(proveedoresList.map(p => [p.id, p]));
 
         const ordenesList = ordenesSnap.docs.map(doc => {
-            const data = doc.data() as Omit<OrdenCompra, 'id' | 'items'> & { items: ItemOrden[] };
+            const data = doc.data() as Omit<OrdenCompra, 'id' | 'items' | 'proveedor_ruc'> & { items: ItemOrden[], proveedor_id: string };
+            const proveedor = proveedoresMap.get(data.proveedor_id);
             return {
                 id: doc.id,
                 ...data,
+                proveedor_ruc: proveedor?.ruc || '',
                 items: data.items.map(item => ({
                     ...item,
                     nombre: productosMap.get(item.producto_id)?.nombre || 'Producto no encontrado'
@@ -273,7 +276,7 @@ export default function ComprasPage() {
 
         const pendingItems = selectedOC.items.map(itemOC => {
             const totalReceived = receivedQuantities.get(itemOC.producto_id) || 0;
-            const pending = itemOC.cantidad - totalReceived;
+            const pending = Math.max(0, itemOC.cantidad - totalReceived);
             return {
                 producto_id: itemOC.producto_id,
                 nombre: itemOC.nombre,
@@ -353,9 +356,8 @@ export default function ComprasPage() {
         return;
     }
     
-    const proveedorSeleccionado = proveedores.find(p => p.id === selectedOC.proveedor_id);
-    if (!proveedorSeleccionado) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Proveedor no encontrado.'});
+    if (!selectedOC.proveedor_ruc) {
+        toast({ variant: 'destructive', title: 'Error', description: 'El RUC del proveedor no está definido en la OC.'});
         return;
     }
 
@@ -383,7 +385,7 @@ export default function ComprasPage() {
             orden_compra_id: selectedOCId,
             proveedor_id: selectedOC.proveedor_id,
             proveedor_nombre: selectedOC.proveedor_nombre,
-            proveedor_ruc: proveedorSeleccionado.ruc,
+            proveedor_ruc: selectedOC.proveedor_ruc,
             deposito_id: selectedOC.deposito_id,
             deposito_nombre: selectedOC.deposito_nombre,
             fecha_compra: format(fechaFactura, "yyyy-MM-dd"),
@@ -408,7 +410,7 @@ export default function ComprasPage() {
             compra_id: compraRef.id,
             fecha_factura: format(fechaFactura, "yyyy-MM-dd"),
             proveedor_nombre: selectedOC.proveedor_nombre,
-            proveedor_ruc: proveedorSeleccionado.ruc,
+            proveedor_ruc: selectedOC.proveedor_ruc,
             numero_factura: numeroFactura,
             total_compra: totales.totalFactura,
             gravada_10: gravada10,
@@ -763,4 +765,5 @@ export default function ComprasPage() {
     
 
     
+
 
