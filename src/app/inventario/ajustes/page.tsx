@@ -23,6 +23,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 // --- Types ---
 type Deposito = { id: string; nombre: string; };
 type Producto = { id: string; nombre: string; };
+type Stock = { id: string; producto_id: string; deposito_id: string; cantidad: number; };
 
 type AjusteStock = {
   id: string;
@@ -51,6 +52,7 @@ export default function AjustesStockPage() {
   const [ajustes, setAjustes] = useState<AjusteStock[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [depositos, setDepositos] = useState<Deposito[]>([]);
+  const [stockList, setStockList] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form state
@@ -61,18 +63,25 @@ export default function AjustesStockPage() {
   const [cantidad, setCantidad] = useState(1);
   const [motivo, setMotivo] = useState('');
 
+  const [filteredProducts, setFilteredProducts] = useState<Producto[]>([]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [ajustesSnap, productosSnap, depositosSnap] = await Promise.all([
+      const [ajustesSnap, productosSnap, depositosSnap, stockSnap] = await Promise.all([
         getDocs(query(collection(db, 'ajustes_stock'), orderBy("fecha_creacion", "desc"))),
         getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
-        getDocs(query(collection(db, 'depositos'), orderBy("nombre")))
+        getDocs(query(collection(db, 'depositos'), orderBy("nombre"))),
+        getDocs(collection(db, 'stock'))
       ]);
 
       setAjustes(ajustesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AjusteStock)));
-      setProductos(productosSnap.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre } as Producto)));
+      const allProductos = productosSnap.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre } as Producto));
+      setProductos(allProductos);
       setDepositos(depositosSnap.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre } as Deposito)));
+      setStockList(stockSnap.docs.map(doc => doc.data() as Stock));
+      
+      setFilteredProducts(allProductos); // Initially show all products
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -85,6 +94,24 @@ export default function AjustesStockPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+      if (selectedDepositoId) {
+          const productIdsInStock = stockList
+              .filter(stock => stock.deposito_id === selectedDepositoId)
+              .map(stock => stock.producto_id);
+          
+          if (tipoAjuste === 'Salida') {
+            setFilteredProducts(productos.filter(p => productIdsInStock.includes(p.id)));
+          } else {
+            setFilteredProducts(productos);
+          }
+      } else {
+          setFilteredProducts(productos);
+      }
+      setSelectedProductoId(''); // Reset product selection when depot changes
+  }, [selectedDepositoId, stockList, productos, tipoAjuste]);
+
 
   const resetForm = () => {
     setTipoAjuste("Salida");
@@ -227,11 +254,12 @@ export default function AjustesStockPage() {
                      <div className="space-y-2">
                         <Label htmlFor="producto">Producto</Label>
                         <Combobox
-                            options={productos.map(p => ({ value: p.id, label: p.nombre }))}
+                            options={filteredProducts.map(p => ({ value: p.id, label: p.nombre }))}
                             value={selectedProductoId}
                             onChange={setSelectedProductoId}
                             placeholder="Seleccione un producto"
                             searchPlaceholder="Buscar producto..."
+                            disabled={!selectedDepositoId && tipoAjuste === 'Salida'}
                         />
                     </div>
                     <div className="space-y-2">
@@ -291,4 +319,3 @@ export default function AjustesStockPage() {
     </>
   );
 }
-
