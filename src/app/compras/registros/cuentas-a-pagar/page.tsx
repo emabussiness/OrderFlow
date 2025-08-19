@@ -27,6 +27,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Combobox } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 
 type CuentaPagar = {
@@ -63,6 +64,10 @@ type Compra = {
 type FormaPago = { id: string; nombre: string; };
 type Banco = { id: string; nombre: string; };
 
+type FacturaParaPago = CuentaPagar & {
+  monto_a_aplicar: number;
+};
+
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
   style: 'currency',
   currency: 'PYG',
@@ -79,23 +84,54 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
     const [formaPagoId, setFormaPagoId] = useState('');
     const [bancoId, setBancoId] = useState('');
     const [numeroReferencia, setNumeroReferencia] = useState('');
-    const [montoPagado, setMontoPagado] = useState(0);
-    const [selectedFacturas, setSelectedFacturas] = useState<Record<string, boolean>>({});
 
-    const facturasSeleccionadasParaPago = facturas.filter(f => selectedFacturas[f.id]);
-    const totalAPagar = facturasSeleccionadasParaPago.reduce((sum, f) => sum + f.saldo_pendiente, 0);
+    // Cheque specific fields
+    const [tipoCheque, setTipoCheque] = useState<'Al Día' | 'Diferido'>('Al Día');
+    const [numeroCheque, setNumeroCheque] = useState('');
+    const [fechaEmisionCheque, setFechaEmisionCheque] = useState<Date | undefined>(new Date());
+    const [fechaPagoCheque, setFechaPagoCheque] = useState<Date | undefined>(new Date());
+    
+    const [selectedFacturas, setSelectedFacturas] = useState<Record<string, boolean>>({});
+    const [facturasParaPago, setFacturasParaPago] = useState<FacturaParaPago[]>([]);
+    
+    const formaPagoSeleccionada = formasPago.find(f => f.id === formaPagoId);
 
     useEffect(() => {
-        setMontoPagado(totalAPagar);
-    }, [totalAPagar]);
+        const facturasFiltradas = facturas.filter(f => selectedFacturas[f.id]);
+        setFacturasParaPago(facturasFiltradas.map(f => ({
+            ...f,
+            monto_a_aplicar: f.saldo_pendiente // Default a aplicar el saldo completo
+        })));
+    }, [selectedFacturas, facturas]);
+
+    const totalAPagar = facturasParaPago.reduce((sum, f) => sum + f.monto_a_aplicar, 0);
+
+    const handleMontoAAplicarChange = (facturaId: string, monto: number) => {
+        const facturaOriginal = facturas.find(f => f.id === facturaId);
+        if (!facturaOriginal) return;
+
+        let montoValidado = monto;
+        if (monto < 0) montoValidado = 0;
+        if (monto > facturaOriginal.saldo_pendiente) {
+            toast({ variant: 'destructive', title: 'Monto inválido', description: `El monto a aplicar no puede ser mayor al saldo de ${currencyFormatter.format(facturaOriginal.saldo_pendiente)}.` });
+            montoValidado = facturaOriginal.saldo_pendiente;
+        }
+
+        setFacturasParaPago(prev => prev.map(f => f.id === facturaId ? { ...f, monto_a_aplicar: montoValidado } : f));
+    }
+
 
     const resetForm = () => {
         setFechaPago(new Date());
         setFormaPagoId('');
         setBancoId('');
         setNumeroReferencia('');
-        setMontoPagado(0);
         setSelectedFacturas({});
+        setFacturasParaPago([]);
+        setTipoCheque('Al Día');
+        setNumeroCheque('');
+        setFechaEmisionCheque(new Date());
+        setFechaPagoCheque(new Date());
     }
 
     useEffect(() => {
@@ -105,67 +141,70 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
     }, [open]);
 
     const handlePago = async () => {
-        if (!fechaPago || !formaPagoId || montoPagado <= 0 || facturasSeleccionadasParaPago.length === 0) {
+        if (!fechaPago || !formaPagoId || totalAPagar <= 0 || facturasParaPago.length === 0) {
             toast({ variant: 'destructive', title: 'Error de validación', description: 'Fecha, forma de pago, facturas y un monto mayor a cero son requeridos.' });
             return;
         }
 
-        if (montoPagado > totalAPagar) {
-            toast({ variant: 'destructive', title: 'Monto inválido', description: 'El monto pagado no puede ser mayor al saldo total de las facturas seleccionadas.' });
+        if (formaPagoSeleccionada?.nombre === 'Cheque' && (!numeroCheque || !fechaEmisionCheque || (tipoCheque === 'Diferido' && !fechaPagoCheque))) {
+             toast({ variant: 'destructive', title: 'Datos del Cheque Incompletos', description: 'Por favor, complete todos los campos requeridos para el cheque.' });
             return;
         }
 
         try {
             const batch = writeBatch(db);
-            const formaPagoSeleccionada = formasPago.find(fp => fp.id === formaPagoId);
             const bancoSeleccionado = bancos.find(b => b.id === bancoId);
 
-            // 1. Create payment record
-            const pagoRef = doc(collection(db, 'pagos_proveedores'));
-            batch.set(pagoRef, {
+            const pagoData: any = {
                 proveedor_id: proveedorId,
-                proveedor_nombre: facturasSeleccionadasParaPago[0].proveedor_nombre,
+                proveedor_nombre: facturasParaPago[0].proveedor_nombre,
                 fecha_pago: format(fechaPago, "yyyy-MM-dd"),
-                monto_total: montoPagado,
+                monto_total: totalAPagar,
                 forma_pago_id: formaPagoId,
                 forma_pago_nombre: formaPagoSeleccionada?.nombre || 'N/A',
                 banco_id: bancoId || null,
                 banco_nombre: bancoSeleccionado?.nombre || null,
                 numero_referencia: numeroReferencia || null,
-                facturas_afectadas: facturasSeleccionadasParaPago.map(f => ({ id: f.id, numero_factura: f.numero_factura })),
+                facturas_afectadas: facturasParaPago.map(f => ({ id: f.id, numero_factura: f.numero_factura, monto_aplicado: f.monto_a_aplicar })),
                 usuario_id: 'user-demo',
                 fecha_creacion: serverTimestamp(),
-            });
+            };
 
-            // 2. Create treasury movement (egreso)
+            if (formaPagoSeleccionada?.nombre === 'Cheque') {
+                pagoData.cheque_info = {
+                    tipo: tipoCheque,
+                    numero: numeroCheque,
+                    fecha_emision: format(fechaEmisionCheque!, "yyyy-MM-dd"),
+                    fecha_pago: tipoCheque === 'Diferido' ? format(fechaPagoCheque!, "yyyy-MM-dd") : format(fechaEmisionCheque!, "yyyy-MM-dd"),
+                };
+            }
+
+            const pagoRef = doc(collection(db, 'pagos_proveedores'));
+            batch.set(pagoRef, pagoData);
+
             const movimientoRef = doc(collection(db, 'movimientos_tesoreria'));
             batch.set(movimientoRef, {
                 pago_id: pagoRef.id,
                 tipo: 'Egreso',
-                concepto: `Pago a proveedor: ${facturasSeleccionadasParaPago[0].proveedor_nombre}`,
+                concepto: `Pago a proveedor: ${facturasParaPago[0].proveedor_nombre}`,
                 fecha_movimiento: format(fechaPago, "yyyy-MM-dd"),
-                monto: montoPagado,
+                monto: totalAPagar,
                 forma_pago_nombre: formaPagoSeleccionada?.nombre || 'N/A',
                 banco_nombre: bancoSeleccionado?.nombre || null,
-                referencia: numeroReferencia || null,
+                referencia: formaPagoSeleccionada?.nombre === 'Cheque' ? `Cheque Nro ${numeroCheque}` : numeroReferencia || null,
             });
 
-            // 3. Update account payables
-            let montoRestanteAplicar = montoPagado;
-            for (const factura of facturasSeleccionadasParaPago) {
-                if (montoRestanteAplicar <= 0) break;
+            for (const factura of facturasParaPago) {
+                if (factura.monto_a_aplicar <= 0) continue;
 
-                const montoAAplicar = Math.min(factura.saldo_pendiente, montoRestanteAplicar);
-                const nuevoSaldo = factura.saldo_pendiente - montoAAplicar;
-                const nuevoEstado = nuevoSaldo <= 0 ? 'Pagado' : 'Pagado Parcial';
+                const nuevoSaldo = factura.saldo_pendiente - factura.monto_a_aplicar;
+                const nuevoEstado = nuevoSaldo <= 0.01 ? 'Pagado' : 'Pagado Parcial';
                 
                 const facturaRef = doc(db, 'cuentas_a_pagar', factura.id);
                 batch.update(facturaRef, {
-                    saldo_pendiente: increment(-montoAAplicar),
+                    saldo_pendiente: increment(-factura.monto_a_aplicar),
                     estado: nuevoEstado,
                 });
-
-                montoRestanteAplicar -= montoAAplicar;
             }
 
             await batch.commit();
@@ -183,13 +222,13 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
             <DialogTrigger asChild>
                 <Button disabled={facturas.length === 0}><Banknote className="mr-2 h-4 w-4"/>Registrar Pago a Proveedor</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Registrar Pago a {facturas[0]?.proveedor_nombre}</DialogTitle>
-                    <CardDescription>Seleccione las facturas y complete los detalles del pago.</CardDescription>
+                    <CardDescription>Seleccione las facturas y defina el monto a aplicar en cada una.</CardDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-4 flex-grow overflow-y-auto pr-4 -mr-4">
-                    <div className="col-span-2">
+                <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 overflow-y-auto pr-4 -mr-4">
+                    <div className="md:col-span-2">
                         <Label>Facturas Pendientes</Label>
                         <ScrollArea className="h-48 border rounded-md mt-2">
                             <Table>
@@ -199,6 +238,7 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
                                         <TableHead>Factura Nro.</TableHead>
                                         <TableHead>Vencimiento</TableHead>
                                         <TableHead className="text-right">Saldo</TableHead>
+                                        <TableHead className="text-right w-[150px]">Monto a Aplicar</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -208,6 +248,16 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
                                             <TableCell>{f.numero_factura}</TableCell>
                                             <TableCell>{f.fecha_vencimiento}</TableCell>
                                             <TableCell className="text-right">{currencyFormatter.format(f.saldo_pendiente)}</TableCell>
+                                            <TableCell className="text-right">
+                                                {selectedFacturas[f.id] && (
+                                                    <Input 
+                                                        type="number" 
+                                                        className="text-right"
+                                                        value={facturasParaPago.find(fp => fp.id === f.id)?.monto_a_aplicar || 0}
+                                                        onChange={(e) => handleMontoAAplicarChange(f.id, Number(e.target.value))}
+                                                    />
+                                                )}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -229,31 +279,70 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="monto">Monto a Pagar</Label>
-                        <Input id="monto" type="number" value={montoPagado} onChange={(e) => setMontoPagado(Number(e.target.value) || 0)} />
-                    </div>
-
-                    <div className="space-y-2">
                         <Label htmlFor="forma-pago">Forma de Pago</Label>
                         <Combobox options={formasPago.map(f => ({ value: f.id, label: f.nombre }))} value={formaPagoId} onChange={setFormaPagoId} placeholder="Seleccione una forma de pago" />
                     </div>
                     
-                    <div className="space-y-2">
+                    {formaPagoSeleccionada?.nombre === 'Cheque' ? (
+                        <>
+                            <div className="space-y-2">
+                                <Label htmlFor="tipo-cheque">Tipo de Cheque</Label>
+                                <Select value={tipoCheque} onValueChange={(v: 'Al Día' | 'Diferido') => setTipoCheque(v)}>
+                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Al Día">Al Día</SelectItem>
+                                        <SelectItem value="Diferido">Diferido</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="numero-cheque">Número de Cheque</Label>
+                                <Input id="numero-cheque" value={numeroCheque} onChange={e => setNumeroCheque(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Fecha de Emisión (Cheque)</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !fechaEmisionCheque && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {fechaEmisionCheque ? format(fechaEmisionCheque, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={fechaEmisionCheque} onSelect={setFechaEmisionCheque} initialFocus locale={es} /></PopoverContent>
+                                </Popover>
+                            </div>
+                           {tipoCheque === 'Diferido' && (
+                             <div className="space-y-2">
+                                <Label>Fecha de Pago (Cheque)</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !fechaPagoCheque && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {fechaPagoCheque ? format(fechaPagoCheque, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={fechaPagoCheque} onSelect={setFechaPagoCheque} initialFocus locale={es} /></PopoverContent>
+                                </Popover>
+                            </div>
+                           )}
+                        </>
+                    ) : (
+                         <div className="space-y-2">
+                            <Label htmlFor="referencia">Número de Referencia (Opcional)</Label>
+                            <Input id="referencia" value={numeroReferencia} onChange={(e) => setNumeroReferencia(e.target.value)} placeholder="Ej: ID de transferencia..." />
+                        </div>
+                    )}
+                     <div className="space-y-2">
                         <Label htmlFor="banco">Banco (Opcional)</Label>
-                        <Combobox options={bancos.map(b => ({ value: b.id, label: b.nombre }))} value={bancoId} onChange={setBancoId} placeholder="Seleccione un banco" disabled={formasPago.find(f => f.id === formaPagoId)?.nombre === 'Efectivo'} />
-                    </div>
-                    
-                    <div className="col-span-2 space-y-2">
-                        <Label htmlFor="referencia">Número de Referencia (Opcional)</Label>
-                        <Input id="referencia" value={numeroReferencia} onChange={(e) => setNumeroReferencia(e.target.value)} placeholder="Ej: Nro. de Cheque, ID de transferencia..." />
+                        <Combobox options={bancos.map(b => ({ value: b.id, label: b.nombre }))} value={bancoId} onChange={setBancoId} placeholder="Seleccione un banco" />
                     </div>
                 </div>
                 <DialogFooterComponent className="border-t pt-4">
                     <div className="flex w-full justify-between items-center">
-                        <div className="font-bold text-lg">Total Seleccionado: {currencyFormatter.format(totalAPagar)}</div>
+                        <div className="font-bold text-lg">Total a Pagar: {currencyFormatter.format(totalAPagar)}</div>
                         <div>
                             <Button variant="outline" className="mr-2" onClick={() => setOpen(false)}>Cancelar</Button>
-                            <Button onClick={handlePago} disabled={facturasSeleccionadasParaPago.length === 0 || montoPagado <= 0}>Confirmar Pago</Button>
+                            <Button onClick={handlePago} disabled={facturasParaPago.length === 0 || totalAPagar <= 0}>Confirmar Pago</Button>
                         </div>
                     </div>
                 </DialogFooterComponent>
@@ -276,11 +365,9 @@ export default function CuentasPagarPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Simplificamos la consulta para evitar el error de índice
       const qCuentas = query(collection(db, 'cuentas_a_pagar'), orderBy("fecha_vencimiento", "asc"));
       const snapshotCuentas = await getDocs(qCuentas);
       
-      // Filtramos en el cliente
       const dataListCuentas = snapshotCuentas.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as CuentaPagar))
         .filter(cuenta => cuenta.estado === "Pendiente" || cuenta.estado === "Pagado Parcial");
@@ -484,3 +571,5 @@ export default function CuentasPagarPage() {
     </>
   );
 }
+
+    
