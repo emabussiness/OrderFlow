@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import {
@@ -12,7 +13,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft } from "lucide-react";
+import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft, Banknote } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Link from "next/link";
@@ -44,6 +45,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
       if (pathname.includes('registros/libro-iva-compras')) return 'Registros - Libro IVA Compras';
       if (pathname.includes('registros/cuentas-a-pagar')) return 'Registros - Cuentas a Pagar';
       if (pathname.includes('registros/notas-credito-debito')) return 'Registros - Notas de Crédito/Débito';
+      if (pathname.includes('registros/pagos')) return 'Registros - Pagos a Proveedores';
       if (pathname.includes('registros')) return `Registros - ${title}`;
       if (pathname.includes('informes')) return `Informes - ${title}`;
       return title;
@@ -147,8 +149,9 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                     <SidebarMenu>
                       <SidebarMenuItem><Link href="/compras/registros"><SidebarMenuButton isActive={pathname ==='/compras/registros'}>Compras</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/registros/notas-credito-debito"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/notas-credito-debito')}>Notas Crédito/Débito</SidebarMenuButton></Link></SidebarMenuItem>
-                      <SidebarMenuItem><Link href="/compras/registros/libro-iva-compras"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/libro-iva-compras')}><BookCopy />Libro IVA Compras</SidebarMenuButton></Link></SidebarMenuItem>
                       <SidebarMenuItem><Link href="/compras/registros/cuentas-a-pagar"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/cuentas-a-pagar')}><HandCoins />Cuentas a Pagar</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/registros/pagos"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/pagos')}><Banknote />Pagos a Proveedores</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/registros/libro-iva-compras"><SidebarMenuButton isActive={pathname.startsWith('/compras/registros/libro-iva-compras')}><BookCopy />Libro IVA Compras</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
