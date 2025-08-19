@@ -172,6 +172,8 @@ export default function NotasCreditoDebitoPage() {
   const [loading, setLoading] = useState(true);
 
   const [openCreate, setOpenCreate] = useState(false);
+  const [openDetails, setOpenDetails] = useState(false);
+  const [selectedNota, setSelectedNota] = useState<NotaCreditoDebito | null>(null);
   
   // Form state
   const [selectedCompraId, setSelectedCompraId] = useState('');
@@ -323,6 +325,11 @@ export default function NotasCreditoDebitoPage() {
   }, [openCreate]);
 
 
+  const handleOpenDetails = (nota: NotaCreditoDebito) => {
+    setSelectedNota(nota);
+    setOpenDetails(true);
+  }
+
   if(loading) return <p>Cargando datos...</p>;
 
   return (
@@ -466,7 +473,7 @@ export default function NotasCreditoDebitoPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDetails(nota)}>Ver Detalles</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -477,6 +484,64 @@ export default function NotasCreditoDebitoPage() {
            {notas.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay notas de crédito registradas.</p>}
         </CardContent>
       </Card>
+      
+      <Dialog open={openDetails} onOpenChange={setOpenDetails}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Detalles de la Nota de Crédito: {selectedNota?.numero_nota_credito}</DialogTitle>
+            <DialogDescription>
+              Información detallada de la nota de crédito y su impacto.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedNota && (
+            <div className="flex-grow overflow-y-auto pr-6 -mr-6">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div><p className="font-semibold">Proveedor:</p><p>{selectedNota.proveedor_nombre}</p></div>
+                  <div><p className="font-semibold">Factura de Compra:</p><p>{selectedNota.numero_factura_compra}</p></div>
+                  <div><p className="font-semibold">Fecha de Emisión:</p><p>{selectedNota.fecha_emision}</p></div>
+                  <div><p className="font-semibold">Registrado por:</p><p>{selectedNota.usuario_id}</p></div>
+                </div>
+                 <div className="space-y-1 mb-4">
+                    <p className="font-semibold">Motivo:</p>
+                    <p className="text-muted-foreground">{selectedNota.motivo}</p>
+                </div>
+                 <Card>
+                    <CardHeader><CardTitle>Productos Ajustados</CardTitle></CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Producto</TableHead>
+                                    <TableHead>Cant. Ajustada</TableHead>
+                                    <TableHead className="text-right">P. Unit.</TableHead>
+                                    <TableHead className="text-right">Subtotal</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {selectedNota.items.map((item, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell>{item.nombre}</TableCell>
+                                        <TableCell>{item.cantidad_ajustada}</TableCell>
+                                        <TableCell className="text-right">{currencyFormatter.format(item.precio_unitario)}</TableCell>
+                                        <TableCell className="text-right">{currencyFormatter.format(item.cantidad_ajustada * item.precio_unitario)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </div>
+          )}
+          <DialogFooterComponent className="border-t pt-4">
+             <div className="flex justify-between items-center w-full">
+                <div className="text-right font-bold text-lg">
+                  Total de la Nota: {currencyFormatter.format(selectedNota?.total || 0)}
+                </div>
+                <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
+            </div>
+          </DialogFooterComponent>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
