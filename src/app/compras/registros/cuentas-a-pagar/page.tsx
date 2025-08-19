@@ -276,9 +276,15 @@ export default function CuentasPagarPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const qCuentas = query(collection(db, 'cuentas_a_pagar'), where("estado", "in", ["Pendiente", "Pagado Parcial"]), orderBy("fecha_vencimiento", "asc"));
+      // Simplificamos la consulta para evitar el error de índice
+      const qCuentas = query(collection(db, 'cuentas_a_pagar'), orderBy("fecha_vencimiento", "asc"));
       const snapshotCuentas = await getDocs(qCuentas);
-      const dataListCuentas = snapshotCuentas.docs.map(doc => ({ id: doc.id, ...doc.data() } as CuentaPagar));
+      
+      // Filtramos en el cliente
+      const dataListCuentas = snapshotCuentas.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as CuentaPagar))
+        .filter(cuenta => cuenta.estado === "Pendiente" || cuenta.estado === "Pagado Parcial");
+      
       setCuentas(dataListCuentas);
 
       const [comprasSnap, formasPagoSnap, bancosSnap] = await Promise.all([
