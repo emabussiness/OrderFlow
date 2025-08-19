@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { MoreHorizontal, Banknote, Calendar as CalendarIcon } from "lucide-react";
+import { MoreHorizontal, Banknote, Calendar as CalendarIcon, X as XIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -353,7 +353,7 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
 
 export default function CuentasPagarPage() {
   const { toast } = useToast();
-  const [cuentas, setCuentas] = useState<CuentaPagar[]>([]);
+  const [allCuentas, setAllCuentas] = useState<CuentaPagar[]>([]);
   const [compras, setCompras] = useState<Compra[]>([]);
   const [formasPago, setFormasPago] = useState<FormaPago[]>([]);
   const [bancos, setBancos] = useState<Banco[]>([]);
@@ -362,6 +362,10 @@ export default function CuentasPagarPage() {
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
 
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchDate, setSearchDate] = useState<Date | undefined>();
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -369,8 +373,7 @@ export default function CuentasPagarPage() {
       const snapshotCuentas = await getDocs(qCuentas);
       
       const dataListCuentas = snapshotCuentas.docs.map(doc => ({ id: doc.id, ...doc.data() } as CuentaPagar));
-      
-      setCuentas(dataListCuentas);
+      setAllCuentas(dataListCuentas);
 
       const [comprasSnap, formasPagoSnap, bancosSnap] = await Promise.all([
         getDocs(query(collection(db, 'compras'), orderBy("fecha_creacion", "desc"))),
@@ -411,8 +414,19 @@ export default function CuentasPagarPage() {
       default: return "outline";
     }
   };
+
+  const filteredCuentas = allCuentas.filter(cuenta => {
+      const term = searchTerm.toLowerCase();
+      const matchTerm = term === '' ||
+          cuenta.proveedor_nombre.toLowerCase().includes(term) ||
+          cuenta.numero_factura.toLowerCase().includes(term);
+      
+      const matchDate = !searchDate || cuenta.fecha_emision === format(searchDate, "yyyy-MM-dd");
+
+      return matchTerm && matchDate;
+  });
   
-  const cuentasAgrupadas = cuentas.reduce((acc, cuenta) => {
+  const cuentasAgrupadas = filteredCuentas.reduce((acc, cuenta) => {
       (acc[cuenta.proveedor_id] = acc[cuenta.proveedor_id] || []).push(cuenta);
       return acc;
   }, {} as Record<string, CuentaPagar[]>);
@@ -422,8 +436,27 @@ export default function CuentasPagarPage() {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 gap-4">
         <h1 className="text-2xl font-bold">Cuentas a Pagar</h1>
+        <div className="flex gap-2 w-full max-w-lg">
+            <Input 
+                placeholder="Buscar por proveedor o factura..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button variant={"outline"} className={cn("w-[280px] justify-start text-left font-normal", !searchDate && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {searchDate ? format(searchDate, "PPP", { locale: es }) : <span>Filtrar por fecha de emisión</span>}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="flex w-auto p-0">
+                    <Calendar mode="single" selected={searchDate} onSelect={setSearchDate} initialFocus locale={es} />
+                    <Button variant="ghost" size="icon" className="m-2" onClick={() => setSearchDate(undefined)}><XIcon className="h-4 w-4"/></Button>
+                </PopoverContent>
+            </Popover>
+        </div>
       </div>
 
       {Object.entries(cuentasAgrupadas).map(([proveedorId, facturas]) => {
@@ -495,10 +528,10 @@ export default function CuentasPagarPage() {
             </Card>
       )})}
 
-      {cuentas.length === 0 && (
+      {filteredCuentas.length === 0 && (
         <Card>
             <CardContent className="pt-6">
-                 <p className="text-center text-muted-foreground mt-4">No hay cuentas a pagar pendientes.</p>
+                 <p className="text-center text-muted-foreground mt-4">No se encontraron cuentas que coincidan con los filtros.</p>
             </CardContent>
         </Card>
       )}
@@ -578,3 +611,4 @@ export default function CuentasPagarPage() {
     </>
   );
 }
+
