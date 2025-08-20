@@ -118,7 +118,7 @@ const CompraSelectorDialog = ({ compras, onSelectCompra }: { compras: Compra[], 
                          </CardHeader>
                          <CardFooter className="p-6 border-t flex-shrink-0">
                             <div className="w-full flex justify-between items-center">
-                                <span className="font-bold text-lg">Total: {currencyFormatter.format(selectedCompraPreview.total)}</span>
+                                <span className="font-bold text-lg">Total Compra: {currencyFormatter.format(selectedCompraPreview.total)}</span>
                                 <Button onClick={handleSelectAndClose}>Confirmar Selección</Button>
                             </div>
                          </CardFooter>
@@ -445,4 +445,5 @@ export default function NotasDebitoPage() {
             </Dialog>
         </>
     );
-}
+
+    
