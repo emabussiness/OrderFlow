@@ -164,7 +164,6 @@ export default function InformesComprasPage() {
                 <Calendar
                   initialFocus
                   mode="range"
-                  defaultMonth={date?.from}
                   selected={date}
                   onSelect={setDate}
                   numberOfMonths={2}
