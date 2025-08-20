@@ -11,12 +11,16 @@ const reports = [
     description: "Analice el total comprado a cada proveedor en un período de tiempo determinado.",
     href: "/compras/informes/compras-por-proveedor",
   },
-  // Agrega aquí futuros informes
-  // {
-  //   title: "Ranking de Productos Comprados",
-  //   description: "Vea los productos más comprados por cantidad o por monto total invertido.",
-  //   href: "/compras/informes/ranking-productos",
-  // },
+  {
+    title: "Ranking de Productos Comprados",
+    description: "Vea los productos más comprados por cantidad o por monto total invertido.",
+    href: "/compras/informes/ranking-productos",
+  },
+   {
+    title: "Compras por Categoría",
+    description: "Analice el total comprado para cada categoría de producto.",
+    href: "/compras/informes/compras-por-categoria",
+  },
 ];
 
 export default function InformesPage() {

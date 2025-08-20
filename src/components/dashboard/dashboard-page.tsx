@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import {
@@ -49,6 +48,8 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
       if (pathname.includes('registros/pagos')) return 'Registros - Pagos a Proveedores';
       if (pathname.includes('registros')) return `Registros - ${title}`;
       if (pathname.includes('informes/compras-por-proveedor')) return 'Informes - Compras por Proveedor';
+      if (pathname.includes('informes/ranking-productos')) return 'Informes - Ranking de Productos';
+      if (pathname.includes('informes/compras-por-categoria')) return 'Informes - Compras por Categoría';
       if (pathname.includes('informes')) return `Informes`;
       return title;
     }
@@ -173,6 +174,8 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
                       <SidebarMenuItem><Link href="/compras/informes/compras-por-proveedor"><SidebarMenuButton isActive={pathname.startsWith('/compras/informes/compras-por-proveedor')}>Compras por Proveedor</SidebarMenuButton></Link></SidebarMenuItem>
+                       <SidebarMenuItem><Link href="/compras/informes/ranking-productos"><SidebarMenuButton isActive={pathname.startsWith('/compras/informes/ranking-productos')}>Ranking de Productos</SidebarMenuButton></Link></SidebarMenuItem>
+                       <SidebarMenuItem><Link href="/compras/informes/compras-por-categoria"><SidebarMenuButton isActive={pathname.startsWith('/compras/informes/compras-por-categoria')}>Compras por Categoría</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
