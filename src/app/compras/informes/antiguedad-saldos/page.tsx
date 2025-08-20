@@ -126,7 +126,7 @@ export default function AntiguedadSaldosPage() {
                 <CardDescription>Clasificación de la deuda total con proveedores según el tiempo de vencimiento.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-center">
                     <Card>
                         <CardHeader className="p-4"><CardTitle className="text-sm font-medium text-muted-foreground">Corriente</CardTitle></CardHeader>
                         <CardContent className="p-4 pt-0"><p className="font-bold text-base">{currencyFormatter.format(reportData.corriente)}</p></CardContent>
