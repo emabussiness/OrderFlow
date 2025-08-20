@@ -36,6 +36,19 @@ const currencyFormatter = new Intl.NumberFormat('es-PY', {
   maximumFractionDigits: 0,
 });
 
+const formatYAxis = (tick: number) => {
+    if (tick >= 1_000_000_000) {
+        return `${(tick / 1_000_000_000).toFixed(1)}G`;
+    }
+    if (tick >= 1_000_000) {
+        return `${(tick / 1_000_000).toFixed(1)}M`;
+    }
+    if (tick >= 1_000) {
+        return `${(tick / 1_000).toFixed(0)}K`;
+    }
+    return currencyFormatter.format(tick);
+};
+
 
 export default function InformesComprasPage() {
   const { toast } = useToast();
@@ -76,13 +89,12 @@ export default function InformesComprasPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!compras.length) return;
+    if (!compras.length || !date || !date.from) return;
 
     const filteredCompras = compras.filter(compra => {
-      if (!date?.from) return true; // If no start date, include all
       const fechaCompra = new Date(compra.fecha_compra + "T00:00:00"); // Avoid timezone issues
-      const from = date.from;
-      const to = date.to ?? from; // If no end date, use start date
+      const from = date.from!;
+      const to = date.to ?? from;
       return fechaCompra >= from && fechaCompra <= to;
     });
 
@@ -202,7 +214,9 @@ export default function InformesComprasPage() {
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(value) => `${currencyFormatter.format(value)}`}
+                            tickFormatter={formatYAxis}
+                            domain={[0, 'dataMax + 1000']}
+                            width={80}
                         />
                          <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--secondary))" }} />
                         <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
