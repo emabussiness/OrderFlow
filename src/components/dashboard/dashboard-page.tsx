@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft, Banknote } from "lucide-react";
+import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft, Banknote, HardHat, ListChecks, Hammer } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Link from "next/link";
@@ -23,38 +23,31 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
 
   const getPageTitle = () => {
     if (pathname === '/') return 'Dashboard';
-    if (pathname.startsWith('/compras/referenciales/proveedores')) return 'Referenciales - Proveedores';
     if (pathname.startsWith('/inventario/stock-actual')) return 'Inventario - Stock Actual';
     if (pathname.startsWith('/inventario/ajustes')) return 'Inventario - Ajustes de Stock';
     if (pathname.startsWith('/inventario/informes/movimientos-stock')) return 'Informes - Movimientos de Stock';
-    if (pathname.startsWith('/compras')) {
-      const pathParts = pathname.split('/');
-      const lastPart = pathParts[pathParts.length - 1].replace(/-/g, ' ');
-      const title = lastPart.charAt(0).toUpperCase() + lastPart.slice(1);
-      if (pathname.includes('referenciales/productos')) return 'Referenciales - Productos';
-      if (pathname.includes('referenciales/categorias')) return 'Referenciales - Categorías';
-      if (pathname.includes('referenciales/unidades-medida')) return 'Referenciales - Unidades de Medida';
-      if (pathname.includes('referenciales/proveedores')) return 'Referenciales - Proveedores';
-      if (pathname.includes('referenciales/sucursales')) return 'Referenciales - Sucursales';
-      if (pathname.includes('referenciales/depositos')) return 'Referenciales - Depósitos';
-       if (pathname.includes('referenciales/tipos-documento')) return 'Referenciales - Tipos de Documento';
-       if (pathname.includes('referenciales/formas-pago')) return 'Referenciales - Formas de Pago';
-       if (pathname.includes('referenciales/bancos')) return 'Referenciales - Bancos';
-      if (pathname.includes('referenciales')) return `Referenciales - ${title}`;
-      if (pathname.includes('movimientos')) return `Movimientos - ${title}`;
-      if (pathname.includes('registros/libro-iva-compras')) return 'Registros - Libro IVA Compras';
-      if (pathname.includes('registros/cuentas-a-pagar')) return 'Registros - Cuentas a Pagar';
-      if (pathname.includes('registros/notas-credito-debito')) return 'Registros - Notas de Crédito';
-      if (pathname.includes('registros/notas-debito')) return 'Registros - Notas de Débito';
-      if (pathname.includes('registros/pagos')) return 'Registros - Pagos a Proveedores';
-      if (pathname.includes('registros')) return `Registros - ${title}`;
-      if (pathname.includes('informes/compras-por-proveedor')) return 'Informes - Compras por Proveedor';
-      if (pathname.includes('informes/ranking-productos')) return 'Informes - Ranking de Productos';
-      if (pathname.includes('informes/compras-por-categoria')) return 'Informes - Compras por Categoría';
-      if (pathname.includes('informes')) return `Informes`;
-      return title;
+    
+    const pathParts = pathname.split('/');
+    const module = pathParts[1] || '';
+    let title = module.charAt(0).toUpperCase() + module.slice(1);
+    
+    if (pathParts.length > 2) {
+      const section = pathParts[2].replace(/-/g, ' ');
+      const page = pathParts[3]?.replace(/-/g, ' ') || '';
+      const formattedSection = section.charAt(0).toUpperCase() + section.slice(1);
+      const formattedPage = page.charAt(0).toUpperCase() + page.slice(1);
+
+      if (formattedPage) {
+        title = `${formattedSection} - ${formattedPage}`;
+      } else {
+        title = formattedSection;
+      }
     }
-    return 'Dashboard';
+    
+    if(module === 'compras') return `Compras - ${title}`;
+    if(module === 'servicios') return `Servicios - ${title}`;
+
+    return title;
   }
 
   return (
@@ -208,6 +201,18 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
               </SidebarMenuItem>
+               <CollapsibleContent className="ml-4">
+                    <SidebarMenu>
+                        <SidebarMenuItem><Link href="/servicios/recepcion-equipos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/recepcion-equipos')}>Recepción de Equipos</SidebarMenuButton></Link></SidebarMenuItem>
+                        <SidebarMenuItem><Link href="/servicios/diagnostico"><SidebarMenuButton isActive={pathname.startsWith('/servicios/diagnostico')}>Diagnóstico</SidebarMenuButton></Link></SidebarMenuItem>
+                        <SidebarMenuItem><Link href="/servicios/presupuesto"><SidebarMenuButton isActive={pathname.startsWith('/servicios/presupuesto')}>Presupuesto</SidebarMenuButton></Link></SidebarMenuItem>
+                        <SidebarMenuItem><Link href="/servicios/orden-trabajo"><SidebarMenuButton isActive={pathname.startsWith('/servicios/orden-trabajo')}><HardHat />Orden de Trabajo</SidebarMenuButton></Link></SidebarMenuItem>
+                        <SidebarMenuItem><Link href="/servicios/trabajos-realizados"><SidebarMenuButton isActive={pathname.startsWith('/servicios/trabajos-realizados')}><Hammer />Trabajos Realizados</SidebarMenuButton></Link></SidebarMenuItem>
+                        <SidebarMenuItem><Link href="/servicios/retiro-equipos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/retiro-equipos')}>Retiro de Equipos</SidebarMenuButton></Link></SidebarMenuItem>
+                        <SidebarMenuItem><Link href="/servicios/garantias"><SidebarMenuButton isActive={pathname.startsWith('/servicios/garantias')}>Garantías</SidebarMenuButton></Link></SidebarMenuItem>
+                        <SidebarMenuItem><Link href="/servicios/reclamos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/reclamos')}>Reclamos</SidebarMenuButton></Link></SidebarMenuItem>
+                    </SidebarMenu>
+                  </CollapsibleContent>
             </Collapsible>
 
             <Collapsible>
