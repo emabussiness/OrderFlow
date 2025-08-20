@@ -21,6 +21,11 @@ const reports = [
     description: "Analice el total comprado para cada categoría de producto.",
     href: "/compras/informes/compras-por-categoria",
   },
+  {
+    title: "Antigüedad de Saldos por Pagar",
+    description: "Clasifique la deuda con proveedores por antigüedad para gestionar el flujo de caja.",
+    href: "/compras/informes/antiguedad-saldos",
+  },
 ];
 
 export default function InformesPage() {
