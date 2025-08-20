@@ -26,6 +26,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/compras/referenciales/proveedores')) return 'Referenciales - Proveedores';
     if (pathname.startsWith('/inventario/stock-actual')) return 'Inventario - Stock Actual';
     if (pathname.startsWith('/inventario/ajustes')) return 'Inventario - Ajustes de Stock';
+    if (pathname.startsWith('/inventario/informes/movimientos-stock')) return 'Informes - Movimientos de Stock';
     if (pathname.startsWith('/compras')) {
       const pathParts = pathname.split('/');
       const lastPart = pathParts[pathParts.length - 1].replace(/-/g, ' ');
@@ -190,6 +191,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                     <SidebarMenu>
                       <SidebarMenuItem><Link href="/inventario/stock-actual"><SidebarMenuButton isActive={pathname.startsWith('/inventario/stock-actual')}>Stock Actual</SidebarMenuButton></Link></SidebarMenuItem>
                        <SidebarMenuItem><Link href="/inventario/ajustes"><SidebarMenuButton isActive={pathname.startsWith('/inventario/ajustes')}><ArrowRightLeft />Ajustes de Stock</SidebarMenuButton></Link></SidebarMenuItem>
+                        <SidebarMenuItem><Link href="/inventario/informes/movimientos-stock"><SidebarMenuButton isActive={pathname.startsWith('/inventario/informes/movimientos-stock')}><BarChart3 />Movimientos de Stock</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
             </Collapsible>
