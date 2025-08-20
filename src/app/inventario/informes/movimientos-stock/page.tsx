@@ -17,6 +17,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
 
 // --- Types ---
 type Producto = { id: string; nombre: string; };
