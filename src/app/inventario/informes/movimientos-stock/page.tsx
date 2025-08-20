@@ -88,20 +88,22 @@ export default function MovimientosStockPage() {
           const to = dateRange.to ?? from;
           let allMovements: Omit<Movimiento, 'saldo'>[] = [];
 
-          // 1. Compras (Entradas)
-          const comprasQuery = query(collection(db, 'compras'), where('deposito_id', '==', selectedDepositoId), where('fecha_compra', '>=', format(from, "yyyy-MM-dd")), where('fecha_compra', '<=', format(to, "yyyy-MM-dd")));
+          // 1. Compras (Entradas) - Simplified query
+          const comprasQuery = query(collection(db, 'compras'), where('fecha_compra', '>=', format(from, "yyyy-MM-dd")), where('fecha_compra', '<=', format(to, "yyyy-MM-dd")));
           const comprasSnap = await getDocs(comprasQuery);
           comprasSnap.forEach(doc => {
               const compra = doc.data() as Compra;
-              const item = compra.items.find(i => i.producto_id === selectedProductId);
-              if (item && item.cantidad_recibida > 0) {
-                  allMovements.push({
-                      fecha: new Date(compra.fecha_compra + "T00:00:00"),
-                      tipo: "Compra",
-                      cantidad: item.cantidad_recibida,
-                      documentoRef: `Factura ${compra.numero_factura}`,
-                      key: `compra-${doc.id}`
-                  });
+              if (compra.deposito_id === selectedDepositoId) {
+                const item = compra.items.find(i => i.producto_id === selectedProductId);
+                if (item && item.cantidad_recibida > 0) {
+                    allMovements.push({
+                        fecha: new Date(compra.fecha_compra + "T00:00:00"),
+                        tipo: "Compra",
+                        cantidad: item.cantidad_recibida,
+                        documentoRef: `Factura ${compra.numero_factura}`,
+                        key: `compra-${doc.id}`
+                    });
+                }
               }
           });
 
@@ -123,12 +125,17 @@ export default function MovimientosStockPage() {
           const notasCreditoQuery = query(collection(db, 'notas_credito_debito_compras'), where('fecha_emision', '>=', format(from, "yyyy-MM-dd")), where('fecha_emision', '<=', format(to, "yyyy-MM-dd")));
           const notasCreditoSnap = await getDocs(notasCreditoQuery);
           
-          for (const notaDoc of notasCreditoSnap.docs) {
-              const nota = notaDoc.data() as NotaCredito;
-              const compraDoc = await getDocs(query(collection(db, 'compras'), where('__name__', '==', nota.compra_id)));
-              if (!compraDoc.empty) {
-                  const compraAfectada = compraDoc.docs[0].data() as Compra;
-                  if (compraAfectada.deposito_id === selectedDepositoId) {
+          const compraIds = notasCreditoSnap.docs.map(doc => doc.data().compra_id);
+          
+          if (compraIds.length > 0) {
+              const comprasAfectadasQuery = query(collection(db, 'compras'), where('__name__', 'in', compraIds));
+              const comprasAfectadasSnap = await getDocs(comprasAfectadasQuery);
+              const comprasAfectadasMap = new Map(comprasAfectadasSnap.docs.map(doc => [doc.id, doc.data() as Compra]));
+
+              for (const notaDoc of notasCreditoSnap.docs) {
+                  const nota = notaDoc.data() as NotaCredito;
+                  const compraAfectada = comprasAfectadasMap.get(nota.compra_id);
+                  if (compraAfectada && compraAfectada.deposito_id === selectedDepositoId) {
                       const item = nota.items.find(i => i.producto_id === selectedProductId);
                       if (item && item.cantidad_ajustada > 0) {
                           allMovements.push({
@@ -142,6 +149,7 @@ export default function MovimientosStockPage() {
                   }
               }
           }
+
 
           // Sort and calculate running balance
           allMovements.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
