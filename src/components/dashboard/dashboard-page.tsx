@@ -161,23 +161,15 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                 </Collapsible>
                  <Collapsible className="ml-4">
                    <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton className="justify-between">
-                        <div className="flex items-center gap-2">
-                          <BarChart3 />
-                          <span>Informes</span>
-                        </div>
-                        <ChevronDown className="h-4 w-4" />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
+                    <Link href="/compras/informes">
+                        <SidebarMenuButton className="justify-between" isActive={pathname.startsWith('/compras/informes')}>
+                            <div className="flex items-center gap-2">
+                            <BarChart3 />
+                            <span>Informes</span>
+                            </div>
+                        </SidebarMenuButton>
+                    </Link>
                   </SidebarMenuItem>
-                  <CollapsibleContent className="ml-4">
-                    <SidebarMenu>
-                      <SidebarMenuItem><Link href="/compras/informes/compras-por-proveedor"><SidebarMenuButton isActive={pathname.startsWith('/compras/informes/compras-por-proveedor')}>Compras por Proveedor</SidebarMenuButton></Link></SidebarMenuItem>
-                       <SidebarMenuItem><Link href="/compras/informes/ranking-productos"><SidebarMenuButton isActive={pathname.startsWith('/compras/informes/ranking-productos')}>Ranking de Productos</SidebarMenuButton></Link></SidebarMenuItem>
-                       <SidebarMenuItem><Link href="/compras/informes/compras-por-categoria"><SidebarMenuButton isActive={pathname.startsWith('/compras/informes/compras-por-categoria')}>Compras por Categoría</SidebarMenuButton></Link></SidebarMenuItem>
-                    </SidebarMenu>
-                  </CollapsibleContent>
                 </Collapsible>
               </CollapsibleContent>
             </Collapsible>
