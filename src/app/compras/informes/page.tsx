@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -44,7 +44,7 @@ export default function InformesComprasPage() {
   const [reportData, setReportData] = useState<ReportData[]>([]);
 
   // State for the date range picker
-  const [date, setDate] = React.useState<DateRange | undefined>({
+  const [date, setDate] = useState<DateRange | undefined>({
     from: addDays(new Date(), -29), // Default to last 30 days
     to: new Date(),
   });
