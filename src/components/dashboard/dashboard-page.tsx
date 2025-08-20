@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft, Banknote, HardHat, ListChecks, Hammer } from "lucide-react";
+import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft, Banknote, HardHat, ListChecks, Hammer, Users, List, Tag, Brick } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Link from "next/link";
@@ -202,6 +202,28 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                   </CollapsibleTrigger>
               </SidebarMenuItem>
                <CollapsibleContent className="ml-4">
+                    <Collapsible>
+                       <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton className="justify-between">
+                            <div className="flex items-center gap-2">
+                              <FileText />
+                              <span>Referenciales</span>
+                            </div>
+                            <ChevronDown className="h-4 w-4" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                      </SidebarMenuItem>
+                      <CollapsibleContent className="ml-4">
+                         <SidebarMenu>
+                          <SidebarMenuItem><Link href="/servicios/referenciales/clientes"><SidebarMenuButton isActive={pathname.startsWith('/servicios/referenciales/clientes')}><Users/>Clientes</SidebarMenuButton></Link></SidebarMenuItem>
+                          <SidebarMenuItem><Link href="/servicios/referenciales/tecnicos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/referenciales/tecnicos')}><User/>Técnicos</SidebarMenuButton></Link></SidebarMenuItem>
+                          <SidebarMenuItem><Link href="/servicios/referenciales/marcas"><SidebarMenuButton isActive={pathname.startsWith('/servicios/referenciales/marcas')}><Tag/>Marcas</SidebarMenuButton></Link></SidebarMenuItem>
+                          <SidebarMenuItem><Link href="/servicios/referenciales/tipos-equipo"><SidebarMenuButton isActive={pathname.startsWith('/servicios/referenciales/tipos-equipo')}><List/>Tipos de Equipos</SidebarMenuButton></Link></SidebarMenuItem>
+                          <SidebarMenuItem><Link href="/servicios/referenciales/servicios"><SidebarMenuButton isActive={pathname.startsWith('/servicios/referenciales/servicios')}><Brick/>Servicios</SidebarMenuButton></Link></SidebarMenuItem>
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </Collapsible>
                     <SidebarMenu>
                         <SidebarMenuItem><Link href="/servicios/recepcion-equipos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/recepcion-equipos')}>Recepción de Equipos</SidebarMenuButton></Link></SidebarMenuItem>
                         <SidebarMenuItem><Link href="/servicios/diagnostico"><SidebarMenuButton isActive={pathname.startsWith('/servicios/diagnostico')}>Diagnóstico</SidebarMenuButton></Link></SidebarMenuItem>
