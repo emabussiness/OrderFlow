@@ -129,23 +129,23 @@ export default function AntiguedadSaldosPage() {
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
                     <Card>
                         <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Corriente</CardTitle></CardHeader>
-                        <CardContent><p className="text-2xl font-bold">{currencyFormatter.format(reportData.corriente)}</p></CardContent>
+                        <CardContent><p className="font-bold text-lg md:text-xl">{currencyFormatter.format(reportData.corriente)}</p></CardContent>
                     </Card>
                      <Card>
                         <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Vencido 1-30 Días</CardTitle></CardHeader>
-                        <CardContent><p className="text-2xl font-bold">{currencyFormatter.format(reportData.vencido1_30)}</p></CardContent>
+                        <CardContent><p className="font-bold text-lg md:text-xl">{currencyFormatter.format(reportData.vencido1_30)}</p></CardContent>
                     </Card>
                      <Card>
                         <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Vencido 31-60 Días</CardTitle></CardHeader>
-                        <CardContent><p className="text-2xl font-bold">{currencyFormatter.format(reportData.vencido31_60)}</p></CardContent>
+                        <CardContent><p className="font-bold text-lg md:text-xl">{currencyFormatter.format(reportData.vencido31_60)}</p></CardContent>
                     </Card>
                      <Card>
                         <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Vencido 61-90 Días</CardTitle></CardHeader>
-                        <CardContent><p className="text-2xl font-bold">{currencyFormatter.format(reportData.vencido61_90)}</p></CardContent>
+                        <CardContent><p className="font-bold text-lg md:text-xl">{currencyFormatter.format(reportData.vencido61_90)}</p></CardContent>
                     </Card>
                      <Card>
                         <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Vencido +90 Días</CardTitle></CardHeader>
-                        <CardContent><p className="text-2xl font-bold text-destructive">{currencyFormatter.format(reportData.vencidoMas90)}</p></CardContent>
+                        <CardContent><p className="font-bold text-destructive text-lg md:text-xl">{currencyFormatter.format(reportData.vencidoMas90)}</p></CardContent>
                     </Card>
                 </div>
             </CardContent>
