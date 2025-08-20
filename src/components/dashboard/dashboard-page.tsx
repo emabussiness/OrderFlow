@@ -48,7 +48,8 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
       if (pathname.includes('registros/notas-debito')) return 'Registros - Notas de Débito';
       if (pathname.includes('registros/pagos')) return 'Registros - Pagos a Proveedores';
       if (pathname.includes('registros')) return `Registros - ${title}`;
-      if (pathname.includes('informes')) return `Informes - ${title}`;
+      if (pathname.includes('informes/compras-por-proveedor')) return 'Informes - Compras por Proveedor';
+      if (pathname.includes('informes')) return `Informes`;
       return title;
     }
     return 'Dashboard';
@@ -171,7 +172,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                   </SidebarMenuItem>
                   <CollapsibleContent className="ml-4">
                     <SidebarMenu>
-                      <SidebarMenuItem><Link href="/compras/informes"><SidebarMenuButton isActive={pathname.startsWith('/compras/informes')}>Informes de Compras</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/compras/informes/compras-por-proveedor"><SidebarMenuButton isActive={pathname.startsWith('/compras/informes/compras-por-proveedor')}>Compras por Proveedor</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
                 </Collapsible>
