@@ -8,7 +8,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, format } from "date-fns";
+import { es } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { Calendar as CalendarIcon } from "lucide-react";
+
 
 // Types
 type CuentaPagar = {
@@ -51,6 +61,11 @@ export default function AntiguedadSaldosPage() {
   const [cuentas, setCuentas] = useState<CuentaPagar[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Filter states
+  const [proveedorFilter, setProveedorFilter] = useState("");
+  const [facturaFilter, setFacturaFilter] = useState("");
+  const [vencimientoFilter, setVencimientoFilter] = useState<DateRange | undefined>();
+
   // Data Fetching
   useEffect(() => {
     const fetchData = async () => {
@@ -72,6 +87,22 @@ export default function AntiguedadSaldosPage() {
   // Data Processing
   const reportData: AgingReportData = useMemo(() => {
     const hoy = new Date();
+    
+    const filteredCuentas = cuentas.filter(cuenta => {
+      const matchProveedor = proveedorFilter === '' || cuenta.proveedor_nombre.toLowerCase().includes(proveedorFilter.toLowerCase());
+      const matchFactura = facturaFilter === '' || cuenta.numero_factura.toLowerCase().includes(facturaFilter.toLowerCase());
+      
+      let matchVencimiento = true;
+      if (vencimientoFilter?.from) {
+        const fechaVencimiento = new Date(cuenta.fecha_vencimiento + "T00:00:00");
+        const from = vencimientoFilter.from;
+        const to = vencimientoFilter.to ?? from;
+        matchVencimiento = fechaVencimiento >= from && fechaVencimiento <= to;
+      }
+      
+      return matchProveedor && matchFactura && matchVencimiento;
+    });
+
     const data: AgingReportData = {
         totalDeuda: 0,
         corriente: 0,
@@ -82,9 +113,9 @@ export default function AntiguedadSaldosPage() {
         detalles: [],
     };
 
-    if (!cuentas.length) return data;
+    if (!filteredCuentas.length) return data;
 
-    cuentas.forEach(cuenta => {
+    filteredCuentas.forEach(cuenta => {
         const fechaVencimiento = new Date(cuenta.fecha_vencimiento + "T00:00:00");
         const diasVencido = differenceInDays(hoy, fechaVencimiento);
         
@@ -114,12 +145,42 @@ export default function AntiguedadSaldosPage() {
     data.detalles.sort((a, b) => b.diasVencido - a.diasVencido);
 
     return data;
-  }, [cuentas]);
+  }, [cuentas, proveedorFilter, facturaFilter, vencimientoFilter]);
 
   if (loading) return <p>Generando informe...</p>;
 
   return (
     <div className="space-y-6">
+        <Card>
+            <CardHeader>
+                <CardTitle>Filtros del Informe</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col md:flex-row gap-4">
+                <div className="space-y-2 flex-1">
+                    <Label htmlFor="proveedor">Proveedor</Label>
+                    <Input id="proveedor" placeholder="Nombre del proveedor..." value={proveedorFilter} onChange={e => setProveedorFilter(e.target.value)} />
+                </div>
+                 <div className="space-y-2 flex-1">
+                    <Label htmlFor="factura">Número de Factura</Label>
+                    <Input id="factura" placeholder="Nro de factura..." value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)} />
+                </div>
+                 <div className="space-y-2 flex-1">
+                    <Label>Rango de Vencimiento</Label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button id="date" variant={"outline"} className={cn("w-full justify-start text-left font-normal", !vencimientoFilter && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {vencimientoFilter?.from ? (vencimientoFilter.to ? (<>{format(vencimientoFilter.from, "LLL dd, y", { locale: es })} - {format(vencimientoFilter.to, "LLL dd, y", { locale: es })}</>) : (format(vencimientoFilter.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar initialFocus mode="range" selected={vencimientoFilter} onSelect={setVencimientoFilter} numberOfMonths={2} locale={es}/>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+            </CardContent>
+        </Card>
+
         <Card>
             <CardHeader>
                 <CardTitle>Resumen de Antigüedad de Saldos</CardTitle>
@@ -183,7 +244,7 @@ export default function AntiguedadSaldosPage() {
                  </Table>
                  {reportData.detalles.length === 0 && (
                      <div className="h-48 flex items-center justify-center text-muted-foreground">
-                        <p>¡Felicitaciones! No hay deudas pendientes.</p>
+                        <p>No se encontraron cuentas que coincidan con los filtros aplicados.</p>
                     </div>
                  )}
             </CardContent>
@@ -191,3 +252,4 @@ export default function AntiguedadSaldosPage() {
     </div>
   );
 }
+
