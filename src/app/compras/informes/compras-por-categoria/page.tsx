@@ -11,10 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+
 
 // Types
 type CompraItem = {
@@ -88,6 +90,8 @@ export default function ComprasPorCategoriaPage() {
     from: addDays(new Date(), -29),
     to: new Date(),
   });
+  const [selectedCategorias, setSelectedCategorias] = useState<string[]>([]);
+
 
   // Data Fetching
   useEffect(() => {
@@ -97,7 +101,7 @@ export default function ComprasPorCategoriaPage() {
         const [comprasSnap, productosSnap, categoriasSnap] = await Promise.all([
           getDocs(query(collection(db, 'compras'), orderBy("fecha_compra", "desc"))),
           getDocs(collection(db, 'productos')),
-          getDocs(collection(db, 'categorias_productos'))
+          getDocs(collection(db, 'categorias_productos'), orderBy("nombre"))
         ]);
         
         setCompras(comprasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Compra)));
@@ -132,10 +136,12 @@ export default function ComprasPorCategoriaPage() {
         compra.items.forEach(item => {
             const categoriaId = productosMap.get(item.producto_id);
             if (categoriaId) {
-                if (!acc[categoriaId]) {
-                    acc[categoriaId] = 0;
+                if (selectedCategorias.length === 0 || selectedCategorias.includes(categoriaId)) {
+                    if (!acc[categoriaId]) {
+                        acc[categoriaId] = 0;
+                    }
+                    acc[categoriaId] += item.cantidad_recibida * item.precio_unitario;
                 }
-                acc[categoriaId] += item.cantidad_recibida * item.precio_unitario;
             }
         });
         return acc;
@@ -148,11 +154,19 @@ export default function ComprasPorCategoriaPage() {
        }))
       .sort((a, b) => b.total - a.total);
 
-  }, [compras, productos, categorias, date]);
+  }, [compras, productos, categorias, date, selectedCategorias]);
 
   useEffect(() => {
     setReportData(processedData);
   }, [processedData]);
+  
+  const handleCategorySelection = (categoryId: string) => {
+      setSelectedCategorias(prev => 
+        prev.includes(categoryId) 
+            ? prev.filter(id => id !== categoryId)
+            : [...prev, categoryId]
+      );
+  }
 
   if (loading) return <p>Generando informe...</p>;
 
@@ -167,10 +181,33 @@ export default function ComprasPorCategoriaPage() {
                   {date?.from ? (date.to ? (<>{format(date.from, "LLL dd, y", { locale: es })} - {format(date.to, "LLL dd, y", { locale: es })}</>) : (format(date.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
+              <PopoverContent className="w-auto p-0" align="start">
                 <Calendar initialFocus mode="range" selected={date} onSelect={setDate} numberOfMonths={2} locale={es}/>
               </PopoverContent>
             </Popover>
+
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                        Filtrar por Categoría
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                    <DropdownMenuLabel>Categorías de Productos</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {categorias.map(categoria => (
+                        <DropdownMenuCheckboxItem
+                            key={categoria.id}
+                            checked={selectedCategorias.includes(categoria.id)}
+                            onCheckedChange={() => handleCategorySelection(categoria.id)}
+                        >
+                            {categoria.nombre}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+
         </div>
       </div>
       
@@ -194,7 +231,7 @@ export default function ComprasPorCategoriaPage() {
                 </ResponsiveContainer>
             ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
-                    <p>No hay datos disponibles para el período seleccionado.</p>
+                    <p>No hay datos disponibles para el período o filtros seleccionados.</p>
                 </div>
             )}
           </CardContent>
