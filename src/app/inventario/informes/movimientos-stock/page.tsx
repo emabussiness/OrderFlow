@@ -122,28 +122,25 @@ export default function MovimientosStockPage() {
            // 3. Notas de Crédito a Proveedores (Devoluciones, Salidas)
           const notasCreditoQuery = query(collection(db, 'notas_credito_debito_compras'), where('fecha_emision', '>=', format(from, "yyyy-MM-dd")), where('fecha_emision', '<=', format(to, "yyyy-MM-dd")));
           const notasCreditoSnap = await getDocs(notasCreditoQuery);
-          const comprasAfectadasIds = notasCreditoSnap.docs.map(doc => (doc.data() as NotaCredito).compra_id);
           
-          if(comprasAfectadasIds.length > 0){
-            const comprasAfectadasQuery = query(collection(db, 'compras'), where('__name__', 'in', comprasAfectadasIds), where('deposito_id', '==', selectedDepositoId));
-            const comprasAfectadasSnap = await getDocs(comprasAfectadasQuery);
-            const comprasAfectadasMap = new Map(comprasAfectadasSnap.docs.map(doc => [doc.id, doc.data() as Compra]));
-
-            notasCreditoSnap.forEach(doc => {
-              const nota = doc.data() as NotaCredito;
-              if (comprasAfectadasMap.has(nota.compra_id)) {
-                  const item = nota.items.find(i => i.producto_id === selectedProductId);
-                  if (item && item.cantidad_ajustada > 0) {
-                      allMovements.push({
-                          fecha: new Date(nota.fecha_emision + "T00:00:00"),
-                          tipo: 'Devolución a Proveedor',
-                          cantidad: -item.cantidad_ajustada,
-                          documentoRef: `NC ${nota.numero_nota_credito}`,
-                           key: `nc-${doc.id}`
-                      });
+          for (const notaDoc of notasCreditoSnap.docs) {
+              const nota = notaDoc.data() as NotaCredito;
+              const compraDoc = await getDocs(query(collection(db, 'compras'), where('__name__', '==', nota.compra_id)));
+              if (!compraDoc.empty) {
+                  const compraAfectada = compraDoc.docs[0].data() as Compra;
+                  if (compraAfectada.deposito_id === selectedDepositoId) {
+                      const item = nota.items.find(i => i.producto_id === selectedProductId);
+                      if (item && item.cantidad_ajustada > 0) {
+                          allMovements.push({
+                              fecha: new Date(nota.fecha_emision + "T00:00:00"),
+                              tipo: 'Devolución a Proveedor',
+                              cantidad: -item.cantidad_ajustada,
+                              documentoRef: `NC ${nota.numero_nota_credito}`,
+                              key: `nc-${notaDoc.id}`
+                          });
+                      }
                   }
               }
-            });
           }
 
           // Sort and calculate running balance
