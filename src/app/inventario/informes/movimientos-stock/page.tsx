@@ -88,7 +88,7 @@ export default function MovimientosStockPage() {
           const to = dateRange.to ?? from;
           let allMovements: Omit<Movimiento, 'saldo'>[] = [];
 
-          // 1. Compras (Entradas) - Simplified query
+          // 1. Compras (Entradas)
           const comprasQuery = query(collection(db, 'compras'), where('fecha_compra', '>=', format(from, "yyyy-MM-dd")), where('fecha_compra', '<=', format(to, "yyyy-MM-dd")));
           const comprasSnap = await getDocs(comprasQuery);
           comprasSnap.forEach(doc => {
@@ -108,17 +108,20 @@ export default function MovimientosStockPage() {
           });
 
           // 2. Ajustes (Entradas y Salidas)
-          const ajustesQuery = query(collection(db, 'ajustes_stock'), where('deposito_id', '==', selectedDepositoId), where('producto_id', '==', selectedProductId), where('fecha_ajuste', '>=', format(from, "yyyy-MM-dd")), where('fecha_ajuste', '<=', format(to, "yyyy-MM-dd")));
+          const ajustesQuery = query(collection(db, 'ajustes_stock'), where('deposito_id', '==', selectedDepositoId), where('producto_id', '==', selectedProductId));
           const ajustesSnap = await getDocs(ajustesQuery);
           ajustesSnap.forEach(doc => {
               const ajuste = doc.data() as Ajuste;
-              allMovements.push({
-                  fecha: new Date(ajuste.fecha_ajuste + "T00:00:00"),
-                  tipo: ajuste.tipo_ajuste === 'Entrada' ? 'Ajuste Entrada' : 'Ajuste Salida',
-                  cantidad: ajuste.tipo_ajuste === 'Entrada' ? ajuste.cantidad : -ajuste.cantidad,
-                  documentoRef: `Ajuste: ${ajuste.motivo}`,
-                  key: `ajuste-${doc.id}`
-              });
+              const fechaAjuste = new Date(ajuste.fecha_ajuste + "T00:00:00");
+              if (fechaAjuste >= from && fechaAjuste <= to) {
+                allMovements.push({
+                    fecha: fechaAjuste,
+                    tipo: ajuste.tipo_ajuste === 'Entrada' ? 'Ajuste Entrada' : 'Ajuste Salida',
+                    cantidad: ajuste.tipo_ajuste === 'Entrada' ? ajuste.cantidad : -ajuste.cantidad,
+                    documentoRef: `Ajuste: ${ajuste.motivo}`,
+                    key: `ajuste-${doc.id}`
+                });
+              }
           });
           
            // 3. Notas de Crédito a Proveedores (Devoluciones, Salidas)
