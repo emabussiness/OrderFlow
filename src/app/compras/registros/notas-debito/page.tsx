@@ -245,10 +245,19 @@ export default function NotasDebitoPage() {
             const cuentaSnapshot = await getDocs(qCuentas);
             if(!cuentaSnapshot.empty) {
                 const cuentaDoc = cuentaSnapshot.docs[0];
+                const cuentaData = cuentaDoc.data();
+                
+                // If the account was paid, it's now partially paid because of the new debit.
+                // If it was already pending or partially paid, it remains so.
+                let nuevoEstado = cuentaData.estado;
+                if (cuentaData.estado === 'Pagado') {
+                    nuevoEstado = 'Pagado Parcial';
+                }
+
                 batch.update(cuentaDoc.ref, {
                     monto_total: increment(totalNota),
                     saldo_pendiente: increment(totalNota),
-                    estado: 'Pendiente' // Re-open the account to be paid
+                    estado: nuevoEstado
                 });
             }
             
@@ -466,4 +475,3 @@ export default function NotasDebitoPage() {
     );
 
     
-

@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { collection, getDocs, addDoc, doc, serverTimestamp, query, where, orderBy, writeBatch, increment, runTransaction } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, serverTimestamp, query, where, orderBy, writeBatch, increment, runTransaction, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -302,25 +302,21 @@ export default function NotasCreditoDebitoPage() {
 
     try {
         await runTransaction(db, async (transaction) => {
-            // 1. Get the current state of the Cuentas a Pagar document
             const qCuentas = query(collection(db, 'cuentas_a_pagar'), where("compra_id", "==", selectedCompraId));
             const cuentaSnapshot = await getDocs(qCuentas);
-
-            let cuentaRef;
-            let cuentaData;
-            let nuevoSaldo = 0;
             
-            if (!cuentaSnapshot.empty) {
-                const cuentaDoc = cuentaSnapshot.docs[0];
-                cuentaRef = cuentaDoc.ref;
-                cuentaData = await transaction.get(cuentaRef);
-                if (!cuentaData.exists()) {
-                    throw new Error("La cuenta a pagar asociada a esta compra no existe.");
-                }
-                nuevoSaldo = cuentaData.data().saldo_pendiente - totalNota;
+            if (cuentaSnapshot.empty) {
+                throw new Error("La cuenta a pagar asociada a esta compra no existe.");
+            }
+
+            const cuentaDoc = cuentaSnapshot.docs[0];
+            const cuentaRef = cuentaDoc.ref;
+            const cuentaData = (await transaction.get(cuentaRef)).data();
+            
+            if (!cuentaData) {
+                 throw new Error("No se pudieron obtener los datos de la cuenta a pagar.");
             }
             
-            // 2. Create Nota de Credito document
             const notaRef = doc(collection(db, "notas_credito_debito_compras"));
             transaction.set(notaRef, {
                 compra_id: selectedCompraId,
@@ -342,20 +338,22 @@ export default function NotasCreditoDebitoPage() {
                 fecha_creacion: serverTimestamp()
             });
 
-            // 3. Adjust Cuentas a Pagar and its state
-            if (cuentaRef) {
-                let nuevoEstado = "Pagado Parcial";
-                if (nuevoSaldo <= 0) {
-                   nuevoEstado = "Pagado";
-                }
-                
-                transaction.update(cuentaRef, {
-                    saldo_pendiente: increment(-totalNota),
-                    estado: nuevoEstado
-                });
-            }
+            const nuevoSaldo = cuentaData.saldo_pendiente - totalNota;
+            let nuevoEstado = cuentaData.estado;
 
-            // 4. Adjust Stock
+            if (nuevoSaldo <= 0.01) { // Usamos un pequeño umbral para evitar problemas de punto flotante
+               nuevoEstado = "Pagado";
+            } else if (nuevoSaldo < cuentaData.monto_total) {
+               nuevoEstado = "Pagado Parcial";
+            } else {
+               nuevoEstado = "Pendiente";
+            }
+            
+            transaction.update(cuentaRef, {
+                saldo_pendiente: increment(-totalNota),
+                estado: nuevoEstado
+            });
+
             const itemsAjustados = items.filter(i => i.cantidad_ajustada > 0);
             for (const item of itemsAjustados) {
                 const qStock = query(
@@ -379,7 +377,7 @@ export default function NotasCreditoDebitoPage() {
         await fetchData();
     } catch(e) {
         console.error("Error creating credit note:", e);
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo registrar la nota de crédito.'});
+        toast({ variant: 'destructive', title: 'Error', description: (e as Error).message || 'No se pudo registrar la nota de crédito.'});
     }
   }
 
