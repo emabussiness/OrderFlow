@@ -86,18 +86,34 @@ export default function TiposDocumentoPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentTipoDocumento.nombre) {
+    const trimmedName = currentTipoDocumento.nombre.trim();
+    if (!trimmedName) {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'El nombre es requerido.'});
+        return;
+    }
+    
+    // Case-insensitive duplicate check
+    const isDuplicate = tiposDocumento.some(doc => 
+        doc.nombre.toLowerCase() === trimmedName.toLowerCase() && doc.id !== currentTipoDocumentoId
+    );
+
+    if (isDuplicate) {
+        toast({ variant: 'destructive', title: 'Nombre duplicado', description: `Ya existe un tipo de documento con el nombre "${trimmedName}".`});
         return;
     }
 
     try {
+        const dataToSave = {
+            ...currentTipoDocumento,
+            nombre: trimmedName,
+        };
+
         if(isEditing && currentTipoDocumentoId) {
             const tipoDocumentoRef = doc(db, 'tipos_documento', currentTipoDocumentoId);
-            await updateDoc(tipoDocumentoRef, currentTipoDocumento);
+            await updateDoc(tipoDocumentoRef, dataToSave);
             toast({ title: 'Tipo de Documento Actualizado', description: 'El tipo de documento ha sido actualizado exitosamente.'});
         } else {
-            await addDoc(collection(db, 'tipos_documento'), currentTipoDocumento);
+            await addDoc(collection(db, 'tipos_documento'), dataToSave);
             toast({ title: 'Tipo de Documento Creado', description: 'El nuevo tipo de documento ha sido creado exitosamente.'});
         }
         await fetchTiposDocumento();
