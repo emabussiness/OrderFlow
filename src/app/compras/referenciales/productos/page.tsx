@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/command";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Categoria = { id: string; nombre: string; };
 type UnidadMedida = { id: string; nombre: string; simbolo: string; };
@@ -292,72 +293,74 @@ export default function ProductosPage() {
       
       {/* Create/Edit Dialog */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-                <DialogTitle>{isEditing ? 'Editar Producto' : 'Crear Nuevo Producto'}</DialogTitle>
-                <DialogDescription>
-                    {isEditing ? 'Actualice los detalles del producto.' : 'Complete los detalles para crear un nuevo producto.'}
-                </DialogDescription>
-            </DialogHeader>
-            <div className="grid grid-cols-1 gap-4 py-4">
-                <div className="space-y-2">
-                    <Label htmlFor="nombre">Nombre del Producto</Label>
-                    <Input id="nombre" value={currentProducto.nombre} onChange={e => handleInputChange('nombre', e.target.value)} />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="categoria_id">Categoría</Label>
-                    <Combobox
-                        options={categorias.map(c => ({ value: c.id, label: c.nombre }))}
-                        value={currentProducto.categoria_id}
-                        onChange={(value) => handleInputChange('categoria_id', value)}
-                        placeholder="Seleccione una categoría"
-                        searchPlaceholder="Buscar categoría..."
-                    />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="descripcion">Descripción</Label>
-                    <Textarea id="descripcion" value={currentProducto.descripcion} onChange={e => handleInputChange('descripcion', e.target.value)} />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="precio_referencia">Precio de Referencia</Label>
-                    <Input id="precio_referencia" type="number" value={currentProducto.precio_referencia} onChange={e => handleInputChange('precio_referencia', parseFloat(e.target.value) || 0)} />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="unidad_medida_id">Unidad de Medida</Label>
-                    <Combobox
-                        options={unidadesMedida.map(u => ({ value: u.id, label: `${u.nombre} (${u.simbolo})` }))}
-                        value={currentProducto.unidad_medida_id}
-                        onChange={(value) => handleInputChange('unidad_medida_id', value)}
-                        placeholder="Seleccione una unidad"
-                        searchPlaceholder="Buscar unidad..."
-                    />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="codigo_interno">Código Interno</Label>
-                    <Input id="codigo_interno" value={currentProducto.codigo_interno} onChange={e => handleInputChange('codigo_interno', e.target.value)} />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="codigo_barra">Código de Barras</Label>
-                    <Input id="codigo_barra" value={currentProducto.codigo_barra} onChange={e => handleInputChange('codigo_barra', e.target.value)} />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="iva_tipo">Tipo de IVA (%)</Label>
-                    <Combobox
-                        options={[{value: "10", label: '10%'}, {value: "5", label: '5%'}, {value: "0", label: 'Exento'}]}
-                        value={String(currentProducto.iva_tipo)}
-                        onChange={(value) => handleInputChange('iva_tipo', parseInt(value))}
-                        placeholder="Seleccione tipo de IVA"
-                    />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="costo_promedio">Costo Promedio</Label>
-                    <Input id="costo_promedio" type="number" value={currentProducto.costo_promedio} onChange={e => handleInputChange('costo_promedio', parseFloat(e.target.value) || 0)} />
-                </div>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{isEditing ? 'Editar Producto' : 'Crear Nuevo Producto'}</DialogTitle>
+            <DialogDescription>
+              {isEditing ? 'Actualice los detalles del producto.' : 'Complete los detalles para crear un nuevo producto.'}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="flex-grow pr-6 -mr-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4 pr-1">
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="nombre">Nombre del Producto</Label>
+                <Input id="nombre" value={currentProducto.nombre} onChange={e => handleInputChange('nombre', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="categoria_id">Categoría</Label>
+                <Combobox
+                  options={categorias.map(c => ({ value: c.id, label: c.nombre }))}
+                  value={currentProducto.categoria_id}
+                  onChange={(value) => handleInputChange('categoria_id', value)}
+                  placeholder="Seleccione una categoría"
+                  searchPlaceholder="Buscar categoría..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unidad_medida_id">Unidad de Medida</Label>
+                <Combobox
+                  options={unidadesMedida.map(u => ({ value: u.id, label: `${u.nombre} (${u.simbolo})` }))}
+                  value={currentProducto.unidad_medida_id}
+                  onChange={(value) => handleInputChange('unidad_medida_id', value)}
+                  placeholder="Seleccione una unidad"
+                  searchPlaceholder="Buscar unidad..."
+                />
+              </div>
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="descripcion">Descripción</Label>
+                <Textarea id="descripcion" value={currentProducto.descripcion} onChange={e => handleInputChange('descripcion', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="codigo_interno">Código Interno</Label>
+                <Input id="codigo_interno" value={currentProducto.codigo_interno} onChange={e => handleInputChange('codigo_interno', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="codigo_barra">Código de Barras</Label>
+                <Input id="codigo_barra" value={currentProducto.codigo_barra} onChange={e => handleInputChange('codigo_barra', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="costo_promedio">Costo Promedio</Label>
+                <Input id="costo_promedio" type="number" value={currentProducto.costo_promedio} onChange={e => handleInputChange('costo_promedio', parseFloat(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="precio_referencia">Precio de Referencia</Label>
+                <Input id="precio_referencia" type="number" value={currentProducto.precio_referencia} onChange={e => handleInputChange('precio_referencia', parseFloat(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="iva_tipo">Tipo de IVA (%)</Label>
+                <Combobox
+                  options={[{ value: "10", label: '10%' }, { value: "5", label: '5%' }, { value: "0", label: 'Exento' }]}
+                  value={String(currentProducto.iva_tipo)}
+                  onChange={(value) => handleInputChange('iva_tipo', parseInt(value))}
+                  placeholder="Seleccione tipo de IVA"
+                />
+              </div>
             </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={handleCloseDialog}>Cancelar</Button>
-                <Button onClick={handleSubmit}>{isEditing ? 'Guardar Cambios' : 'Crear Producto'}</Button>
-            </DialogFooter>
+          </ScrollArea>
+          <DialogFooter className="pt-4 border-t">
+            <Button variant="outline" onClick={handleCloseDialog}>Cancelar</Button>
+            <Button onClick={handleSubmit}>{isEditing ? 'Guardar Cambios' : 'Crear Producto'}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
@@ -416,3 +419,5 @@ export default function ProductosPage() {
     </>
   );
 }
+
+    
