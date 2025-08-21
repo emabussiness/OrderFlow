@@ -55,7 +55,7 @@ type Recepcion = {
   cliente_id: string;
   cliente_nombre: string;
   fecha_recepcion: string;
-  equipos: { id: string; }[];
+  equipos: { id: string; problema_manifestado: string; }[];
   usuario_id: string;
   fecha_creacion: any;
 };
@@ -161,22 +161,19 @@ export default function RecepcionEquiposPage() {
         // 1. Create the parent reception document to get its ID
         const recepcionRef = doc(collection(db, "recepciones"));
 
-        const equiposParaResumen: { id: string }[] = [];
+        const equiposParaRecepcion: { id: string, problema_manifestado: string }[] = [];
 
-        // 2. Create a document for each piece of equipment, stamping it with the reception ID
+        // 2. Create a document for each piece of equipment
         for (const equipoData of equipos) {
             const equipoCompleto = equipoData as EquipoParaAgregar;
             const equipoRef = doc(collection(db, "equipos_en_servicio"));
             
             batch.set(equipoRef, {
-                // Link to the parent reception
                 recepcion_id: recepcionRef.id,
-                
-                // Copy all equipment details
                 cliente_id: selectedClienteId,
                 cliente_nombre: clienteSeleccionado.nombre,
                 fecha_recepcion: format(hoy, "yyyy-MM-dd"),
-                estado: "Recibido",
+                estado: "Recibido", // <<< --- CORRECCIÓN CLAVE AQUÍ
                 usuario_id: "user-demo",
                 fecha_creacion: serverTimestamp(),
                 tipo_equipo_id: equipoCompleto.tipo_equipo_id,
@@ -189,8 +186,7 @@ export default function RecepcionEquiposPage() {
                 accesorios: equipoCompleto.accesorios || null,
             });
             
-            // Collect the new equipment ID for the summary array in the reception doc
-            equiposParaResumen.push({ id: equipoRef.id });
+            equiposParaRecepcion.push({ id: equipoRef.id, problema_manifestado: equipoCompleto.problema_manifestado });
         }
         
         // 3. Set the data for the reception document, including the array of equipment IDs
@@ -198,7 +194,7 @@ export default function RecepcionEquiposPage() {
             cliente_id: selectedClienteId,
             cliente_nombre: clienteSeleccionado.nombre,
             fecha_recepcion: format(hoy, "yyyy-MM-dd"),
-            equipos: equiposParaResumen,
+            equipos: equiposParaRecepcion,
             usuario_id: "user-demo",
             fecha_creacion: serverTimestamp(),
         });
@@ -224,7 +220,6 @@ export default function RecepcionEquiposPage() {
         try {
             const ids = recepcion.equipos.map(e => e.id);
             if (ids.length > 0) {
-                // Query the equipos_en_servicio collection for documents with matching IDs
                 const q = query(collection(db, 'equipos_en_servicio'), where('__name__', 'in', ids));
                 const equiposSnap = await getDocs(q);
                 const equiposData = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));

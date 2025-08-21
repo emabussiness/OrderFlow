@@ -88,10 +88,9 @@ export default function DiagnosticoPage() {
     const grouped: GroupedEquipos = {};
 
     const sortedEquipos = [...equipos].sort((a, b) => {
-        if (a.fecha_creacion?.toDate && b.fecha_creacion?.toDate) {
-            return b.fecha_creacion.toDate() - a.fecha_creacion.toDate();
-        }
-        return 0;
+        const dateA = a.fecha_creacion?.toDate ? a.fecha_creacion.toDate() : new Date(0);
+        const dateB = b.fecha_creacion?.toDate ? b.fecha_creacion.toDate() : new Date(0);
+        return dateB.getTime() - dateA.getTime();
     });
 
     sortedEquipos.forEach(equipo => {
@@ -278,3 +277,5 @@ export default function DiagnosticoPage() {
     </>
   );
 }
+
+    
