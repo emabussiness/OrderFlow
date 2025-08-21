@@ -85,18 +85,36 @@ export default function UnidadesMedidaPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentUnidad.nombre || !currentUnidad.simbolo) {
+    const trimmedNombre = currentUnidad.nombre.trim();
+    const trimmedSimbolo = currentUnidad.simbolo.trim();
+
+    if (!trimmedNombre || !trimmedSimbolo) {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'Nombre y símbolo son requeridos.'});
         return;
     }
 
+    const isDuplicate = unidades.some(u => 
+        u.nombre.toLowerCase() === trimmedNombre.toLowerCase() && u.id !== currentUnidadId
+    );
+
+    if (isDuplicate) {
+        toast({ variant: 'destructive', title: 'Unidad de Medida duplicada', description: `Ya existe una unidad de medida con el nombre "${trimmedNombre}".`});
+        return;
+    }
+
+
     try {
+        const unidadData = {
+            ...currentUnidad,
+            nombre: trimmedNombre,
+            simbolo: trimmedSimbolo,
+        };
         if(isEditing && currentUnidadId) {
             const unidadRef = doc(db, 'unidades_medida', currentUnidadId);
-            await updateDoc(unidadRef, currentUnidad);
+            await updateDoc(unidadRef, unidadData);
             toast({ title: 'Unidad Actualizada', description: 'La unidad de medida ha sido actualizada exitosamente.'});
         } else {
-            await addDoc(collection(db, 'unidades_medida'), currentUnidad);
+            await addDoc(collection(db, 'unidades_medida'), unidadData);
             toast({ title: 'Unidad Creada', description: 'La nueva unidad de medida ha sido creada exitosamente.'});
         }
         await fetchUnidades();
