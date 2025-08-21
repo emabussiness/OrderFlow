@@ -89,18 +89,32 @@ export default function SucursalesPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentSucursal.nombre) {
+    const trimmedName = currentSucursal.nombre.trim();
+    if (!trimmedName) {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'El nombre es requerido.'});
         return;
     }
 
+    const isDuplicate = sucursales.some(s => 
+        s.nombre.toLowerCase() === trimmedName.toLowerCase() && s.id !== currentSucursalId
+    );
+
+    if (isDuplicate) {
+        toast({ variant: 'destructive', title: 'Sucursal duplicada', description: `Ya existe una sucursal con el nombre "${trimmedName}".`});
+        return;
+    }
+
     try {
+        const sucursalData = {
+            ...currentSucursal,
+            nombre: trimmedName,
+        };
         if(isEditing && currentSucursalId) {
             const sucursalRef = doc(db, 'sucursales', currentSucursalId);
-            await updateDoc(sucursalRef, currentSucursal);
+            await updateDoc(sucursalRef, sucursalData);
             toast({ title: 'Sucursal Actualizada', description: 'La sucursal ha sido actualizada exitosamente.'});
         } else {
-            await addDoc(collection(db, 'sucursales'), currentSucursal);
+            await addDoc(collection(db, 'sucursales'), sucursalData);
             toast({ title: 'Sucursal Creada', description: 'La nueva sucursal ha sido creada exitosamente.'});
         }
         await fetchSucursales();
