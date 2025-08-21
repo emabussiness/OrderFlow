@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -46,6 +46,7 @@ export default function ClientesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentCliente, setCurrentCliente] = useState<Omit<Cliente, 'id'>>(initialClienteState);
   const [currentClienteId, setCurrentClienteId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchClientes = async () => {
     setLoading(true);
@@ -65,7 +66,15 @@ export default function ClientesPage() {
 
   useEffect(() => {
     fetchClientes();
-  }, []);
+  }, [toast]);
+  
+  const filteredClientes = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return clientes.filter(cliente =>
+      cliente.nombre.toLowerCase().includes(term) ||
+      cliente.ruc_ci.toLowerCase().includes(term)
+    );
+  }, [clientes, searchTerm]);
 
   const handleOpenDialog = (cliente: Cliente | null = null) => {
     if (cliente) {
@@ -164,6 +173,14 @@ export default function ClientesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Clientes</CardTitle>
+          <CardDescription>
+            <Input 
+                placeholder="Buscar por nombre o RUC/CI..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -177,7 +194,7 @@ export default function ClientesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clientes.map((cliente) => (
+              {filteredClientes.map((cliente) => (
                 <TableRow key={cliente.id}>
                   <TableCell className="font-medium">{cliente.nombre}</TableCell>
                    <TableCell>{cliente.ruc_ci}</TableCell>
@@ -217,7 +234,7 @@ export default function ClientesPage() {
               ))}
             </TableBody>
           </Table>
-           {clientes.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay clientes registrados.</p>}
+           {filteredClientes.length === 0 && <p className="text-center text-muted-foreground mt-4">No se encontraron clientes.</p>}
         </CardContent>
       </Card>
       
@@ -225,9 +242,9 @@ export default function ClientesPage() {
         <DialogContent className="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>{isEditing ? 'Editar Cliente' : 'Crear Nuevo Cliente'}</DialogTitle>
-                 <DialogDescription>
+                 <DialogDescriptionComponent>
                     {isEditing ? 'Actualice los detalles del cliente.' : 'Complete los detalles para crear un nuevo cliente.'}
-                </DialogDescription>
+                </DialogDescriptionComponent>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

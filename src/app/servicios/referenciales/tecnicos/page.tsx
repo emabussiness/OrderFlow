@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -41,6 +41,7 @@ export default function TecnicosPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentTecnico, setCurrentTecnico] = useState<Omit<Tecnico, 'id'>>(initialTecnicoState);
   const [currentTecnicoId, setCurrentTecnicoId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchTecnicos = async () => {
     setLoading(true);
@@ -61,6 +62,14 @@ export default function TecnicosPage() {
   useEffect(() => {
     fetchTecnicos();
   }, [toast]);
+  
+  const filteredTecnicos = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return tecnicos.filter(tecnico =>
+        tecnico.nombre_apellido.toLowerCase().includes(term) ||
+        (tecnico.especialidad && tecnico.especialidad.toLowerCase().includes(term))
+    );
+  }, [tecnicos, searchTerm]);
 
   const handleOpenDialog = (tecnico: Tecnico | null = null) => {
     if (tecnico) {
@@ -156,6 +165,14 @@ export default function TecnicosPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Técnicos</CardTitle>
+          <CardDescription>
+            <Input
+                placeholder="Buscar por nombre o especialidad..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -168,7 +185,7 @@ export default function TecnicosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tecnicos.map((tecnico) => (
+              {filteredTecnicos.map((tecnico) => (
                 <TableRow key={tecnico.id}>
                   <TableCell className="font-medium">{tecnico.nombre_apellido}</TableCell>
                    <TableCell>{tecnico.especialidad || 'N/A'}</TableCell>
@@ -207,7 +224,7 @@ export default function TecnicosPage() {
               ))}
             </TableBody>
           </Table>
-           {tecnicos.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay técnicos registrados.</p>}
+           {filteredTecnicos.length === 0 && <p className="text-center text-muted-foreground mt-4">No se encontraron técnicos.</p>}
         </CardContent>
       </Card>
       
@@ -215,9 +232,9 @@ export default function TecnicosPage() {
         <DialogContent className="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>{isEditing ? 'Editar Técnico' : 'Crear Nuevo Técnico'}</DialogTitle>
-                 <DialogDescription>
+                 <DialogDescriptionComponent>
                     {isEditing ? 'Actualice los detalles del técnico.' : 'Complete los detalles para crear un nuevo técnico.'}
-                </DialogDescription>
+                </DialogDescriptionComponent>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">
