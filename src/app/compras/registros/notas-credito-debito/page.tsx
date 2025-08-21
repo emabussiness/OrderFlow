@@ -252,7 +252,8 @@ export default function NotasCreditoDebitoPage() {
   }
 
   const handleCreateNota = async () => {
-    if (!selectedCompraId || !numeroNota || !fechaEmision || !motivo || !selectedCompra) {
+    const trimmedNota = numeroNota.trim();
+    if (!selectedCompraId || !trimmedNota || !fechaEmision || !motivo || !selectedCompra) {
         toast({ variant: 'destructive', title: 'Error', description: 'Complete todos los campos requeridos.'});
         return;
     }
@@ -261,6 +262,23 @@ export default function NotasCreditoDebitoPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Debe ajustar la cantidad de al menos un producto.'});
         return;
     }
+
+    // Check for duplicate credit note number from the same provider
+    const q = query(
+        collection(db, 'notas_credito_debito_compras'), 
+        where("proveedor_id", "==", selectedCompra.proveedor_id), 
+        where("numero_nota_credito", "==", trimmedNota)
+    );
+    const duplicateCheck = await getDocs(q);
+    if (!duplicateCheck.empty) {
+        toast({ 
+            variant: 'destructive', 
+            title: 'Nota de Crédito Duplicada', 
+            description: `Ya existe una nota de crédito con el número ${trimmedNota} para este proveedor.`
+        });
+        return;
+    }
+
 
     try {
         const batch = writeBatch(db);
@@ -272,7 +290,7 @@ export default function NotasCreditoDebitoPage() {
             proveedor_id: selectedCompra.proveedor_id,
             proveedor_nombre: selectedCompra.proveedor_nombre,
             numero_factura_compra: selectedCompra.numero_factura,
-            numero_nota_credito: numeroNota,
+            numero_nota_credito: trimmedNota,
             fecha_emision: format(fechaEmision, "yyyy-MM-dd"),
             motivo,
             total: totalNota,
