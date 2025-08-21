@@ -31,8 +31,18 @@ type Cliente = { id: string; nombre: string; };
 type TipoEquipo = { id: string; nombre: string; };
 type Marca = { id: string; nombre: string; };
 
-type EquipoRecepcionado = {
-    id: string; // Will be generated when saving
+// This represents the data for a single piece of equipment within a reception document.
+type EquipoEnRecepcion = {
+    id: string; // The ID of the individual equipment document in 'equipos_en_servicio'
+    tipo: string;
+    marca: string;
+    modelo: string;
+    problema_manifestado: string;
+};
+
+// This represents the form state for an item being added.
+type EquipoParaAgregar = {
+    id?: string;
     tipo_equipo_id: string;
     tipo_equipo_nombre: string;
     marca_id: string;
@@ -41,17 +51,9 @@ type EquipoRecepcionado = {
     numero_serie?: string;
     problema_manifestado: string;
     accesorios?: string;
-    estado: "Recibido";
 };
 
-type EquipoEnRecepcion = {
-    id: string;
-    tipo: string;
-    marca: string;
-    modelo: string;
-    problema_manifestado: string; 
-};
-
+// This represents the main reception document.
 type Recepcion = {
   id: string;
   cliente_id: string;
@@ -74,7 +76,7 @@ export default function RecepcionEquiposPage() {
   // Form state
   const [openCreate, setOpenCreate] = useState(false);
   const [selectedClienteId, setSelectedClienteId] = useState('');
-  const [equipos, setEquipos] = useState<Partial<EquipoRecepcionado>[]>([]);
+  const [equipos, setEquipos] = useState<Partial<EquipoParaAgregar>[]>([]);
   
   // Details Dialog state
   const [openDetails, setOpenDetails] = useState(false);
@@ -114,7 +116,7 @@ export default function RecepcionEquiposPage() {
     setEquipos(prev => prev.filter((_, i) => i !== index));
   };
   
-  const handleEquipoChange = (index: number, field: keyof EquipoRecepcionado, value: string) => {
+  const handleEquipoChange = (index: number, field: keyof EquipoParaAgregar, value: string) => {
     const newEquipos = [...equipos];
     const equipo = newEquipos[index];
 
@@ -163,8 +165,9 @@ export default function RecepcionEquiposPage() {
         // 1. Create individual equipment documents
         for (const equipo of equipos) {
             const equipoRef = doc(collection(db, "equipos_en_servicio"));
+            const { id, ...equipoData } = equipo; // Exclude transient id
             batch.set(equipoRef, {
-                ...equipo,
+                ...equipoData,
                 cliente_id: selectedClienteId,
                 cliente_nombre: clienteSeleccionado.nombre,
                 fecha_recepcion: format(hoy, "yyyy-MM-dd"),
@@ -382,7 +385,7 @@ export default function RecepcionEquiposPage() {
                                     </TableHeader>
                                     <TableBody>
                                         {selectedRecepcion.equipos.map((item, index) => (
-                                            <TableRow key={index}>
+                                            <TableRow key={item.id || index}>
                                                 <TableCell>{item.tipo}</TableCell>
                                                 <TableCell>{item.marca}</TableCell>
                                                 <TableCell>{item.modelo}</TableCell>
