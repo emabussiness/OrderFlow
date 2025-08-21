@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,6 +101,27 @@ export default function ClientesPage() {
     if (!currentCliente.nombre || !currentCliente.ruc_ci) {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'Nombre y RUC/CI son requeridos.'});
         return;
+    }
+
+    // Check for duplicates
+    const q = query(collection(db, 'clientes'), where("ruc_ci", "==", currentCliente.ruc_ci));
+    const snapshot = await getDocs(q);
+    if(!snapshot.empty) {
+        let isDuplicate = false;
+        if (isEditing && currentClienteId) {
+            // In edit mode, it's a duplicate if the found doc has a different ID
+            if (snapshot.docs[0].id !== currentClienteId) {
+                isDuplicate = true;
+            }
+        } else {
+            // In create mode, any result is a duplicate
+            isDuplicate = true;
+        }
+
+        if (isDuplicate) {
+            toast({ variant: 'destructive', title: 'Cliente duplicado', description: `Ya existe un cliente con el RUC/CI ${currentCliente.ruc_ci}.`});
+            return;
+        }
     }
 
     try {

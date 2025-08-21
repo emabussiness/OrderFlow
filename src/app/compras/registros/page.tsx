@@ -361,6 +361,15 @@ export default function ComprasPage() {
         return;
     }
 
+    // Check for duplicate invoice number for the same provider
+    const q = query(collection(db, 'compras'), where("proveedor_id", "==", selectedOC.proveedor_id), where("numero_factura", "==", numeroFactura));
+    const duplicateCheck = await getDocs(q);
+    if(!duplicateCheck.empty) {
+        toast({ variant: 'destructive', title: 'Factura Duplicada', description: `Ya existe una compra registrada con el Nro. de factura ${numeroFactura} para este proveedor.`});
+        return;
+    }
+
+
     let gravada10 = 0;
     let gravada5 = 0;
     let exenta = 0;
@@ -765,6 +774,7 @@ export default function ComprasPage() {
     
 
     
+
 
 
 

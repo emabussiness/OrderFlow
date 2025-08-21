@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,6 +102,26 @@ export default function ProveedoresPage() {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'Nombre y RUC son requeridos.'});
         return;
     }
+
+    // Check for duplicates
+    const q = query(collection(db, 'proveedores'), where("ruc", "==", currentProveedor.ruc));
+    const snapshot = await getDocs(q);
+    if(!snapshot.empty) {
+        let isDuplicate = false;
+        if (isEditing && currentProveedorId) {
+            if (snapshot.docs[0].id !== currentProveedorId) {
+                isDuplicate = true;
+            }
+        } else {
+            isDuplicate = true;
+        }
+
+        if (isDuplicate) {
+            toast({ variant: 'destructive', title: 'Proveedor duplicado', description: `Ya existe un proveedor con el RUC ${currentProveedor.ruc}.`});
+            return;
+        }
+    }
+
 
     try {
         if(isEditing && currentProveedorId) {

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,6 +95,26 @@ export default function TecnicosPage() {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'El nombre y apellido son requeridos.'});
         return;
     }
+    
+    // Check for duplicates
+    const q = query(collection(db, 'tecnicos'), where("nombre_apellido", "==", currentTecnico.nombre_apellido));
+    const snapshot = await getDocs(q);
+    if(!snapshot.empty) {
+        let isDuplicate = false;
+        if (isEditing && currentTecnicoId) {
+            if (snapshot.docs[0].id !== currentTecnicoId) {
+                isDuplicate = true;
+            }
+        } else {
+            isDuplicate = true;
+        }
+
+        if (isDuplicate) {
+            toast({ variant: 'destructive', title: 'Técnico duplicado', description: `Ya existe un técnico con el nombre ${currentTecnico.nombre_apellido}.`});
+            return;
+        }
+    }
+
 
     try {
         if(isEditing && currentTecnicoId) {

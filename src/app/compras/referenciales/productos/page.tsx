@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -151,8 +151,8 @@ export default function ProductosPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentProducto.nombre || !currentProducto.categoria_id || !currentProducto.unidad_medida_id) {
-        toast({ variant: 'destructive', title: 'Error de validación', description: 'Nombre, categoría y unidad de medida son requeridos.'});
+    if (!currentProducto.nombre || !currentProducto.categoria_id || !currentProducto.unidad_medida_id || !currentProducto.codigo_interno) {
+        toast({ variant: 'destructive', title: 'Error de validación', description: 'Nombre, categoría, unidad de medida y código interno son requeridos.'});
         return;
     }
     
@@ -160,6 +160,28 @@ export default function ProductosPage() {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'El precio de referencia no puede ser menor al costo promedio.'});
         return;
     }
+    
+    // Check for duplicates
+    const q = query(collection(db, 'productos'), where("codigo_interno", "==", currentProducto.codigo_interno));
+    const snapshot = await getDocs(q);
+    if(!snapshot.empty) {
+        let isDuplicate = false;
+        if (isEditing && currentProductoId) {
+            // In edit mode, it's a duplicate if the found doc has a different ID
+            if (snapshot.docs[0].id !== currentProductoId) {
+                isDuplicate = true;
+            }
+        } else {
+            // In create mode, any result is a duplicate
+            isDuplicate = true;
+        }
+
+        if (isDuplicate) {
+            toast({ variant: 'destructive', title: 'Producto duplicado', description: `Ya existe un producto con el código interno ${currentProducto.codigo_interno}.`});
+            return;
+        }
+    }
+
 
     try {
         if(isEditing && currentProductoId) {
