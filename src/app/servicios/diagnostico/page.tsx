@@ -39,6 +39,7 @@ type EquipoEnServicio = {
   trabajos_a_realizar?: string;
   fecha_diagnostico?: string;
   tecnico_id?: string;
+  fecha_creacion?: any;
 };
 
 type GroupedEquipos = {
