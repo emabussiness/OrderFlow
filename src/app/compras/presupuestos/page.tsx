@@ -319,6 +319,16 @@ export default function PresupuestosProveedorPage() {
       return;
     }
     
+    // Check for duplicate budget for the same provider and order
+    if (creationMode === 'pedido' && selectedPedidoId) {
+        const q = query(collection(db, 'presupuesto_proveedor'), where("pedido_id", "==", selectedPedidoId), where("proveedor_id", "==", proveedorId));
+        const existingPresupuesto = await getDocs(q);
+        if (!existingPresupuesto.empty) {
+            toast({ variant: "destructive", title: "Presupuesto Duplicado", description: "Ya existe un presupuesto de este proveedor para el pedido seleccionado." });
+            return;
+        }
+    }
+    
     const proveedor = proveedores.find(p => p.id === proveedorId);
     const deposito = depositos.find(d => d.id === depositoId);
 

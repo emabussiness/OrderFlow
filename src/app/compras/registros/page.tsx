@@ -345,7 +345,8 @@ export default function ComprasPage() {
   }
 
   const handleCreateCompra = async () => {
-    if (!selectedOCId || !numeroFactura || !fechaFactura || !selectedOC) {
+    const trimmedFactura = numeroFactura.trim();
+    if (!selectedOCId || !trimmedFactura || !fechaFactura || !selectedOC) {
         toast({ variant: 'destructive', title: 'Error', description: 'Complete todos los campos.'});
         return;
     }
@@ -362,10 +363,10 @@ export default function ComprasPage() {
     }
 
     // Check for duplicate invoice number for the same provider
-    const q = query(collection(db, 'compras'), where("proveedor_id", "==", selectedOC.proveedor_id), where("numero_factura", "==", numeroFactura));
+    const q = query(collection(db, 'compras'), where("proveedor_id", "==", selectedOC.proveedor_id), where("numero_factura", "==", trimmedFactura));
     const duplicateCheck = await getDocs(q);
     if(!duplicateCheck.empty) {
-        toast({ variant: 'destructive', title: 'Factura Duplicada', description: `Ya existe una compra registrada con el Nro. de factura ${numeroFactura} para este proveedor.`});
+        toast({ variant: 'destructive', title: 'Factura Duplicada', description: `Ya existe una compra registrada con el Nro. de factura ${trimmedFactura} para este proveedor.`});
         return;
     }
 
@@ -398,7 +399,7 @@ export default function ComprasPage() {
             deposito_id: selectedOC.deposito_id,
             deposito_nombre: selectedOC.deposito_nombre,
             fecha_compra: format(fechaFactura, "yyyy-MM-dd"),
-            numero_factura: numeroFactura,
+            numero_factura: trimmedFactura,
             total: totales.totalFactura,
             total_iva_10: totales.totalIva10,
             total_iva_5: totales.totalIva5,
@@ -420,7 +421,7 @@ export default function ComprasPage() {
             fecha_factura: format(fechaFactura, "yyyy-MM-dd"),
             proveedor_nombre: selectedOC.proveedor_nombre,
             proveedor_ruc: selectedOC.proveedor_ruc,
-            numero_factura: numeroFactura,
+            numero_factura: trimmedFactura,
             total_compra: totales.totalFactura,
             gravada_10: gravada10,
             iva_10: totales.totalIva10,
@@ -438,7 +439,7 @@ export default function ComprasPage() {
            compra_id: compraRef.id,
            proveedor_id: selectedOC.proveedor_id,
            proveedor_nombre: selectedOC.proveedor_nombre,
-           numero_factura: numeroFactura,
+           numero_factura: trimmedFactura,
            fecha_emision: format(fechaFactura, "yyyy-MM-dd"),
            fecha_vencimiento: format(fechaVencimiento, "yyyy-MM-dd"),
            monto_total: totales.totalFactura,
@@ -774,6 +775,7 @@ export default function ComprasPage() {
     
 
     
+
 
 
 
