@@ -247,7 +247,8 @@ export default function NotasDebitoPage() {
                 const cuentaDoc = cuentaSnapshot.docs[0];
                 batch.update(cuentaDoc.ref, {
                     monto_total: increment(totalNota),
-                    saldo_pendiente: increment(totalNota)
+                    saldo_pendiente: increment(totalNota),
+                    estado: 'Pendiente' // Re-open the account to be paid
                 });
             }
             
@@ -465,3 +466,4 @@ export default function NotasDebitoPage() {
     );
 
     
+
