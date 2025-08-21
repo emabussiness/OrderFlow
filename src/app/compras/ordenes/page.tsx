@@ -317,7 +317,7 @@ export default function OrdenesCompraPage() {
       const ordenesList = ordenesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as OrdenCompra));
       setOrdenes(ordenesList);
 
-      // Fetch Pedidos pendientes sin Presupuesto
+      // Fetch Pedidos pendientes
       const qPedidos = query(collection(db, 'pedidos_compra'), where("estado", "==", "Pendiente"));
       const pedidosSnapshot = await getDocs(qPedidos);
       const pedidosList = pedidosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pedido));
@@ -351,7 +351,7 @@ export default function OrdenesCompraPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [toast]);
 
    useEffect(() => {
     if (creationMode === 'pedido' && selectedPedido) {
@@ -591,7 +591,7 @@ export default function OrdenesCompraPage() {
                                     <Button variant="secondary" onClick={() => setSelectedPresupuestoId('')}>Cambiar</Button>
                                  </div>
                             ) : (
-                                <PresupuestoSelectorDialog presupuestos={presupuestos} onSelectPresupuesto={setSelectedPresupuestoId} />
+                                <PresupuestoSelectorDialog presupuestos={presupuestos.filter(p => p.estado === 'Aprobado')} onSelectPresupuesto={setSelectedPresupuestoId} />
                             )}
                         </div>
                     )}
