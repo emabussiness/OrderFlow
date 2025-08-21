@@ -79,18 +79,29 @@ export default function CategoriasPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentCategoria.nombre) {
+    const trimmedName = currentCategoria.nombre.trim();
+    if (!trimmedName) {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'El nombre es requerido.'});
+        return;
+    }
+
+    // Case-insensitive duplicate check
+    const isDuplicate = categorias.some(cat => 
+        cat.nombre.toLowerCase() === trimmedName.toLowerCase() && cat.id !== currentCategoriaId
+    );
+
+    if (isDuplicate) {
+        toast({ variant: 'destructive', title: 'Categoría duplicada', description: `Ya existe una categoría con el nombre "${trimmedName}".`});
         return;
     }
 
     try {
         if(isEditing && currentCategoriaId) {
             const categoriaRef = doc(db, 'categorias_productos', currentCategoriaId);
-            await updateDoc(categoriaRef, currentCategoria);
+            await updateDoc(categoriaRef, { nombre: trimmedName });
             toast({ title: 'Categoría Actualizada', description: 'La categoría ha sido actualizada exitosamente.'});
         } else {
-            await addDoc(collection(db, 'categorias_productos'), currentCategoria);
+            await addDoc(collection(db, 'categorias_productos'), { nombre: trimmedName });
             toast({ title: 'Categoría Creada', description: 'La nueva categoría ha sido creada exitosamente.'});
         }
         await fetchCategorias();
