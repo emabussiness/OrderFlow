@@ -64,16 +64,13 @@ export default function DiagnosticoPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Query is simplified to order by creation date. Filtering by state is done client-side.
       const q = query(
         collection(db, 'equipos_en_servicio'),
-        orderBy("fecha_creacion", "desc")
+        where("estado", "==", "Recibido")
       );
       const equiposSnapshot = await getDocs(q);
       const equiposList = equiposSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
-      
-      // Filter for "Recibido" state on the client side
-      setEquipos(equiposList.filter(e => e.estado === "Recibido"));
+      setEquipos(equiposList);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -90,8 +87,14 @@ export default function DiagnosticoPage() {
   const groupedAndFilteredEquipos = useMemo(() => {
     const grouped: GroupedEquipos = {};
 
-    equipos.forEach(equipo => {
-      // Ensure recepcion_id exists before trying to group
+    const sortedEquipos = [...equipos].sort((a, b) => {
+        if (a.fecha_creacion?.toDate && b.fecha_creacion?.toDate) {
+            return b.fecha_creacion.toDate() - a.fecha_creacion.toDate();
+        }
+        return 0;
+    });
+
+    sortedEquipos.forEach(equipo => {
       if (!equipo.recepcion_id) {
           return; 
       }
@@ -275,5 +278,3 @@ export default function DiagnosticoPage() {
     </>
   );
 }
-
-    
