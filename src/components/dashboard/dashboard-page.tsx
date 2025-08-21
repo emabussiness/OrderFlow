@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft, Banknote, HardHat, ListChecks, Hammer, Users, List, Tag } from "lucide-react";
+import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft, Banknote, HardHat, ListChecks, Hammer, Users, List, Tag, ArrowLeftRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Link from "next/link";
@@ -25,6 +25,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
     if (pathname === '/') return 'Dashboard';
     if (pathname.startsWith('/inventario/stock-actual')) return 'Inventario - Stock Actual';
     if (pathname.startsWith('/inventario/ajustes')) return 'Inventario - Ajustes de Stock';
+    if (pathname.startsWith('/inventario/transferencias')) return 'Inventario - Transferencias';
     if (pathname.startsWith('/inventario/informes/movimientos-stock')) return 'Informes - Movimientos de Stock';
     
     const pathParts = pathname.split('/');
@@ -183,8 +184,9 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                <CollapsibleContent className="ml-4">
                     <SidebarMenu>
                       <SidebarMenuItem><Link href="/inventario/stock-actual"><SidebarMenuButton isActive={pathname.startsWith('/inventario/stock-actual')}>Stock Actual</SidebarMenuButton></Link></SidebarMenuItem>
-                       <SidebarMenuItem><Link href="/inventario/ajustes"><SidebarMenuButton isActive={pathname.startsWith('/inventario/ajustes')}><ArrowRightLeft />Ajustes de Stock</SidebarMenuButton></Link></SidebarMenuItem>
-                        <SidebarMenuItem><Link href="/inventario/informes/movimientos-stock"><SidebarMenuButton isActive={pathname.startsWith('/inventario/informes/movimientos-stock')}><BarChart3 />Movimientos de Stock</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/inventario/transferencias"><SidebarMenuButton isActive={pathname.startsWith('/inventario/transferencias')}><ArrowLeftRight />Transferencias</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/inventario/ajustes"><SidebarMenuButton isActive={pathname.startsWith('/inventario/ajustes')}><ArrowRightLeft />Ajustes de Stock</SidebarMenuButton></Link></SidebarMenuItem>
+                      <SidebarMenuItem><Link href="/inventario/informes/movimientos-stock"><SidebarMenuButton isActive={pathname.startsWith('/inventario/informes/movimientos-stock')}><BarChart3 />Movimientos de Stock</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                   </CollapsibleContent>
             </Collapsible>
