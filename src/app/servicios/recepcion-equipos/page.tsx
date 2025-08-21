@@ -370,26 +370,28 @@ export default function RecepcionEquiposPage() {
                     <Card>
                         <CardHeader><CardTitle>Equipos en esta Recepción</CardTitle></CardHeader>
                         <CardContent>
-                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tipo</TableHead>
-                                        <TableHead>Marca</TableHead>
-                                        <TableHead>Modelo</TableHead>
-                                        <TableHead>Problema Manifestado</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {selectedRecepcion.equipos.map((item, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>{item.tipo}</TableCell>
-                                            <TableCell>{item.marca}</TableCell>
-                                            <TableCell>{item.modelo}</TableCell>
-                                            <TableCell className="max-w-[200px] truncate">{item.problema_manifestado}</TableCell>
+                            <ScrollArea className="h-[40vh]">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Tipo</TableHead>
+                                            <TableHead>Marca</TableHead>
+                                            <TableHead>Modelo</TableHead>
+                                            <TableHead>Problema Manifestado</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {selectedRecepcion.equipos.map((item, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>{item.tipo}</TableCell>
+                                                <TableCell>{item.marca}</TableCell>
+                                                <TableCell>{item.modelo}</TableCell>
+                                                <TableCell className="max-w-[200px] truncate">{item.problema_manifestado}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </ScrollArea>
                         </CardContent>
                     </Card>
                 </div>
