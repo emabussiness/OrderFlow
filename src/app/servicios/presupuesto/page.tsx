@@ -23,6 +23,7 @@ type EquipoDiagnosticado = {
   problema_manifestado: string;
   diagnostico_tecnico?: string;
   estado: "Recibido" | "Diagnosticado" | "Presupuestado" | "En Reparación" | "Reparado" | "Retirado";
+  recepcion_id: string;
 };
 
 // --- Main Component ---
@@ -47,6 +48,8 @@ export default function PresupuestoServicioPage() {
             if (a.fecha_diagnostico && b.fecha_diagnostico) {
                 return new Date(b.fecha_diagnostico).getTime() - new Date(a.fecha_diagnostico).getTime();
             }
+            if (a.fecha_diagnostico) return -1;
+            if (b.fecha_diagnostico) return 1;
             return 0;
         });
 
@@ -80,6 +83,7 @@ export default function PresupuestoServicioPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>ID Recepción</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Equipo</TableHead>
                 <TableHead>Fecha Diag.</TableHead>
@@ -90,6 +94,7 @@ export default function PresupuestoServicioPage() {
             <TableBody>
               {equipos.map((equipo) => (
                 <TableRow key={equipo.id}>
+                  <TableCell className="font-mono text-xs">{equipo.recepcion_id?.substring(0, 7) || 'N/A'}</TableCell>
                   <TableCell className="font-medium">{equipo.cliente_nombre}</TableCell>
                   <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                   <TableCell>{equipo.fecha_diagnostico}</TableCell>
