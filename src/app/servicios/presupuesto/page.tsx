@@ -37,11 +37,19 @@ export default function PresupuestoServicioPage() {
       try {
         const q = query(
           collection(db, 'equipos_en_servicio'),
-          where("estado", "==", "Diagnosticado"),
-          orderBy("fecha_diagnostico", "desc")
+          where("estado", "==", "Diagnosticado")
         );
         const querySnapshot = await getDocs(q);
         const equiposList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
+        
+        // Sort on the client side
+        equiposList.sort((a, b) => {
+            if (a.fecha_diagnostico && b.fecha_diagnostico) {
+                return new Date(b.fecha_diagnostico).getTime() - new Date(a.fecha_diagnostico).getTime();
+            }
+            return 0;
+        });
+
         setEquipos(equiposList);
       } catch (error) {
         console.error("Error fetching data:", error);
