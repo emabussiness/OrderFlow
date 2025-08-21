@@ -17,6 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // --- Types ---
 type EquipoDiagnosticado = {
@@ -149,7 +150,21 @@ export default function PresupuestoServicioPage() {
                            <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                            <TableCell>{equipo.fecha_diagnostico}</TableCell>
                            <TableCell>
-                               <Badge variant="secondary">{equipo.estado}</Badge>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                      <Badge variant="secondary" className="cursor-pointer">{equipo.estado}</Badge>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-80">
+                                    <div className="grid gap-4">
+                                      <div className="space-y-2">
+                                        <h4 className="font-medium leading-none">Diagnóstico Técnico</h4>
+                                        <p className="text-sm text-muted-foreground">
+                                          {equipo.diagnostico_tecnico || "No se ha proporcionado un diagnóstico."}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
                            </TableCell>
                            <TableCell>
                                <Button variant="outline" size="sm">
