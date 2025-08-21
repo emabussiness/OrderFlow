@@ -62,6 +62,7 @@ export default function AjustesStockPage() {
   const [selectedProductoId, setSelectedProductoId] = useState('');
   const [cantidad, setCantidad] = useState(1);
   const [motivo, setMotivo] = useState('');
+  const [currentStock, setCurrentStock] = useState<number | null>(null);
 
   const [filteredProducts, setFilteredProducts] = useState<Producto[]>([]);
 
@@ -110,7 +111,19 @@ export default function AjustesStockPage() {
           setFilteredProducts(productos);
       }
       setSelectedProductoId(''); // Reset product selection when depot changes
+      setCurrentStock(null);
   }, [selectedDepositoId, stockList, productos, tipoAjuste]);
+
+  useEffect(() => {
+    if (selectedDepositoId && selectedProductoId) {
+      const stockItem = stockList.find(
+        (s) => s.deposito_id === selectedDepositoId && s.producto_id === selectedProductoId
+      );
+      setCurrentStock(stockItem?.cantidad ?? 0);
+    } else {
+      setCurrentStock(null);
+    }
+  }, [selectedProductoId, selectedDepositoId, stockList]);
 
 
   const resetForm = () => {
@@ -119,6 +132,7 @@ export default function AjustesStockPage() {
     setSelectedProductoId('');
     setCantidad(1);
     setMotivo('');
+    setCurrentStock(null);
   }
 
   useEffect(() => {
@@ -134,6 +148,11 @@ export default function AjustesStockPage() {
         return;
     }
     
+    if (tipoAjuste === 'Salida' && (currentStock === null || cantidad > currentStock)) {
+        toast({ variant: 'destructive', title: 'Cantidad Inválida', description: `La cantidad a ajustar no puede ser mayor al stock disponible (${currentStock ?? 0}).` });
+        return;
+    }
+
     const producto = productos.find(p => p.id === selectedProductoId);
     const deposito = depositos.find(d => d.id === selectedDepositoId);
     
@@ -262,6 +281,11 @@ export default function AjustesStockPage() {
                               searchPlaceholder="Buscar producto..."
                               disabled={!selectedDepositoId}
                           />
+                          {currentStock !== null && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Stock Actual: <span className="font-bold text-foreground">{currentStock}</span>
+                            </p>
+                          )}
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="cantidad">Cantidad</Label>
