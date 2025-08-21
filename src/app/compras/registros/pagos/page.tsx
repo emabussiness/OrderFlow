@@ -14,6 +14,7 @@ import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
 
 type FacturaAfectada = { 
   id: string; 
@@ -225,4 +226,3 @@ export default function PagosProveedoresPage() {
     </>
   );
 }
-
