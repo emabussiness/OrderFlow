@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -39,6 +39,7 @@ export default function UnidadesMedidaPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentUnidad, setCurrentUnidad] = useState<Omit<UnidadMedida, 'id'>>(initialUnidadState);
   const [currentUnidadId, setCurrentUnidadId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchUnidades = async () => {
     setLoading(true);
@@ -58,7 +59,14 @@ export default function UnidadesMedidaPage() {
 
   useEffect(() => {
     fetchUnidades();
-  }, []);
+  }, [toast]);
+
+  const filteredUnidades = useMemo(() => {
+    return unidades.filter(unidad =>
+      unidad.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      unidad.simbolo.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [unidades, searchTerm]);
 
   const handleOpenDialog = (unidad: UnidadMedida | null = null) => {
     if (unidad) {
@@ -148,6 +156,14 @@ export default function UnidadesMedidaPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Unidades de Medida</CardTitle>
+          <CardDescription>
+            <Input 
+              placeholder="Buscar por nombre o símbolo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -159,7 +175,7 @@ export default function UnidadesMedidaPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {unidades.map((unidad) => (
+              {filteredUnidades.map((unidad) => (
                 <TableRow key={unidad.id}>
                   <TableCell className="font-medium">{unidad.nombre}</TableCell>
                   <TableCell>{unidad.simbolo}</TableCell>
@@ -197,7 +213,7 @@ export default function UnidadesMedidaPage() {
               ))}
             </TableBody>
           </Table>
-           {unidades.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay unidades registradas.</p>}
+           {filteredUnidades.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay unidades registradas.</p>}
         </CardContent>
       </Card>
       

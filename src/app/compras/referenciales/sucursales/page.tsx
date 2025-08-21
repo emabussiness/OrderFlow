@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -40,6 +40,7 @@ export default function SucursalesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentSucursal, setCurrentSucursal] = useState<Omit<Sucursal, 'id'>>(initialSucursalState);
   const [currentSucursalId, setCurrentSucursalId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchSucursales = async () => {
     setLoading(true);
@@ -59,7 +60,14 @@ export default function SucursalesPage() {
 
   useEffect(() => {
     fetchSucursales();
-  }, []);
+  }, [toast]);
+  
+  const filteredSucursales = useMemo(() => {
+    return sucursales.filter(sucursal =>
+      sucursal.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (sucursal.direccion && sucursal.direccion.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [sucursales, searchTerm]);
 
   const handleOpenDialog = (sucursal: Sucursal | null = null) => {
     if (sucursal) {
@@ -148,6 +156,14 @@ export default function SucursalesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Sucursales</CardTitle>
+          <CardDescription>
+            <Input 
+              placeholder="Buscar por nombre o dirección..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -159,7 +175,7 @@ export default function SucursalesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sucursales.map((sucursal) => (
+              {filteredSucursales.map((sucursal) => (
                 <TableRow key={sucursal.id}>
                   <TableCell className="font-medium">{sucursal.nombre}</TableCell>
                    <TableCell>{sucursal.direccion || 'N/A'}</TableCell>
@@ -197,7 +213,7 @@ export default function SucursalesPage() {
               ))}
             </TableBody>
           </Table>
-           {sucursales.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay sucursales registradas.</p>}
+           {filteredSucursales.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay sucursales registradas.</p>}
         </CardContent>
       </Card>
       
@@ -205,9 +221,9 @@ export default function SucursalesPage() {
         <DialogContent className="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>{isEditing ? 'Editar Sucursal' : 'Crear Nueva Sucursal'}</DialogTitle>
-                 <DialogDescription>
+                 <DialogDescriptionComponent>
                     {isEditing ? 'Actualice los detalles de la sucursal.' : 'Complete los detalles para crear una nueva sucursal.'}
-                </DialogDescription>
+                </DialogDescriptionComponent>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">

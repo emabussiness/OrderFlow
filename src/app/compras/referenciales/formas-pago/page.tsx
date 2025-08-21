@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -40,6 +40,7 @@ export default function FormasPagoPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentFormaPago, setCurrentFormaPago] = useState<Omit<FormaPago, 'id'>>(initialFormaPagoState);
   const [currentFormaPagoId, setCurrentFormaPagoId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchFormasPago = async () => {
     setLoading(true);
@@ -59,7 +60,13 @@ export default function FormasPagoPage() {
 
   useEffect(() => {
     fetchFormasPago();
-  }, []);
+  }, [toast]);
+  
+  const filteredFormasPago = useMemo(() => {
+    return formasPago.filter(forma =>
+      forma.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [formasPago, searchTerm]);
 
   const handleOpenDialog = (formaPago: FormaPago | null = null) => {
     if (formaPago) {
@@ -147,6 +154,14 @@ export default function FormasPagoPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Formas de Pago</CardTitle>
+          <CardDescription>
+            <Input 
+              placeholder="Buscar por nombre..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -158,7 +173,7 @@ export default function FormasPagoPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {formasPago.map((forma) => (
+              {filteredFormasPago.map((forma) => (
                 <TableRow key={forma.id}>
                   <TableCell className="font-medium">{forma.nombre}</TableCell>
                   <TableCell>{forma.descripcion || 'N/A'}</TableCell>
@@ -196,7 +211,7 @@ export default function FormasPagoPage() {
               ))}
             </TableBody>
           </Table>
-           {formasPago.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay formas de pago registradas.</p>}
+           {filteredFormasPago.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay formas de pago registradas.</p>}
         </CardContent>
       </Card>
       
@@ -204,9 +219,9 @@ export default function FormasPagoPage() {
         <DialogContent className="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>{isEditing ? 'Editar Forma de Pago' : 'Crear Nueva Forma de Pago'}</DialogTitle>
-                 <DialogDescription>
+                 <DialogDescriptionComponent>
                     {isEditing ? 'Actualice los detalles de la forma de pago.' : 'Complete los detalles para crear una nueva forma de pago.'}
-                </DialogDescription>
+                </DialogDescriptionComponent>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">

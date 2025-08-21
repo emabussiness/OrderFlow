@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, Eye } from "lucide-react";
 import {
@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,7 @@ export default function ProductosPage() {
   // State for Details Dialog
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Producto | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
 
   const fetchData = async () => {
@@ -111,6 +112,15 @@ export default function ProductosPage() {
   useEffect(() => {
     fetchData();
   }, []);
+  
+  const filteredProductos = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return productos.filter(producto => 
+        producto.nombre.toLowerCase().includes(term) ||
+        (producto.codigo_interno && producto.codigo_interno.toLowerCase().includes(term)) ||
+        (categorias.find(c => c.id === producto.categoria_id)?.nombre.toLowerCase().includes(term))
+    );
+  }, [productos, searchTerm, categorias]);
 
   const handleOpenDialog = (producto: Producto | null = null) => {
     if (producto) {
@@ -229,6 +239,14 @@ export default function ProductosPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Productos</CardTitle>
+           <CardDescription>
+            <Input 
+              placeholder="Buscar por nombre, código o categoría..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -242,7 +260,7 @@ export default function ProductosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {productos.map((producto) => (
+              {filteredProductos.map((producto) => (
                 <TableRow key={producto.id}>
                   <TableCell className="font-medium">{producto.nombre}</TableCell>
                   <TableCell>{producto.codigo_interno || 'N/A'}</TableCell>
@@ -266,9 +284,9 @@ export default function ProductosPage() {
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                 <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-                                <AlertDialogDescription>
+                                <AlertDialogDescriptionComponent>
                                     Esta acción no se puede deshacer. Esto eliminará permanentemente el producto de la base de datos.
-                                </AlertDialogDescription>
+                                </AlertDialogDescriptionComponent>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -283,7 +301,7 @@ export default function ProductosPage() {
               ))}
             </TableBody>
           </Table>
-           {productos.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay productos registrados.</p>}
+           {filteredProductos.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay productos registrados.</p>}
         </CardContent>
       </Card>
       

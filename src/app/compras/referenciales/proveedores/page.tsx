@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -46,6 +46,7 @@ export default function ProveedoresPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentProveedor, setCurrentProveedor] = useState<Omit<Proveedor, 'id'>>(initialProveedorState);
   const [currentProveedorId, setCurrentProveedorId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchProveedores = async () => {
     setLoading(true);
@@ -66,6 +67,15 @@ export default function ProveedoresPage() {
   useEffect(() => {
     fetchProveedores();
   }, []);
+  
+  const filteredProveedores = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return proveedores.filter(proveedor => 
+      proveedor.nombre.toLowerCase().includes(term) ||
+      proveedor.ruc.toLowerCase().includes(term) ||
+      (proveedor.telefono && proveedor.telefono.toLowerCase().includes(term))
+    );
+  }, [proveedores, searchTerm]);
 
   const handleOpenDialog = (proveedor: Proveedor | null = null) => {
     if (proveedor) {
@@ -170,6 +180,14 @@ export default function ProveedoresPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Proveedores</CardTitle>
+          <CardDescription>
+            <Input 
+              placeholder="Buscar por nombre, RUC o teléfono..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -182,7 +200,7 @@ export default function ProveedoresPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {proveedores.map((proveedor) => (
+              {filteredProveedores.map((proveedor) => (
                 <TableRow key={proveedor.id}>
                   <TableCell className="font-medium">{proveedor.nombre}</TableCell>
                    <TableCell>{proveedor.ruc}</TableCell>
@@ -221,7 +239,7 @@ export default function ProveedoresPage() {
               ))}
             </TableBody>
           </Table>
-           {proveedores.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay proveedores registrados.</p>}
+           {filteredProveedores.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay proveedores registrados.</p>}
         </CardContent>
       </Card>
       
@@ -229,9 +247,9 @@ export default function ProveedoresPage() {
         <DialogContent className="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>{isEditing ? 'Editar Proveedor' : 'Crear Nuevo Proveedor'}</DialogTitle>
-                 <DialogDescription>
+                 <DialogDescriptionComponent>
                     {isEditing ? 'Actualice los detalles del proveedor.' : 'Complete los detalles para crear un nuevo proveedor.'}
-                </DialogDescription>
+                </DialogDescriptionComponent>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

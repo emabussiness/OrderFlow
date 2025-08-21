@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -40,6 +40,7 @@ export default function TiposDocumentoPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentTipoDocumento, setCurrentTipoDocumento] = useState<Omit<TipoDocumento, 'id'>>(initialTipoDocumentoState);
   const [currentTipoDocumentoId, setCurrentTipoDocumentoId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchTiposDocumento = async () => {
     setLoading(true);
@@ -59,7 +60,13 @@ export default function TiposDocumentoPage() {
 
   useEffect(() => {
     fetchTiposDocumento();
-  }, []);
+  }, [toast]);
+  
+  const filteredTiposDocumento = useMemo(() => {
+    return tiposDocumento.filter(tipo =>
+      tipo.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [tiposDocumento, searchTerm]);
 
   const handleOpenDialog = (tipoDocumento: TipoDocumento | null = null) => {
     if (tipoDocumento) {
@@ -147,6 +154,14 @@ export default function TiposDocumentoPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Tipos de Documento</CardTitle>
+          <CardDescription>
+            <Input 
+              placeholder="Buscar por nombre..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -158,7 +173,7 @@ export default function TiposDocumentoPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tiposDocumento.map((tipo) => (
+              {filteredTiposDocumento.map((tipo) => (
                 <TableRow key={tipo.id}>
                   <TableCell className="font-medium">{tipo.nombre}</TableCell>
                   <TableCell>{tipo.descripcion || 'N/A'}</TableCell>
@@ -196,7 +211,7 @@ export default function TiposDocumentoPage() {
               ))}
             </TableBody>
           </Table>
-           {tiposDocumento.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay tipos de documento registrados.</p>}
+           {filteredTiposDocumento.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay tipos de documento registrados.</p>}
         </CardContent>
       </Card>
       
@@ -204,9 +219,9 @@ export default function TiposDocumentoPage() {
         <DialogContent className="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>{isEditing ? 'Editar Tipo de Documento' : 'Crear Nuevo Tipo de Documento'}</DialogTitle>
-                 <DialogDescription>
+                 <DialogDescriptionComponent>
                     {isEditing ? 'Actualice los detalles del tipo de documento.' : 'Complete los detalles para crear un nuevo tipo de documento.'}
-                </DialogDescription>
+                </DialogDescriptionComponent>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">
