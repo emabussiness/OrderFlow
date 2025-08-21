@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { collection, getDocs, addDoc, doc, serverTimestamp, query, orderBy, where, writeBatch } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, serverTimestamp, query, orderBy, where, writeBatch, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,7 +32,7 @@ type TipoEquipo = { id: string; nombre: string; };
 type Marca = { id: string; nombre: string; };
 
 type EquipoParaAgregar = {
-    id?: string;
+    id: string; // ID del documento en equipos_en_servicio
     tipo_equipo_id: string;
     tipo_equipo_nombre: string;
     marca_id: string;
@@ -41,6 +41,8 @@ type EquipoParaAgregar = {
     numero_serie?: string;
     problema_manifestado: string;
     accesorios?: string;
+    estado: string; // "Recibido", "Diagnosticado", etc.
+    recepcion_id: string;
 };
 
 type Recepcion = {
@@ -48,7 +50,7 @@ type Recepcion = {
   cliente_id: string;
   cliente_nombre: string;
   fecha_recepcion: string;
-  equipos: { id: string }[];
+  equipos: { id: string; }[];
   usuario_id: string;
   fecha_creacion: any;
 };
@@ -154,11 +156,11 @@ export default function RecepcionEquiposPage() {
         const equiposParaResumen: { id: string }[] = [];
 
         for (const equipoData of equipos) {
-            const equipoCompleto = equipoData as EquipoParaAgregar;
+            const equipoCompleto = equipoData as Omit<EquipoParaAgregar, 'id' | 'estado' | 'recepcion_id'>;
             const equipoRef = doc(collection(db, "equipos_en_servicio"));
             
             batch.set(equipoRef, {
-                recepcion_id: recepcionRef.id, // Guardar el ID de la recepción
+                recepcion_id: recepcionRef.id,
                 cliente_id: selectedClienteId,
                 cliente_nombre: clienteSeleccionado.nombre,
                 fecha_recepcion: format(hoy, "yyyy-MM-dd"),
@@ -416,3 +418,5 @@ export default function RecepcionEquiposPage() {
     </>
   );
 }
+
+    

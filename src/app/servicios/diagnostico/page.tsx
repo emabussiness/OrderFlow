@@ -92,20 +92,21 @@ export default function DiagnosticoPage() {
       const term = searchTerm.toLowerCase();
       const matchesSearch = !term ||
         equipo.cliente_nombre.toLowerCase().includes(term) ||
-        equipo.recepcion_id.toLowerCase().includes(term) ||
+        (equipo.recepcion_id && equipo.recepcion_id.toLowerCase().includes(term)) ||
         equipo.tipo_equipo_nombre.toLowerCase().includes(term) ||
         equipo.marca_nombre.toLowerCase().includes(term) ||
         equipo.modelo.toLowerCase().includes(term);
 
       if (matchesSearch) {
-        if (!grouped[equipo.recepcion_id]) {
-          grouped[equipo.recepcion_id] = {
+        const key = equipo.recepcion_id || 'sin-recepcion';
+        if (!grouped[key]) {
+          grouped[key] = {
             cliente_nombre: equipo.cliente_nombre,
             fecha_recepcion: equipo.fecha_recepcion,
             equipos: []
           };
         }
-        grouped[equipo.recepcion_id].equipos.push(equipo);
+        grouped[key].equipos.push(equipo);
       }
     });
     return grouped;
@@ -267,3 +268,5 @@ export default function DiagnosticoPage() {
     </>
   );
 }
+
+    
