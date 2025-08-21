@@ -151,7 +151,10 @@ export default function ProductosPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentProducto.nombre || !currentProducto.categoria_id || !currentProducto.unidad_medida_id || !currentProducto.codigo_interno) {
+    const trimmedName = currentProducto.nombre.trim();
+    const trimmedCode = currentProducto.codigo_interno?.trim();
+
+    if (!trimmedName || !currentProducto.categoria_id || !currentProducto.unidad_medida_id || !trimmedCode) {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'Nombre, categoría, unidad de medida y código interno son requeridos.'});
         return;
     }
@@ -162,34 +165,40 @@ export default function ProductosPage() {
     }
     
     // Check for duplicates
-    const q = query(collection(db, 'productos'), where("codigo_interno", "==", currentProducto.codigo_interno));
-    const snapshot = await getDocs(q);
-    if(!snapshot.empty) {
-        let isDuplicate = false;
-        if (isEditing && currentProductoId) {
-            // In edit mode, it's a duplicate if the found doc has a different ID
-            if (snapshot.docs[0].id !== currentProductoId) {
-                isDuplicate = true;
+    const checkDuplicate = async (field: 'codigo_interno' | 'nombre', value: string, message: string) => {
+        const q = query(collection(db, 'productos'), where(field, "==", value));
+        const snapshot = await getDocs(q);
+        if(!snapshot.empty) {
+            if (isEditing && currentProductoId) {
+                if (snapshot.docs[0].id !== currentProductoId) {
+                    toast({ variant: 'destructive', title: 'Producto duplicado', description: message});
+                    return true;
+                }
+            } else {
+                toast({ variant: 'destructive', title: 'Producto duplicado', description: message});
+                return true;
             }
-        } else {
-            // In create mode, any result is a duplicate
-            isDuplicate = true;
         }
-
-        if (isDuplicate) {
-            toast({ variant: 'destructive', title: 'Producto duplicado', description: `Ya existe un producto con el código interno ${currentProducto.codigo_interno}.`});
-            return;
-        }
+        return false;
     }
+    
+    if (await checkDuplicate('codigo_interno', trimmedCode, `Ya existe un producto con el código interno ${trimmedCode}.`)) return;
+    if (await checkDuplicate('nombre', trimmedName, `Ya existe un producto con el nombre ${trimmedName}.`)) return;
 
 
     try {
+        const productData = {
+            ...currentProducto,
+            nombre: trimmedName,
+            codigo_interno: trimmedCode
+        };
+
         if(isEditing && currentProductoId) {
             const productoRef = doc(db, 'productos', currentProductoId);
-            await updateDoc(productoRef, currentProducto);
+            await updateDoc(productoRef, productData);
             toast({ title: 'Producto Actualizado', description: 'El producto ha sido actualizado exitosamente.'});
         } else {
-            await addDoc(collection(db, 'productos'), { ...currentProducto, fecha_creacion: serverTimestamp() });
+            await addDoc(collection(db, 'productos'), { ...productData, fecha_creacion: serverTimestamp() });
             toast({ title: 'Producto Creado', description: 'El nuevo producto ha sido creado exitosamente.'});
         }
         await fetchData();
@@ -283,14 +292,14 @@ export default function ProductosPage() {
       
       {/* Create/Edit Dialog */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>{isEditing ? 'Editar Producto' : 'Crear Nuevo Producto'}</DialogTitle>
                 <DialogDescription>
                     {isEditing ? 'Actualice los detalles del producto.' : 'Complete los detalles para crear un nuevo producto.'}
                 </DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+            <div className="grid grid-cols-1 gap-4 py-4">
                 <div className="space-y-2">
                     <Label htmlFor="nombre">Nombre del Producto</Label>
                     <Input id="nombre" value={currentProducto.nombre} onChange={e => handleInputChange('nombre', e.target.value)} />
@@ -305,7 +314,7 @@ export default function ProductosPage() {
                         searchPlaceholder="Buscar categoría..."
                     />
                 </div>
-                 <div className="md:col-span-2 space-y-2">
+                 <div className="space-y-2">
                     <Label htmlFor="descripcion">Descripción</Label>
                     <Textarea id="descripcion" value={currentProducto.descripcion} onChange={e => handleInputChange('descripcion', e.target.value)} />
                 </div>
