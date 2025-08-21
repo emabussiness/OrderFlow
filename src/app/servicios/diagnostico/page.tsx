@@ -9,8 +9,7 @@ import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, PenSquare, ChevronDown } from "lucide-react";
+import { PenSquare } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -34,7 +33,6 @@ type EquipoEnServicio = {
   problema_manifestado: string;
   estado: "Recibido" | "Diagnosticado" | "Presupuestado" | "En Reparación" | "Reparado" | "Retirado";
   recepcion_id: string;
-  // Campos a agregar en el diagnóstico
   diagnostico_tecnico?: string;
   trabajos_a_realizar?: string;
   fecha_diagnostico?: string;
@@ -66,13 +64,17 @@ export default function DiagnosticoPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Query is simplified to order by creation date. Filtering by state is done client-side.
       const q = query(
         collection(db, 'equipos_en_servicio'),
         orderBy("fecha_creacion", "desc")
       );
       const equiposSnapshot = await getDocs(q);
       const equiposList = equiposSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
+      
+      // Filter for "Recibido" state on the client side
       setEquipos(equiposList.filter(e => e.estado === "Recibido"));
+
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los equipos pendientes de diagnóstico." });
@@ -89,16 +91,21 @@ export default function DiagnosticoPage() {
     const grouped: GroupedEquipos = {};
 
     equipos.forEach(equipo => {
+      // Ensure recepcion_id exists before trying to group
+      if (!equipo.recepcion_id) {
+          return; 
+      }
+        
       const term = searchTerm.toLowerCase();
       const matchesSearch = !term ||
         equipo.cliente_nombre.toLowerCase().includes(term) ||
-        (equipo.recepcion_id && equipo.recepcion_id.toLowerCase().includes(term)) ||
+        equipo.recepcion_id.toLowerCase().includes(term) ||
         equipo.tipo_equipo_nombre.toLowerCase().includes(term) ||
         equipo.marca_nombre.toLowerCase().includes(term) ||
         equipo.modelo.toLowerCase().includes(term);
 
       if (matchesSearch) {
-        const key = equipo.recepcion_id || 'sin-recepcion';
+        const key = equipo.recepcion_id;
         if (!grouped[key]) {
           grouped[key] = {
             cliente_nombre: equipo.cliente_nombre,

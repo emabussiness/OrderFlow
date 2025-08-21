@@ -32,7 +32,6 @@ type TipoEquipo = { id: string; nombre: string; };
 type Marca = { id: string; nombre: string; };
 
 type EquipoParaAgregar = {
-    id: string; // ID del documento en equipos_en_servicio
     tipo_equipo_id: string;
     tipo_equipo_nombre: string;
     marca_id: string;
@@ -41,8 +40,14 @@ type EquipoParaAgregar = {
     numero_serie?: string;
     problema_manifestado: string;
     accesorios?: string;
-    estado: string; // "Recibido", "Diagnosticado", etc.
+};
+
+type EquipoEnServicio = EquipoParaAgregar & {
+    id: string;
+    estado: string;
     recepcion_id: string;
+    cliente_nombre: string;
+    fecha_recepcion: string;
 };
 
 type Recepcion = {
@@ -72,7 +77,7 @@ export default function RecepcionEquiposPage() {
   // Details Dialog state
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedRecepcion, setSelectedRecepcion] = useState<Recepcion | null>(null);
-  const [detailedEquipos, setDetailedEquipos] = useState<EquipoParaAgregar[]>([]);
+  const [detailedEquipos, setDetailedEquipos] = useState<EquipoEnServicio[]>([]);
 
 
   const fetchData = async () => {
@@ -152,15 +157,22 @@ export default function RecepcionEquiposPage() {
     try {
         const batch = writeBatch(db);
         const hoy = new Date();
+        
+        // 1. Create the parent reception document to get its ID
         const recepcionRef = doc(collection(db, "recepciones"));
+
         const equiposParaResumen: { id: string }[] = [];
 
+        // 2. Create a document for each piece of equipment, stamping it with the reception ID
         for (const equipoData of equipos) {
-            const equipoCompleto = equipoData as Omit<EquipoParaAgregar, 'id' | 'estado' | 'recepcion_id'>;
+            const equipoCompleto = equipoData as EquipoParaAgregar;
             const equipoRef = doc(collection(db, "equipos_en_servicio"));
             
             batch.set(equipoRef, {
+                // Link to the parent reception
                 recepcion_id: recepcionRef.id,
+                
+                // Copy all equipment details
                 cliente_id: selectedClienteId,
                 cliente_nombre: clienteSeleccionado.nombre,
                 fecha_recepcion: format(hoy, "yyyy-MM-dd"),
@@ -177,9 +189,11 @@ export default function RecepcionEquiposPage() {
                 accesorios: equipoCompleto.accesorios || null,
             });
             
+            // Collect the new equipment ID for the summary array in the reception doc
             equiposParaResumen.push({ id: equipoRef.id });
         }
         
+        // 3. Set the data for the reception document, including the array of equipment IDs
         batch.set(recepcionRef, {
             cliente_id: selectedClienteId,
             cliente_nombre: clienteSeleccionado.nombre,
@@ -189,6 +203,7 @@ export default function RecepcionEquiposPage() {
             fecha_creacion: serverTimestamp(),
         });
         
+        // 4. Commit all operations atomically
         await batch.commit();
 
         toast({ title: 'Recepción Registrada', description: 'Los equipos han sido registrados y están listos para diagnóstico.' });
@@ -209,9 +224,10 @@ export default function RecepcionEquiposPage() {
         try {
             const ids = recepcion.equipos.map(e => e.id);
             if (ids.length > 0) {
+                // Query the equipos_en_servicio collection for documents with matching IDs
                 const q = query(collection(db, 'equipos_en_servicio'), where('__name__', 'in', ids));
                 const equiposSnap = await getDocs(q);
-                const equiposData = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoParaAgregar));
+                const equiposData = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
                 setDetailedEquipos(equiposData);
             }
         } catch (error) {
