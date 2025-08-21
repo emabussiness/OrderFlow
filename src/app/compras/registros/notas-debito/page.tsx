@@ -193,10 +193,28 @@ export default function NotasDebitoPage() {
     }
 
     const handleCreateNota = async () => {
-        if (!selectedCompraId || !numeroNota || !fechaEmision || !motivo || !selectedCompra || totalNota <= 0) {
+        const trimmedNota = numeroNota.trim();
+        if (!selectedCompraId || !trimmedNota || !fechaEmision || !motivo || !selectedCompra || totalNota <= 0) {
             toast({ variant: 'destructive', title: 'Error', description: 'Complete todos los campos y asegúrese que el total sea mayor a cero.'});
             return;
         }
+
+        // Check for duplicate debit note number for the same provider
+        const q = query(
+            collection(db, 'notas_debito_compras'),
+            where("proveedor_id", "==", selectedCompra.proveedor_id),
+            where("numero_nota_debito", "==", trimmedNota)
+        );
+        const duplicateCheck = await getDocs(q);
+        if (!duplicateCheck.empty) {
+            toast({ 
+                variant: 'destructive', 
+                title: 'Nota de Débito Duplicada', 
+                description: `Ya existe una nota de débito con el número ${trimmedNota} para este proveedor.`
+            });
+            return;
+        }
+
 
         try {
             const batch = writeBatch(db);
@@ -209,7 +227,7 @@ export default function NotasDebitoPage() {
                 proveedor_nombre: selectedCompra.proveedor_nombre,
                 proveedor_ruc: selectedCompra.proveedor_ruc,
                 numero_factura_compra: selectedCompra.numero_factura,
-                numero_nota_debito: numeroNota,
+                numero_nota_debito: trimmedNota,
                 fecha_emision: format(fechaEmision, "yyyy-MM-dd"),
                 motivo,
                 total: totalNota,
@@ -241,7 +259,7 @@ export default function NotasDebitoPage() {
                 fecha_factura: format(fechaEmision, "yyyy-MM-dd"),
                 proveedor_nombre: selectedCompra.proveedor_nombre,
                 proveedor_ruc: selectedCompra.proveedor_ruc,
-                numero_factura: numeroNota, // The debit note number
+                numero_factura: trimmedNota, // The debit note number
                 total_compra: totalNota,
                 gravada_10: gravada10,
                 iva_10: iva10,
