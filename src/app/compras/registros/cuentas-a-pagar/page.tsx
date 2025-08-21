@@ -4,14 +4,14 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { collection, getDocs, query, orderBy, writeBatch, serverTimestamp, doc, increment } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, writeBatch, serverTimestamp, doc, increment, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { MoreHorizontal, Banknote, Calendar as CalendarIcon, X as XIcon } from "lucide-react";
+import { MoreHorizontal, Banknote, Calendar as CalendarIcon, X as XIcon, History } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,12 +68,97 @@ type FacturaParaPago = CuentaPagar & {
   monto_a_aplicar: number;
 };
 
+type PagoRealizado = {
+    id: string;
+    fecha_pago: string;
+    monto_total: number;
+    forma_pago_nombre: string;
+    facturas_afectadas: {
+        id: string;
+        monto_aplicado: number;
+    }[];
+};
+
+
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
   style: 'currency',
   currency: 'PYG',
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 });
+
+const HistorialPagosDialog = ({ cuenta, onOpenChange }: { cuenta: CuentaPagar, onOpenChange: (open: boolean) => void }) => {
+    const [pagos, setPagos] = useState<PagoRealizado[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchPagos = async () => {
+            setLoading(true);
+            try {
+                const q = query(
+                    collection(db, 'pagos_proveedores'),
+                    where('facturas_afectadas', 'array-contains', { id: cuenta.id, monto_aplicado: 0, numero_factura: cuenta.numero_factura }) // This is a trick, but we'll filter client side
+                );
+                
+                const pagosSnap = await getDocs(query(collection(db, 'pagos_proveedores'), where('proveedor_id', '==', cuenta.proveedor_id)));
+                
+                const pagosList: PagoRealizado[] = [];
+                pagosSnap.forEach(doc => {
+                    const pagoData = doc.data() as PagoRealizado;
+                    if (pagoData.facturas_afectadas.some(f => f.id === cuenta.id)) {
+                        pagosList.push({ id: doc.id, ...pagoData });
+                    }
+                });
+
+                setPagos(pagosList.sort((a,b) => new Date(b.fecha_pago).getTime() - new Date(a.fecha_pago).getTime()));
+
+            } catch (error) {
+                console.error("Error fetching payment history:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPagos();
+    }, [cuenta]);
+
+    return (
+        <Dialog open onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Historial de Pagos para Factura {cuenta.numero_factura}</DialogTitle>
+                    <CardDescription>Total: {currencyFormatter.format(cuenta.monto_total)} | Saldo: {currencyFormatter.format(cuenta.saldo_pendiente)}</CardDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    {loading ? <p>Cargando historial...</p> : (
+                        pagos.length > 0 ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Fecha de Pago</TableHead>
+                                        <TableHead>Forma de Pago</TableHead>
+                                        <TableHead className="text-right">Monto Aplicado</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {pagos.map(pago => {
+                                        const montoAplicado = pago.facturas_afectadas.find(f => f.id === cuenta.id)?.monto_aplicado || 0;
+                                        return (
+                                            <TableRow key={pago.id}>
+                                                <TableCell>{pago.fecha_pago}</TableCell>
+                                                <TableCell><Badge variant="secondary">{pago.forma_pago_nombre}</Badge></TableCell>
+                                                <TableCell className="text-right">{currencyFormatter.format(montoAplicado)}</TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        ) : <p className="text-center text-muted-foreground">No se encontraron pagos para esta factura.</p>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSuccessfulPayment }: { proveedorId: string, facturas: CuentaPagar[], formasPago: FormaPago[], bancos: Banco[], onSuccessfulPayment: () => void }) => {
     const { toast } = useToast();
@@ -198,7 +283,7 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
                 if (factura.monto_a_aplicar <= 0) continue;
 
                 const nuevoSaldo = factura.saldo_pendiente - factura.monto_a_aplicar;
-                const nuevoEstado = nuevoSaldo <= 0.01 ? 'Pagado' : 'Pagado Parcial';
+                const nuevoEstado = nuevoSaldo < 0.01 ? 'Pagado' : 'Pagado Parcial';
                 
                 const facturaRef = doc(db, 'cuentas_a_pagar', factura.id);
                 batch.update(facturaRef, {
@@ -361,6 +446,10 @@ export default function CuentasPagarPage() {
   const [loading, setLoading] = useState(true);
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
+  
+  const [openHistorial, setOpenHistorial] = useState(false);
+  const [selectedCuentaParaHistorial, setSelectedCuentaParaHistorial] = useState<CuentaPagar | null>(null);
+
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState("");
@@ -405,6 +494,11 @@ export default function CuentasPagarPage() {
     } else {
         toast({ variant: 'destructive', title: 'Error', description: 'No se encontró la compra asociada.' });
     }
+  }
+
+  const handleOpenHistorial = (cuenta: CuentaPagar) => {
+      setSelectedCuentaParaHistorial(cuenta);
+      setOpenHistorial(true);
   }
   
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
@@ -533,6 +627,7 @@ export default function CuentasPagarPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => handleOpenDetails(cuenta)}>Ver Compra Asociada</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenHistorial(cuenta)}><History className="mr-2 h-4 w-4"/>Ver Pagos Realizados</DropdownMenuItem>
                             </DropdownMenuContent>
                             </DropdownMenu>
                         </TableCell>
@@ -543,8 +638,12 @@ export default function CuentasPagarPage() {
                 </CardContent>
             </Card>
       )})}
+      
+      {openHistorial && selectedCuentaParaHistorial && (
+          <HistorialPagosDialog cuenta={selectedCuentaParaHistorial} onOpenChange={setOpenHistorial} />
+      )}
 
-      {filteredCuentas.length === 0 && (
+      {filteredCuentas.length === 0 && !loading && (
         <Card>
             <CardContent className="pt-6">
                  <p className="text-center text-muted-foreground mt-4">No se encontraron cuentas que coincidan con los filtros.</p>
@@ -627,3 +726,4 @@ export default function CuentasPagarPage() {
     </>
   );
 }
+
