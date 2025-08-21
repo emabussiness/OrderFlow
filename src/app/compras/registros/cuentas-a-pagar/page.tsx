@@ -211,20 +211,33 @@ const HistorialPagosDialog = ({ cuenta, onOpenChange }: { cuenta: CuentaPagar, o
             try {
                  const allPagosQuery = query(
                     collection(db, 'pagos_proveedores'),
-                    where('proveedor_id', '==', cuenta.proveedor_id),
-                    orderBy('fecha_pago', 'desc')
+                    where('facturas_afectadas', 'array-contains', {id: cuenta.id, monto_aplicado: cuenta.monto_total, numero_factura: cuenta.numero_factura}),
                 );
                 const pagosSnap = await getDocs(allPagosQuery);
                 
                 const pagosList: PagoRealizado[] = [];
-                pagosSnap.forEach(doc => {
+                 pagosSnap.forEach(doc => {
                     const pagoData = { id: doc.id, ...doc.data() } as PagoRealizado;
-                    if (pagoData.facturas_afectadas.some(f => f.id === cuenta.id)) {
+                     if (pagoData.facturas_afectadas.some(f => f.id === cuenta.id)) {
                         pagosList.push(pagoData);
                     }
                 });
+                
+                // Fallback for payments with partial amounts, as array-contains with objects requires an exact match
+                if (pagosList.length === 0) {
+                    const allProviderPayments = await getDocs(query(collection(db, 'pagos_proveedores'), where('proveedor_id', '==', cuenta.proveedor_id)));
+                    allProviderPayments.forEach(doc => {
+                         const pagoData = { id: doc.id, ...doc.data() } as PagoRealizado;
+                         if (pagoData.facturas_afectadas.some(f => f.id === cuenta.id)) {
+                            if (!pagosList.find(p=>p.id === doc.id)) {
+                                pagosList.push(pagoData);
+                            }
+                        }
+                    });
+                }
 
-                setPagos(pagosList);
+
+                setPagos(pagosList.sort((a,b) => new Date(b.fecha_pago).getTime() - new Date(a.fecha_pago).getTime()));
 
             } catch (error) {
                 console.error("Error fetching payment history:", error);
