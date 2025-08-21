@@ -166,25 +166,21 @@ export default function ProductosPage() {
     }
     
     // Check for duplicates
-    const checkDuplicate = async (field: 'codigo_interno' | 'nombre', value: string, message: string) => {
-        const q = query(collection(db, 'productos'), where(field, "==", value));
-        const snapshot = await getDocs(q);
-        if(!snapshot.empty) {
-            if (isEditing && currentProductoId) {
-                if (snapshot.docs[0].id !== currentProductoId) {
-                    toast({ variant: 'destructive', title: 'Producto duplicado', description: message});
-                    return true;
-                }
-            } else {
-                toast({ variant: 'destructive', title: 'Producto duplicado', description: message});
-                return true;
-            }
-        }
-        return false;
+    const isCodeDuplicate = productos.some(p => 
+        p.codigo_interno?.toLowerCase() === trimmedCode.toLowerCase() && p.id !== currentProductoId
+    );
+    if(isCodeDuplicate) {
+        toast({ variant: 'destructive', title: 'Producto duplicado', description: `Ya existe un producto con el código interno ${trimmedCode}.`});
+        return;
     }
     
-    if (await checkDuplicate('codigo_interno', trimmedCode, `Ya existe un producto con el código interno ${trimmedCode}.`)) return;
-    if (await checkDuplicate('nombre', trimmedName, `Ya existe un producto con el nombre ${trimmedName}.`)) return;
+    const isNameDuplicate = productos.some(p => 
+        p.nombre.toLowerCase() === trimmedName.toLowerCase() && p.id !== currentProductoId
+    );
+    if(isNameDuplicate) {
+        toast({ variant: 'destructive', title: 'Producto duplicado', description: `Ya existe un producto con el nombre ${trimmedName}.`});
+        return;
+    }
 
 
     try {
