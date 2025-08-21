@@ -79,18 +79,31 @@ export default function BancosPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentBanco.nombre) {
+    const trimmedName = currentBanco.nombre.trim();
+    if (!trimmedName) {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'El nombre es requerido.'});
         return;
     }
 
+    // Case-insensitive duplicate check
+    const isDuplicate = bancos.some(banco => 
+        banco.nombre.toLowerCase() === trimmedName.toLowerCase() && banco.id !== currentBancoId
+    );
+
+    if (isDuplicate) {
+        toast({ variant: 'destructive', title: 'Banco duplicado', description: `Ya existe un banco con el nombre "${trimmedName}".`});
+        return;
+    }
+
+
     try {
+        const dataToSave = { nombre: trimmedName };
         if(isEditing && currentBancoId) {
             const bancoRef = doc(db, 'bancos', currentBancoId);
-            await updateDoc(bancoRef, currentBanco);
+            await updateDoc(bancoRef, dataToSave);
             toast({ title: 'Banco Actualizado', description: 'El banco ha sido actualizado exitosamente.'});
         } else {
-            await addDoc(collection(db, 'bancos'), currentBanco);
+            await addDoc(collection(db, 'bancos'), dataToSave);
             toast({ title: 'Banco Creado', description: 'El nuevo banco ha sido creado exitosamente.'});
         }
         await fetchBancos();
