@@ -300,7 +300,7 @@ export default function ProductosPage() {
               {isEditing ? 'Actualice los detalles del producto.' : 'Complete los detalles para crear un nuevo producto.'}
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="flex-grow pr-6 -mr-6">
+          <div className="flex-grow overflow-y-auto -mr-6 pr-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4 pr-1">
               <div className="md:col-span-2 space-y-2">
                 <Label htmlFor="nombre">Nombre del Producto</Label>
@@ -356,8 +356,8 @@ export default function ProductosPage() {
                 />
               </div>
             </div>
-          </ScrollArea>
-          <DialogFooter className="pt-4 border-t">
+          </div>
+          <DialogFooter className="pt-4 border-t flex-shrink-0">
             <Button variant="outline" onClick={handleCloseDialog}>Cancelar</Button>
             <Button onClick={handleSubmit}>{isEditing ? 'Guardar Cambios' : 'Crear Producto'}</Button>
           </DialogFooter>
@@ -419,5 +419,3 @@ export default function ProductosPage() {
     </>
   );
 }
-
-    
