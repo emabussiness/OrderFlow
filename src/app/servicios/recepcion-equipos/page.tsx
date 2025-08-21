@@ -31,7 +31,8 @@ type Cliente = { id: string; nombre: string; };
 type TipoEquipo = { id: string; nombre: string; };
 type Marca = { id: string; nombre: string; };
 
-// This represents the data for a single piece of equipment within a reception document.
+// This represents the summarized data for an equipment within a reception document.
+// This is the type stored inside the `equipos` array of a `Recepcion` document.
 type EquipoEnRecepcion = {
     id: string; // The ID of the individual equipment document in 'equipos_en_servicio'
     tipo: string;
@@ -40,9 +41,9 @@ type EquipoEnRecepcion = {
     problema_manifestado: string;
 };
 
-// This represents the form state for an item being added.
+// This represents the full data for an individual equipment being added in the form.
+// It's a transient type for the form state.
 type EquipoParaAgregar = {
-    id?: string;
     tipo_equipo_id: string;
     tipo_equipo_nombre: string;
     marca_id: string;
@@ -53,13 +54,13 @@ type EquipoParaAgregar = {
     accesorios?: string;
 };
 
-// This represents the main reception document.
+// This represents the main reception document stored in Firestore.
 type Recepcion = {
   id: string;
   cliente_id: string;
   cliente_nombre: string;
   fecha_recepcion: string;
-  equipos: EquipoEnRecepcion[];
+  equipos: EquipoEnRecepcion[]; // This array holds the summarized data.
   usuario_id: string;
   fecha_creacion: any;
 };
@@ -162,35 +163,43 @@ export default function RecepcionEquiposPage() {
         const equiposParaRecepcion: EquipoEnRecepcion[] = [];
         const hoy = new Date();
 
-        // 1. Create individual equipment documents
-        for (const equipo of equipos) {
+        // 1. Create individual equipment documents in 'equipos_en_servicio'
+        for (const equipo of equipos as EquipoParaAgregar[]) {
             const equipoRef = doc(collection(db, "equipos_en_servicio"));
-            const { id, ...equipoData } = equipo; // Exclude transient id
+            // The full data for the individual equipment document
             batch.set(equipoRef, {
-                ...equipoData,
                 cliente_id: selectedClienteId,
                 cliente_nombre: clienteSeleccionado.nombre,
                 fecha_recepcion: format(hoy, "yyyy-MM-dd"),
                 estado: "Recibido",
                 usuario_id: "user-demo",
                 fecha_creacion: serverTimestamp(),
+                tipo_equipo_id: equipo.tipo_equipo_id,
+                tipo_equipo_nombre: equipo.tipo_equipo_nombre,
+                marca_id: equipo.marca_id,
+                marca_nombre: equipo.marca_nombre,
+                modelo: equipo.modelo,
+                numero_serie: equipo.numero_serie || null,
+                problema_manifestado: equipo.problema_manifestado,
+                accesorios: equipo.accesorios || null,
             });
+            // The summarized data for the 'recepciones' document array
             equiposParaRecepcion.push({
                 id: equipoRef.id,
-                tipo: equipo.tipo_equipo_nombre!,
-                marca: equipo.marca_nombre!,
-                modelo: equipo.modelo!,
-                problema_manifestado: equipo.problema_manifestado!,
+                tipo: equipo.tipo_equipo_nombre,
+                marca: equipo.marca_nombre,
+                modelo: equipo.modelo,
+                problema_manifestado: equipo.problema_manifestado,
             });
         }
         
-        // 2. Create the main reception document
+        // 2. Create the main reception document in 'recepciones'
         const recepcionRef = doc(collection(db, "recepciones"));
         batch.set(recepcionRef, {
             cliente_id: selectedClienteId,
             cliente_nombre: clienteSeleccionado.nombre,
             fecha_recepcion: format(hoy, "yyyy-MM-dd"),
-            equipos: equiposParaRecepcion,
+            equipos: equiposParaRecepcion, // Save the summarized array here
             usuario_id: "user-demo",
             fecha_creacion: serverTimestamp(),
         });
