@@ -53,12 +53,12 @@ export default function DiagnosticoPage() {
     try {
       const q = query(
         collection(db, 'equipos_en_servicio'),
-        where("estado", "==", "Recibido"),
         orderBy("fecha_recepcion", "asc")
       );
       const equiposSnapshot = await getDocs(q);
       const equiposList = equiposSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
-      setEquipos(equiposList);
+      // Filter for "Recibido" status on the client side to avoid composite index requirement
+      setEquipos(equiposList.filter(e => e.estado === "Recibido"));
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los equipos pendientes de diagnóstico." });
