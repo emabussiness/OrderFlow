@@ -86,18 +86,34 @@ export default function FormasPagoPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentFormaPago.nombre) {
+    const trimmedName = currentFormaPago.nombre.trim();
+    if (!trimmedName) {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'El nombre es requerido.'});
+        return;
+    }
+    
+    // Case-insensitive duplicate check
+    const isDuplicate = formasPago.some(fp => 
+        fp.nombre.toLowerCase() === trimmedName.toLowerCase() && fp.id !== currentFormaPagoId
+    );
+
+    if (isDuplicate) {
+        toast({ variant: 'destructive', title: 'Nombre duplicado', description: `Ya existe una forma de pago con el nombre "${trimmedName}".`});
         return;
     }
 
     try {
+        const dataToSave = {
+            ...currentFormaPago,
+            nombre: trimmedName,
+        };
+
         if(isEditing && currentFormaPagoId) {
             const formaPagoRef = doc(db, 'formas_pago', currentFormaPagoId);
-            await updateDoc(formaPagoRef, currentFormaPago);
+            await updateDoc(formaPagoRef, dataToSave);
             toast({ title: 'Forma de Pago Actualizada', description: 'La forma de pago ha sido actualizada exitosamente.'});
         } else {
-            await addDoc(collection(db, 'formas_pago'), currentFormaPago);
+            await addDoc(collection(db, 'formas_pago'), dataToSave);
             toast({ title: 'Forma de Pago Creada', description: 'La nueva forma de pago ha sido creada exitosamente.'});
         }
         await fetchFormasPago();
