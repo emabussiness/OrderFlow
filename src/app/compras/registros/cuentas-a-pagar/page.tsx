@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { MoreHorizontal, Banknote, Calendar as CalendarIcon, X as XIcon, History } from "lucide-react";
+import { MoreHorizontal, Banknote, Calendar as CalendarIcon, X as XIcon, History, FileText } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,6 +80,26 @@ type PagoRealizado = {
     }[];
 };
 
+type NotaCredito = {
+    id: string;
+    numero_nota_credito: string;
+    fecha_emision: string;
+    total: number;
+};
+type NotaDebito = {
+    id: string;
+    numero_nota_debito: string;
+    fecha_emision: string;
+    total: number;
+};
+
+type Ajuste = {
+    fecha: string;
+    tipo: 'Crédito' | 'Débito';
+    numero: string;
+    monto: number;
+}
+
 
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
   style: 'currency',
@@ -87,6 +107,97 @@ const currencyFormatter = new Intl.NumberFormat('es-PY', {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 });
+
+const HistorialNotasDialog = ({ cuenta, onOpenChange }: { cuenta: CuentaPagar, onOpenChange: (open: boolean) => void }) => {
+    const [ajustes, setAjustes] = useState<Ajuste[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchNotas = async () => {
+            if (!cuenta.compra_id) return;
+            setLoading(true);
+            try {
+                const notasCreditoQuery = query(collection(db, 'notas_credito_debito_compras'), where("compra_id", "==", cuenta.compra_id));
+                const notasDebitoQuery = query(collection(db, 'notas_debito_compras'), where("compra_id", "==", cuenta.compra_id));
+                
+                const [creditoSnap, debitoSnap] = await Promise.all([
+                    getDocs(notasCreditoQuery),
+                    getDocs(notasDebitoQuery)
+                ]);
+
+                const allAjustes: Ajuste[] = [];
+
+                creditoSnap.forEach(doc => {
+                    const data = doc.data() as NotaCredito;
+                    allAjustes.push({
+                        fecha: data.fecha_emision,
+                        tipo: 'Crédito',
+                        numero: data.numero_nota_credito,
+                        monto: data.total
+                    });
+                });
+                
+                debitoSnap.forEach(doc => {
+                    const data = doc.data() as NotaDebito;
+                     allAjustes.push({
+                        fecha: data.fecha_emision,
+                        tipo: 'Débito',
+                        numero: data.numero_nota_debito,
+                        monto: data.total
+                    });
+                });
+
+                setAjustes(allAjustes.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()));
+
+            } catch (error) {
+                console.error("Error fetching adjustment history:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchNotas();
+    }, [cuenta]);
+
+    return (
+         <Dialog open onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Historial de Ajustes para Factura {cuenta.numero_factura}</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                    {loading ? <p>Cargando historial...</p> : (
+                        ajustes.length > 0 ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Fecha</TableHead>
+                                        <TableHead>Tipo</TableHead>
+                                        <TableHead>Número</TableHead>
+                                        <TableHead className="text-right">Monto</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {ajustes.map((ajuste, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell>{ajuste.fecha}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={ajuste.tipo === 'Crédito' ? 'default' : 'destructive'}>
+                                                    {ajuste.tipo}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>{ajuste.numero}</TableCell>
+                                            <TableCell className="text-right">{currencyFormatter.format(ajuste.monto)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : <p className="text-center text-muted-foreground">No se encontraron notas de crédito o débito para esta factura.</p>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 const HistorialPagosDialog = ({ cuenta, onOpenChange }: { cuenta: CuentaPagar, onOpenChange: (open: boolean) => void }) => {
     const [pagos, setPagos] = useState<PagoRealizado[]>([]);
@@ -96,16 +207,19 @@ const HistorialPagosDialog = ({ cuenta, onOpenChange }: { cuenta: CuentaPagar, o
         const fetchPagos = async () => {
             setLoading(true);
             try {
-                 // Correct way to query: Fetch all payments for the provider and then filter in the client
                 const pagosRef = collection(db, 'pagos_proveedores');
-                const q = query(pagosRef, where("proveedor_id", "==", cuenta.proveedor_id));
-
-                const pagosSnap = await getDocs(q);
+                const q = query(pagosRef, where("facturas_afectadas", "array-contains", {
+                    id: cuenta.id,
+                    monto_aplicado: cuenta.monto_total, // This is a bit of a hack, Firestore can't query inside objects in arrays perfectly
+                    numero_factura: cuenta.numero_factura
+                }));
+                // A more robust query if the above fails due to monto_aplicado changing
+                const allPagosQuery = query(pagosRef, where("proveedor_id", "==", cuenta.proveedor_id));
+                const pagosSnap = await getDocs(allPagosQuery);
                 
                 const pagosList: PagoRealizado[] = [];
                 pagosSnap.forEach(doc => {
                     const pagoData = doc.data() as PagoRealizado;
-                    // Check if this payment document includes the invoice we are interested in
                     if (pagoData.facturas_afectadas.some(f => f.id === cuenta.id)) {
                         pagosList.push({ id: doc.id, ...pagoData });
                     }
@@ -450,6 +564,9 @@ export default function CuentasPagarPage() {
   
   const [openHistorial, setOpenHistorial] = useState(false);
   const [selectedCuentaParaHistorial, setSelectedCuentaParaHistorial] = useState<CuentaPagar | null>(null);
+  
+  const [openHistorialNotas, setOpenHistorialNotas] = useState(false);
+  const [selectedCuentaParaHistorialNotas, setSelectedCuentaParaHistorialNotas] = useState<CuentaPagar | null>(null);
 
 
   // Filtros
@@ -502,6 +619,11 @@ export default function CuentasPagarPage() {
       setOpenHistorial(true);
   }
   
+  const handleOpenHistorialNotas = (cuenta: CuentaPagar) => {
+      setSelectedCuentaParaHistorialNotas(cuenta);
+      setOpenHistorialNotas(true);
+  }
+
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
       case "Pendiente": return "destructive";
@@ -629,6 +751,7 @@ export default function CuentasPagarPage() {
                             <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => handleOpenDetails(cuenta)}>Ver Compra Asociada</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleOpenHistorial(cuenta)}><History className="mr-2 h-4 w-4"/>Ver Pagos Realizados</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenHistorialNotas(cuenta)}><FileText className="mr-2 h-4 w-4"/>Ver Notas de Ajuste</DropdownMenuItem>
                             </DropdownMenuContent>
                             </DropdownMenu>
                         </TableCell>
@@ -642,6 +765,10 @@ export default function CuentasPagarPage() {
       
       {openHistorial && selectedCuentaParaHistorial && (
           <HistorialPagosDialog cuenta={selectedCuentaParaHistorial} onOpenChange={setOpenHistorial} />
+      )}
+      
+      {openHistorialNotas && selectedCuentaParaHistorialNotas && (
+          <HistorialNotasDialog cuenta={selectedCuentaParaHistorialNotas} onOpenChange={setOpenHistorialNotas} />
       )}
 
       {filteredCuentas.length === 0 && !loading && (
