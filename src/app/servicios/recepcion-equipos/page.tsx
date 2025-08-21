@@ -159,18 +159,16 @@ export default function RecepcionEquiposPage() {
             const hoy = new Date();
             const fechaRecepcion = format(hoy, "yyyy-MM-dd");
 
-            // 1. Create the main reception document first to get an ID.
             const recepcionRef = doc(collection(db, "recepciones"));
-            const equiposParaRecepcion: { id: string, problema_manifestado: string }[] = [];
+            
+            const equiposParaRecepcion: { id: string; problema_manifestado: string; }[] = [];
 
-            // 2. Create each equipment document, linking it to the reception.
             for (const equipoData of equipos) {
                 const equipoCompleto = equipoData as EquipoParaAgregar;
                 const equipoRef = doc(collection(db, "equipos_en_servicio"));
 
-                // Save the full equipment data in its own document
                 transaction.set(equipoRef, {
-                    recepcion_id: recepcionRef.id,
+                    recepcion_id: recepcionRef.id, // This is the crucial link
                     cliente_id: selectedClienteId,
                     cliente_nombre: clienteSeleccionado.nombre,
                     fecha_recepcion: fechaRecepcion,
@@ -187,14 +185,12 @@ export default function RecepcionEquiposPage() {
                     accesorios: equipoCompleto.accesorios || null,
                 });
 
-                // Prepare the summary for the reception document
                 equiposParaRecepcion.push({ 
                     id: equipoRef.id, 
                     problema_manifestado: equipoCompleto.problema_manifestado 
                 });
             }
 
-            // 3. Now set the data for the main reception document with the array of equipment summaries.
             transaction.set(recepcionRef, {
                 cliente_id: selectedClienteId,
                 cliente_nombre: clienteSeleccionado.nombre,
@@ -217,21 +213,16 @@ export default function RecepcionEquiposPage() {
   const handleOpenDetails = async (recepcion: Recepcion) => {
     setSelectedRecepcion(recepcion);
     setOpenDetails(true);
-    setDetailedEquipos([]); // Clear previous details
+    setDetailedEquipos([]);
 
-    if (recepcion.equipos && recepcion.equipos.length > 0) {
-        try {
-            const ids = recepcion.equipos.map(e => e.id);
-            if (ids.length > 0) {
-                const q = query(collection(db, 'equipos_en_servicio'), where('__name__', 'in', ids));
-                const equiposSnap = await getDocs(q);
-                const equiposData = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
-                setDetailedEquipos(equiposData);
-            }
-        } catch (error) {
-            console.error("Error fetching equipment details:", error);
-            toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los detalles de los equipos." });
-        }
+    try {
+      const q = query(collection(db, 'equipos_en_servicio'), where('recepcion_id', '==', recepcion.id));
+      const equiposSnap = await getDocs(q);
+      const equiposData = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
+      setDetailedEquipos(equiposData);
+    } catch (error) {
+        console.error("Error fetching equipment details:", error);
+        toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los detalles de los equipos." });
     }
   };
 

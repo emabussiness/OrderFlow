@@ -40,6 +40,12 @@ type EquipoEnServicio = {
   fecha_creacion?: any;
 };
 
+type Recepcion = {
+  id: string;
+  cliente_nombre: string;
+  fecha_recepcion: string;
+}
+
 type GroupedEquipos = {
   [key: string]: {
     cliente_nombre: string;
@@ -52,6 +58,7 @@ type GroupedEquipos = {
 export default function DiagnosticoPage() {
   const { toast } = useToast();
   const [equipos, setEquipos] = useState<EquipoEnServicio[]>([]);
+  const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -64,13 +71,18 @@ export default function DiagnosticoPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const q = query(
+      const qEquipos = query(
         collection(db, 'equipos_en_servicio'),
         where("estado", "==", "Recibido")
       );
-      const equiposSnapshot = await getDocs(q);
+      const equiposSnapshot = await getDocs(qEquipos);
       const equiposList = equiposSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
       setEquipos(equiposList);
+
+      const recepcionesSnapshot = await getDocs(query(collection(db, 'recepciones'), orderBy("fecha_creacion", "desc")));
+      const recepcionesList = recepcionesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Recepcion));
+      setRecepciones(recepcionesList);
+
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -85,41 +97,38 @@ export default function DiagnosticoPage() {
   }, [toast]);
   
   const groupedAndFilteredEquipos = useMemo(() => {
+    const recepcionesMap = new Map(recepciones.map(r => [r.id, r]));
+
     const grouped: GroupedEquipos = {};
 
-    const sortedEquipos = [...equipos].sort((a, b) => {
-        const dateA = a.fecha_creacion?.toDate ? a.fecha_creacion.toDate() : new Date(0);
-        const dateB = b.fecha_creacion?.toDate ? b.fecha_creacion.toDate() : new Date(0);
-        return dateB.getTime() - dateA.getTime();
-    });
-
-    sortedEquipos.forEach(equipo => {
-      if (!equipo.recepcion_id) {
-          return; 
-      }
-        
+    equipos.forEach(equipo => {
       const term = searchTerm.toLowerCase();
       const matchesSearch = !term ||
         equipo.cliente_nombre.toLowerCase().includes(term) ||
-        equipo.recepcion_id.toLowerCase().includes(term) ||
+        equipo.recepcion_id?.toLowerCase().includes(term) ||
         equipo.tipo_equipo_nombre.toLowerCase().includes(term) ||
         equipo.marca_nombre.toLowerCase().includes(term) ||
         equipo.modelo.toLowerCase().includes(term);
 
-      if (matchesSearch) {
+      if (matchesSearch && equipo.recepcion_id) {
         const key = equipo.recepcion_id;
         if (!grouped[key]) {
+          const recepcionData = recepcionesMap.get(key);
           grouped[key] = {
-            cliente_nombre: equipo.cliente_nombre,
-            fecha_recepcion: equipo.fecha_recepcion,
+            cliente_nombre: recepcionData?.cliente_nombre || equipo.cliente_nombre,
+            fecha_recepcion: recepcionData?.fecha_recepcion || equipo.fecha_recepcion,
             equipos: []
           };
         }
         grouped[key].equipos.push(equipo);
       }
     });
-    return grouped;
-  }, [equipos, searchTerm]);
+
+    return Object.entries(grouped)
+        .sort(([keyA, valA], [keyB, valB]) => new Date(valB.fecha_recepcion).getTime() - new Date(valA.fecha_recepcion).getTime())
+        .reduce((acc, [key, val]) => ({...acc, [key]: val}), {});
+        
+  }, [equipos, searchTerm, recepciones]);
 
   
   const handleOpenDiagnostico = (equipo: EquipoEnServicio) => {
