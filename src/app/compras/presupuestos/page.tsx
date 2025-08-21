@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
@@ -190,6 +190,11 @@ export default function PresupuestosProveedorPage() {
   const [items, setItems] = useState<ItemPresupuesto[]>([]);
   const [observaciones, setObservaciones] = useState('');
   
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [proveedorFilter, setProveedorFilter] = useState('');
+
   const selectedPedido = pedidos.find(p => p.id === selectedPedidoId);
 
   const fetchData = async () => {
@@ -234,6 +239,24 @@ export default function PresupuestosProveedorPage() {
   useEffect(() => {
     fetchData();
   }, []);
+  
+  const filteredPresupuestos = useMemo(() => {
+    return presupuestos.filter(presupuesto => {
+        const searchTermLower = searchTerm.toLowerCase();
+        
+        const matchesSearchTerm = searchTerm === '' ||
+            presupuesto.id.toLowerCase().includes(searchTermLower) ||
+            (presupuesto.pedido_id && presupuesto.pedido_id.toLowerCase().includes(searchTermLower)) ||
+            presupuesto.proveedor_nombre.toLowerCase().includes(searchTermLower) ||
+            presupuesto.items.some(item => item.nombre.toLowerCase().includes(searchTermLower));
+
+        const matchesStatus = statusFilter === '' || presupuesto.estado === statusFilter;
+        const matchesProveedor = proveedorFilter === '' || presupuesto.proveedor_id === proveedorFilter;
+
+        return matchesSearchTerm && matchesStatus && matchesProveedor;
+    });
+}, [presupuestos, searchTerm, statusFilter, proveedorFilter]);
+
 
   useEffect(() => {
     if (creationMode === 'pedido' && selectedPedido) {
@@ -534,6 +557,28 @@ export default function PresupuestosProveedorPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Presupuestos</CardTitle>
+          <CardDescription>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                    <Input 
+                        placeholder="Buscar por ID, producto..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="md:col-span-1"
+                    />
+                    <Combobox
+                        options={[ {value: '', label: 'Todos los proveedores'}, ...proveedores.map(p => ({ value: p.id, label: p.nombre }))]}
+                        value={proveedorFilter}
+                        onChange={setProveedorFilter}
+                        placeholder="Filtrar por proveedor"
+                    />
+                     <Combobox
+                        options={[ {value: '', label: 'Todos los estados'}, {value: 'Recibido', label: 'Recibido'}, {value: 'Aprobado', label: 'Aprobado'}, {value: 'Rechazado', label: 'Rechazado'}, {value: 'Procesado', label: 'Procesado'}]}
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                        placeholder="Filtrar por estado"
+                    />
+                </div>
+            </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -549,7 +594,7 @@ export default function PresupuestosProveedorPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {presupuestos.map((presupuesto) => (
+              {filteredPresupuestos.map((presupuesto) => (
                 <TableRow key={presupuesto.id}>
                   <TableCell className="font-medium">{presupuesto.id.substring(0,7)}</TableCell>
                   <TableCell>{presupuesto.pedido_id?.substring(0,7) ?? 'N/A'}</TableCell>
@@ -616,6 +661,7 @@ export default function PresupuestosProveedorPage() {
               ))}
             </TableBody>
           </Table>
+          {filteredPresupuestos.length === 0 && <p className="text-center text-muted-foreground mt-4">No se encontraron presupuestos.</p>}
         </CardContent>
       </Card>
 

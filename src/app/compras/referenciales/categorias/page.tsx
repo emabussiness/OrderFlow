@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import {
@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ export default function CategoriasPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentCategoria, setCurrentCategoria] = useState<Omit<Categoria, 'id'>>(initialCategoriaState);
   const [currentCategoriaId, setCurrentCategoriaId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchCategorias = async () => {
     setLoading(true);
@@ -56,7 +57,14 @@ export default function CategoriasPage() {
 
   useEffect(() => {
     fetchCategorias();
-  }, []);
+  }, [toast]);
+  
+  const filteredCategorias = useMemo(() => {
+    return categorias.filter(categoria =>
+      categoria.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [categorias, searchTerm]);
+
 
   const handleOpenDialog = (categoria: Categoria | null = null) => {
     if (categoria) {
@@ -135,6 +143,14 @@ export default function CategoriasPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Categorías</CardTitle>
+          <CardDescription>
+            <Input 
+              placeholder="Buscar por nombre..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -145,7 +161,7 @@ export default function CategoriasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categorias.map((categoria) => (
+              {filteredCategorias.map((categoria) => (
                 <TableRow key={categoria.id}>
                   <TableCell className="font-medium">{categoria.nombre}</TableCell>
                   <TableCell>
@@ -165,9 +181,9 @@ export default function CategoriasPage() {
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                 <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-                                <AlertDialogDescription>
+                                <AlertDialogDescriptionComponent>
                                     Esta acción no se puede deshacer. Esto eliminará permanentemente la categoría.
-                                </AlertDialogDescription>
+                                </AlertDialogDescriptionComponent>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -182,7 +198,7 @@ export default function CategoriasPage() {
               ))}
             </TableBody>
           </Table>
-           {categorias.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay categorías registradas.</p>}
+           {filteredCategorias.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay categorías registradas.</p>}
         </CardContent>
       </Card>
       

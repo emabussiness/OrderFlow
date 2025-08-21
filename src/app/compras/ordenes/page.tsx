@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
@@ -303,6 +303,12 @@ export default function OrdenesCompraPage() {
   const [selectedProveedorId, setSelectedProveedorId] = useState('');
   const [selectedDepositoId, setSelectedDepositoId] = useState('');
   const [items, setItems] = useState<ItemOrden[]>([]);
+  
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [proveedorFilter, setProveedorFilter] = useState('');
+
 
   const selectedPedido = pedidos.find(p => p.id === selectedPedidoId);
   const selectedPresupuesto = presupuestos.find(p => p.id === selectedPresupuestoId);
@@ -368,6 +374,24 @@ export default function OrdenesCompraPage() {
       setSelectedDepositoId('');
     }
    }, [creationMode, selectedPedidoId, selectedPedido, selectedPresupuestoId, selectedPresupuesto]);
+   
+   const filteredOrdenes = useMemo(() => {
+    return ordenes.filter(orden => {
+        const searchTermLower = searchTerm.toLowerCase();
+        
+        const matchesSearchTerm = searchTerm === '' ||
+            orden.id.toLowerCase().includes(searchTermLower) ||
+            orden.proveedor_nombre.toLowerCase().includes(searchTermLower) ||
+            orden.deposito_nombre.toLowerCase().includes(searchTermLower) ||
+            orden.items.some(item => item.nombre.toLowerCase().includes(searchTermLower));
+
+        const matchesStatus = statusFilter === '' || orden.estado === statusFilter;
+        const matchesProveedor = proveedorFilter === '' || orden.proveedor_id === proveedorFilter;
+
+        return matchesSearchTerm && matchesStatus && matchesProveedor;
+    });
+}, [ordenes, searchTerm, statusFilter, proveedorFilter]);
+
 
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
@@ -659,9 +683,40 @@ export default function OrdenesCompraPage() {
         </Dialog>
       </div>
       
-      <Card>
+       <Card>
         <CardHeader>
           <CardTitle>Listado de Órdenes de Compra</CardTitle>
+           <CardDescription>
+                <div className="flex justify-between items-center gap-4 mt-2">
+                    <Input 
+                        placeholder="Buscar por ID, proveedor, depósito o producto..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full"
+                    />
+                    <div className="flex gap-2 w-full max-w-sm">
+                        <Combobox
+                            options={[ {value: '', label: 'Todos los proveedores'}, ...proveedores.map(p => ({ value: p.id, label: p.nombre }))]}
+                            value={proveedorFilter}
+                            onChange={setProveedorFilter}
+                            placeholder="Filtrar por proveedor"
+                            searchPlaceholder="Buscar proveedor..."
+                        />
+                         <Combobox
+                            options={[ 
+                                {value: '', label: 'Todos los estados'},
+                                {value: 'Pendiente de Recepción', label: 'Pendiente de Recepción'},
+                                {value: 'Recibido Parcial', label: 'Recibido Parcial'},
+                                {value: 'Recibido Completo', label: 'Recibido Completo'},
+                                {value: 'Cancelada', label: 'Cancelada'},
+                            ]}
+                            value={statusFilter}
+                            onChange={setStatusFilter}
+                            placeholder="Filtrar por estado"
+                        />
+                    </div>
+                </div>
+            </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -678,7 +733,7 @@ export default function OrdenesCompraPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ordenes.map((orden) => (
+              {filteredOrdenes.map((orden) => (
                 <TableRow key={orden.id}>
                   <TableCell className="font-medium">{orden.id.substring(0,7)}</TableCell>
                   <TableCell>{orden.presupuesto_proveedor_id ? `Presupuesto` : (orden.pedido_id ? 'Pedido' : 'Manual')}</TableCell>
@@ -719,6 +774,7 @@ export default function OrdenesCompraPage() {
               ))}
             </TableBody>
           </Table>
+           {filteredOrdenes.length === 0 && <p className="text-center text-muted-foreground mt-4">No se encontraron órdenes de compra.</p>}
         </CardContent>
       </Card>
 

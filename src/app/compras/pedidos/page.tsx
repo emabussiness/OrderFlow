@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, addDoc, getDocs, doc, updateDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +15,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -78,6 +78,13 @@ export default function PedidosPage() {
   const [currentPedido, setCurrentPedido] = useState(initialPedidoState);
   const [currentPedidoId, setCurrentPedidoId] = useState<string | null>(null);
   
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [proveedorFilter, setProveedorFilter] = useState('');
+  const [depositoFilter, setDepositoFilter] = useState('');
+
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -109,6 +116,24 @@ export default function PedidosPage() {
   useEffect(() => {
     fetchData();
   }, []);
+  
+  const filteredPedidos = useMemo(() => {
+    return pedidos.filter(pedido => {
+        const searchTermLower = searchTerm.toLowerCase();
+        
+        const matchesSearchTerm = searchTerm === '' ||
+            pedido.id.toLowerCase().includes(searchTermLower) ||
+            pedido.proveedor_nombre.toLowerCase().includes(searchTermLower) ||
+            pedido.deposito_nombre.toLowerCase().includes(searchTermLower) ||
+            pedido.items.some(item => item.nombre.toLowerCase().includes(searchTermLower));
+
+        const matchesStatus = statusFilter === '' || pedido.estado === statusFilter;
+        const matchesProveedor = proveedorFilter === '' || pedido.proveedor_id === proveedorFilter;
+        const matchesDeposito = depositoFilter === '' || pedido.deposito_id === depositoFilter;
+
+        return matchesSearchTerm && matchesStatus && matchesProveedor && matchesDeposito;
+    });
+}, [pedidos, searchTerm, statusFilter, proveedorFilter, depositoFilter]);
 
   const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
     switch (status.toLowerCase()) {
@@ -278,9 +303,9 @@ export default function PedidosPage() {
           <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>{isEditing ? 'Editar Pedido de Compra' : 'Crear Nuevo Pedido de Compra'}</DialogTitle>
-              <DialogDescription>
+              <DialogDescriptionComponent>
                 {isEditing ? 'Modifique los detalles del pedido.' : 'Complete los detalles para crear un nuevo pedido.'}
-              </DialogDescription>
+              </DialogDescriptionComponent>
             </DialogHeader>
             
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -404,6 +429,28 @@ export default function PedidosPage() {
       <Card>
         <CardHeader>
           <CardTitle>Historial de Pedidos</CardTitle>
+           <CardDescription>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
+                    <Input 
+                        placeholder="Buscar por ID, producto..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="md:col-span-2"
+                    />
+                    <Combobox
+                        options={[ {value: '', label: 'Todos los proveedores'}, ...proveedores.map(p => ({ value: p.id, label: p.nombre }))]}
+                        value={proveedorFilter}
+                        onChange={setProveedorFilter}
+                        placeholder="Filtrar por proveedor"
+                    />
+                     <Combobox
+                        options={[ {value: '', label: 'Todos los estados'}, {value: 'Pendiente', label: 'Pendiente'}, {value: 'Completado', label: 'Completado'}, {value: 'Cancelado', label: 'Cancelado'}]}
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                        placeholder="Filtrar por estado"
+                    />
+                </div>
+            </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -419,7 +466,7 @@ export default function PedidosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pedidos.map((pedido) => (
+              {filteredPedidos.map((pedido) => (
                 <TableRow key={pedido.id}>
                   <TableCell className="font-medium">{pedido.id.substring(0,7)}</TableCell>
                   <TableCell>{pedido.proveedor_nombre}</TableCell>
@@ -475,6 +522,7 @@ export default function PedidosPage() {
               ))}
             </TableBody>
           </Table>
+           {filteredPedidos.length === 0 && <p className="text-center text-muted-foreground mt-4">No se encontraron pedidos.</p>}
         </CardContent>
       </Card>
 
@@ -482,9 +530,9 @@ export default function PedidosPage() {
         <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Detalles del Pedido: {selectedPedido?.id.substring(0, 7)}</DialogTitle>
-            <DialogDescription>
+            <DialogDescriptionComponent>
               Información detallada del pedido de compra.
-            </DialogDescription>
+            </DialogDescriptionComponent>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto pr-6 -mr-6">
               <div className="grid grid-cols-2 gap-4 mb-4">

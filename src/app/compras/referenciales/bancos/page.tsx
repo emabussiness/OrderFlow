@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, Landmark } from "lucide-react";
 import {
@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ export default function BancosPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentBanco, setCurrentBanco] = useState<Omit<Banco, 'id'>>(initialBancoState);
   const [currentBancoId, setCurrentBancoId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchBancos = async () => {
     setLoading(true);
@@ -56,7 +57,14 @@ export default function BancosPage() {
 
   useEffect(() => {
     fetchBancos();
-  }, []);
+  }, [toast]);
+  
+  const filteredBancos = useMemo(() => {
+    return bancos.filter(banco =>
+      banco.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [bancos, searchTerm]);
+
 
   const handleOpenDialog = (banco: Banco | null = null) => {
     if (banco) {
@@ -137,6 +145,14 @@ export default function BancosPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Bancos</CardTitle>
+          <CardDescription>
+            <Input 
+              placeholder="Buscar por nombre..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -147,7 +163,7 @@ export default function BancosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bancos.map((banco) => (
+              {filteredBancos.map((banco) => (
                 <TableRow key={banco.id}>
                   <TableCell className="font-medium">{banco.nombre}</TableCell>
                   <TableCell>
@@ -167,9 +183,9 @@ export default function BancosPage() {
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                 <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-                                <AlertDialogDescription>
+                                <AlertDialogDescriptionComponent>
                                     Esta acción no se puede deshacer. Esto eliminará permanentemente el banco.
-                                </AlertDialogDescription>
+                                </AlertDialogDescriptionComponent>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -184,7 +200,7 @@ export default function BancosPage() {
               ))}
             </TableBody>
           </Table>
-           {bancos.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay bancos registrados.</p>}
+           {filteredBancos.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay bancos registrados.</p>}
         </CardContent>
       </Card>
       

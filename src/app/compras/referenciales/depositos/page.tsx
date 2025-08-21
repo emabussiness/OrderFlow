@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import {
@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,7 @@ export default function DepositosPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentDeposito, setCurrentDeposito] = useState<Omit<Deposito, 'id'>>(initialDepositoState);
   const [currentDepositoId, setCurrentDepositoId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
@@ -75,7 +76,19 @@ export default function DepositosPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [toast]);
+  
+  const filteredDepositos = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    const sucursalesMap = new Map(sucursales.map(s => [s.id, s.nombre]));
+
+    return depositos.filter(deposito =>
+        deposito.nombre.toLowerCase().includes(term) ||
+        (deposito.direccion && deposito.direccion.toLowerCase().includes(term)) ||
+        sucursalesMap.get(deposito.sucursal_id)?.toLowerCase().includes(term)
+    );
+  }, [depositos, searchTerm, sucursales]);
+
 
   const handleOpenDialog = (deposito: Deposito | null = null) => {
     if (deposito) {
@@ -168,6 +181,14 @@ export default function DepositosPage() {
       <Card>
         <CardHeader>
           <CardTitle>Listado de Depósitos</CardTitle>
+          <CardDescription>
+            <Input 
+              placeholder="Buscar por nombre, dirección o sucursal..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -180,7 +201,7 @@ export default function DepositosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {depositos.map((deposito) => (
+              {filteredDepositos.map((deposito) => (
                 <TableRow key={deposito.id}>
                   <TableCell className="font-medium">{deposito.nombre}</TableCell>
                    <TableCell>{deposito.direccion || 'N/A'}</TableCell>
@@ -202,9 +223,9 @@ export default function DepositosPage() {
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                 <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-                                <AlertDialogDescription>
+                                <AlertDialogDescriptionComponent>
                                     Esta acción no se puede deshacer. Esto eliminará permanentemente el depósito.
-                                </AlertDialogDescription>
+                                </AlertDialogDescriptionComponent>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -219,7 +240,7 @@ export default function DepositosPage() {
               ))}
             </TableBody>
           </Table>
-           {depositos.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay depósitos registrados.</p>}
+           {filteredDepositos.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay depósitos registrados.</p>}
         </CardContent>
       </Card>
       
