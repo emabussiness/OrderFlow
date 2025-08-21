@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { collection, getDocs, addDoc, doc, serverTimestamp, query, orderBy, writeBatch } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, serverTimestamp, query, orderBy, where, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,14 +32,14 @@ type TipoEquipo = { id: string; nombre: string; };
 type Marca = { id: string; nombre: string; };
 
 type EquipoEnRecepcion = {
-    id: string; 
+    id: string;
     tipo: string;
     marca: string;
     modelo: string;
-    problema_manifestado: string;
 };
 
 type EquipoParaAgregar = {
+    id?: string;
     tipo_equipo_id: string;
     tipo_equipo_nombre: string;
     marca_id: string;
@@ -55,7 +55,7 @@ type Recepcion = {
   cliente_id: string;
   cliente_nombre: string;
   fecha_recepcion: string;
-  equipos: EquipoEnRecepcion[]; 
+  equipos: { id: string }[];
   usuario_id: string;
   fecha_creacion: any;
 };
@@ -77,8 +77,9 @@ export default function RecepcionEquiposPage() {
   // Details Dialog state
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedRecepcion, setSelectedRecepcion] = useState<Recepcion | null>(null);
+  const [detailedEquipos, setDetailedEquipos] = useState<EquipoParaAgregar[]>([]);
 
-  
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -155,7 +156,7 @@ export default function RecepcionEquiposPage() {
     
     try {
         const batch = writeBatch(db);
-        const equiposParaRecepcion: EquipoEnRecepcion[] = [];
+        const equiposParaResumen: { id: string }[] = [];
         const hoy = new Date();
 
         for (const equipoData of equipos) {
@@ -179,13 +180,7 @@ export default function RecepcionEquiposPage() {
                 accesorios: equipoCompleto.accesorios || null,
             });
             
-            equiposParaRecepcion.push({
-                id: equipoRef.id,
-                tipo: equipoCompleto.tipo_equipo_nombre,
-                marca: equipoCompleto.marca_nombre,
-                modelo: equipoCompleto.modelo,
-                problema_manifestado: equipoCompleto.problema_manifestado,
-            });
+            equiposParaResumen.push({ id: equipoRef.id });
         }
         
         const recepcionRef = doc(collection(db, "recepciones"));
@@ -193,7 +188,7 @@ export default function RecepcionEquiposPage() {
             cliente_id: selectedClienteId,
             cliente_nombre: clienteSeleccionado.nombre,
             fecha_recepcion: format(hoy, "yyyy-MM-dd"),
-            equipos: equiposParaRecepcion,
+            equipos: equiposParaResumen,
             usuario_id: "user-demo",
             fecha_creacion: serverTimestamp(),
         });
@@ -209,9 +204,25 @@ export default function RecepcionEquiposPage() {
     }
   };
   
-  const handleOpenDetails = (recepcion: Recepcion) => {
+  const handleOpenDetails = async (recepcion: Recepcion) => {
     setSelectedRecepcion(recepcion);
     setOpenDetails(true);
+    setDetailedEquipos([]); // Clear previous details
+
+    if (recepcion.equipos && recepcion.equipos.length > 0) {
+        try {
+            const ids = recepcion.equipos.map(e => e.id);
+            if (ids.length > 0) {
+                const q = query(collection(db, 'equipos_en_servicio'), where('__name__', 'in', ids));
+                const equiposSnap = await getDocs(q);
+                const equiposData = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoParaAgregar));
+                setDetailedEquipos(equiposData);
+            }
+        } catch (error) {
+            console.error("Error fetching equipment details:", error);
+            toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los detalles de los equipos." });
+        }
+    }
   };
 
   useEffect(() => {
@@ -387,10 +398,10 @@ export default function RecepcionEquiposPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {selectedRecepcion.equipos.map((item, index) => (
+                                        {detailedEquipos.map((item, index) => (
                                             <TableRow key={item.id || index}>
-                                                <TableCell>{item.tipo}</TableCell>
-                                                <TableCell>{item.marca}</TableCell>
+                                                <TableCell>{item.tipo_equipo_nombre}</TableCell>
+                                                <TableCell>{item.marca_nombre}</TableCell>
                                                 <TableCell>{item.modelo}</TableCell>
                                                 <TableCell className="max-w-[200px] whitespace-pre-wrap">{item.problema_manifestado}</TableCell>
                                             </TableRow>
