@@ -687,36 +687,37 @@ export default function OrdenesCompraPage() {
         <CardHeader>
           <CardTitle>Listado de Órdenes de Compra</CardTitle>
            <CardDescription>
-                <div className="flex justify-between items-center gap-4 mt-2">
-                    <Input 
-                        placeholder="Buscar por ID, proveedor, depósito o producto..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full"
+                Filtre y busque a través de las órdenes de compra.
+           </CardDescription>
+            <div className="flex justify-between items-center gap-4 mt-2">
+                <Input 
+                    placeholder="Buscar por ID, proveedor, depósito o producto..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                />
+                <div className="flex gap-2 w-full max-w-sm">
+                    <Combobox
+                        options={[ {value: '', label: 'Todos los proveedores'}, ...proveedores.map(p => ({ value: p.id, label: p.nombre }))]}
+                        value={proveedorFilter}
+                        onChange={setProveedorFilter}
+                        placeholder="Filtrar por proveedor"
+                        searchPlaceholder="Buscar proveedor..."
                     />
-                    <div className="flex gap-2 w-full max-w-sm">
-                        <Combobox
-                            options={[ {value: '', label: 'Todos los proveedores'}, ...proveedores.map(p => ({ value: p.id, label: p.nombre }))]}
-                            value={proveedorFilter}
-                            onChange={setProveedorFilter}
-                            placeholder="Filtrar por proveedor"
-                            searchPlaceholder="Buscar proveedor..."
-                        />
-                         <Combobox
-                            options={[ 
-                                {value: '', label: 'Todos los estados'},
-                                {value: 'Pendiente de Recepción', label: 'Pendiente de Recepción'},
-                                {value: 'Recibido Parcial', label: 'Recibido Parcial'},
-                                {value: 'Recibido Completo', label: 'Recibido Completo'},
-                                {value: 'Cancelada', label: 'Cancelada'},
-                            ]}
-                            value={statusFilter}
-                            onChange={setStatusFilter}
-                            placeholder="Filtrar por estado"
-                        />
-                    </div>
+                     <Combobox
+                        options={[ 
+                            {value: '', label: 'Todos los estados'},
+                            {value: 'Pendiente de Recepción', label: 'Pendiente de Recepción'},
+                            {value: 'Recibido Parcial', label: 'Recibido Parcial'},
+                            {value: 'Recibido Completo', label: 'Recibido Completo'},
+                            {value: 'Cancelada', label: 'Cancelada'},
+                        ]}
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                        placeholder="Filtrar por estado"
+                    />
                 </div>
-            </CardDescription>
+            </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -834,3 +835,4 @@ export default function OrdenesCompraPage() {
     
 
     
+

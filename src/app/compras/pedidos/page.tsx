@@ -430,27 +430,28 @@ export default function PedidosPage() {
         <CardHeader>
           <CardTitle>Historial de Pedidos</CardTitle>
            <CardDescription>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
-                    <Input 
-                        placeholder="Buscar por ID, producto..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="md:col-span-2"
-                    />
-                    <Combobox
-                        options={[ {value: '', label: 'Todos los proveedores'}, ...proveedores.map(p => ({ value: p.id, label: p.nombre }))]}
-                        value={proveedorFilter}
-                        onChange={setProveedorFilter}
-                        placeholder="Filtrar por proveedor"
-                    />
-                     <Combobox
-                        options={[ {value: '', label: 'Todos los estados'}, {value: 'Pendiente', label: 'Pendiente'}, {value: 'Completado', label: 'Completado'}, {value: 'Cancelado', label: 'Cancelado'}]}
-                        value={statusFilter}
-                        onChange={setStatusFilter}
-                        placeholder="Filtrar por estado"
-                    />
-                </div>
+                Filtre y busque a través de los pedidos de compra.
             </CardDescription>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
+                <Input 
+                    placeholder="Buscar por ID, producto..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="md:col-span-2"
+                />
+                <Combobox
+                    options={[ {value: '', label: 'Todos los proveedores'}, ...proveedores.map(p => ({ value: p.id, label: p.nombre }))]}
+                    value={proveedorFilter}
+                    onChange={setProveedorFilter}
+                    placeholder="Filtrar por proveedor"
+                />
+                 <Combobox
+                    options={[ {value: '', label: 'Todos los estados'}, {value: 'Pendiente', label: 'Pendiente'}, {value: 'Completado', label: 'Completado'}, {value: 'Cancelado', label: 'Cancelado'}]}
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    placeholder="Filtrar por estado"
+                />
+            </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -611,3 +612,4 @@ export default function PedidosPage() {
 }
 
     
+

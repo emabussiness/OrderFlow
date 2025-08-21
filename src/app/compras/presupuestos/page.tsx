@@ -558,27 +558,28 @@ export default function PresupuestosProveedorPage() {
         <CardHeader>
           <CardTitle>Listado de Presupuestos</CardTitle>
           <CardDescription>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                    <Input 
-                        placeholder="Buscar por ID, producto..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="md:col-span-1"
-                    />
-                    <Combobox
-                        options={[ {value: '', label: 'Todos los proveedores'}, ...proveedores.map(p => ({ value: p.id, label: p.nombre }))]}
-                        value={proveedorFilter}
-                        onChange={setProveedorFilter}
-                        placeholder="Filtrar por proveedor"
-                    />
-                     <Combobox
-                        options={[ {value: '', label: 'Todos los estados'}, {value: 'Recibido', label: 'Recibido'}, {value: 'Aprobado', label: 'Aprobado'}, {value: 'Rechazado', label: 'Rechazado'}, {value: 'Procesado', label: 'Procesado'}]}
-                        value={statusFilter}
-                        onChange={setStatusFilter}
-                        placeholder="Filtrar por estado"
-                    />
-                </div>
-            </CardDescription>
+            Filtre y busque a través de los presupuestos.
+          </CardDescription>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                <Input 
+                    placeholder="Buscar por ID, producto..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="md:col-span-1"
+                />
+                <Combobox
+                    options={[ {value: '', label: 'Todos los proveedores'}, ...proveedores.map(p => ({ value: p.id, label: p.nombre }))]}
+                    value={proveedorFilter}
+                    onChange={setProveedorFilter}
+                    placeholder="Filtrar por proveedor"
+                />
+                 <Combobox
+                    options={[ {value: '', label: 'Todos los estados'}, {value: 'Recibido', label: 'Recibido'}, {value: 'Aprobado', label: 'Aprobado'}, {value: 'Rechazado', label: 'Rechazado'}, {value: 'Procesado', label: 'Procesado'}]}
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    placeholder="Filtrar por estado"
+                />
+            </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -724,3 +725,4 @@ export default function PresupuestosProveedorPage() {
     </>
   );
 }
+
