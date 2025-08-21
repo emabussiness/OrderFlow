@@ -10,8 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, PenSquare } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, PlusCircle, PenSquare, ChevronDown } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter as DialogFooterComponent, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -28,12 +33,21 @@ type EquipoEnServicio = {
   modelo: string;
   problema_manifestado: string;
   estado: "Recibido" | "Diagnosticado" | "Presupuestado" | "En Reparación" | "Reparado" | "Retirado";
+  recepcion_id: string;
   // Campos a agregar en el diagnóstico
   diagnostico_tecnico?: string;
   trabajos_a_realizar?: string;
   fecha_diagnostico?: string;
   tecnico_id?: string;
 };
+
+type GroupedEquipos = {
+  [key: string]: {
+    cliente_nombre: string;
+    fecha_recepcion: string;
+    equipos: EquipoEnServicio[];
+  }
+}
 
 // --- Main Component ---
 export default function DiagnosticoPage() {
@@ -53,11 +67,10 @@ export default function DiagnosticoPage() {
     try {
       const q = query(
         collection(db, 'equipos_en_servicio'),
-        orderBy("fecha_recepcion", "asc")
+        orderBy("fecha_creacion", "desc")
       );
       const equiposSnapshot = await getDocs(q);
       const equiposList = equiposSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
-      // Filter for "Recibido" status on the client side to avoid composite index requirement
       setEquipos(equiposList.filter(e => e.estado === "Recibido"));
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -70,16 +83,33 @@ export default function DiagnosticoPage() {
   useEffect(() => {
     fetchData();
   }, [toast]);
+  
+  const groupedAndFilteredEquipos = useMemo(() => {
+    const grouped: GroupedEquipos = {};
 
-  const filteredEquipos = useMemo(() => {
-    const term = searchTerm.toLowerCase();
-    return equipos.filter(e =>
-      e.cliente_nombre.toLowerCase().includes(term) ||
-      e.tipo_equipo_nombre.toLowerCase().includes(term) ||
-      e.marca_nombre.toLowerCase().includes(term) ||
-      e.modelo.toLowerCase().includes(term)
-    );
+    equipos.forEach(equipo => {
+      const term = searchTerm.toLowerCase();
+      const matchesSearch = !term ||
+        equipo.cliente_nombre.toLowerCase().includes(term) ||
+        equipo.recepcion_id.toLowerCase().includes(term) ||
+        equipo.tipo_equipo_nombre.toLowerCase().includes(term) ||
+        equipo.marca_nombre.toLowerCase().includes(term) ||
+        equipo.modelo.toLowerCase().includes(term);
+
+      if (matchesSearch) {
+        if (!grouped[equipo.recepcion_id]) {
+          grouped[equipo.recepcion_id] = {
+            cliente_nombre: equipo.cliente_nombre,
+            fecha_recepcion: equipo.fecha_recepcion,
+            equipos: []
+          };
+        }
+        grouped[equipo.recepcion_id].equipos.push(equipo);
+      }
+    });
+    return grouped;
   }, [equipos, searchTerm]);
+
   
   const handleOpenDiagnostico = (equipo: EquipoEnServicio) => {
       setSelectedEquipo(equipo);
@@ -134,10 +164,10 @@ export default function DiagnosticoPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Equipos Pendientes de Diagnóstico</CardTitle>
+          <CardTitle>Recepciones con Equipos Pendientes</CardTitle>
           <CardDescription>
               <Input
-                placeholder="Buscar por cliente, tipo, marca o modelo..."
+                placeholder="Buscar por cliente, ID de recepción, tipo, marca o modelo..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="mt-2"
@@ -145,34 +175,45 @@ export default function DiagnosticoPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha Recepción</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Equipo</TableHead>
-                <TableHead>Problema Manifestado</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredEquipos.map((equipo) => (
-                <TableRow key={equipo.id}>
-                  <TableCell>{equipo.fecha_recepcion}</TableCell>
-                  <TableCell className="font-medium">{equipo.cliente_nombre}</TableCell>
-                  <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
-                  <TableCell className="max-w-[300px] truncate">{equipo.problema_manifestado}</TableCell>
-                  <TableCell>
-                      <Button variant="outline" size="sm" onClick={() => handleOpenDiagnostico(equipo)}>
-                          <PenSquare className="mr-2 h-4 w-4"/>
-                          Diagnosticar
-                      </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredEquipos.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay equipos pendientes de diagnóstico.</p>}
+          <Accordion type="single" collapsible className="w-full">
+            {Object.entries(groupedAndFilteredEquipos).map(([recepcionId, data]) => (
+              <AccordionItem value={recepcionId} key={recepcionId}>
+                <AccordionTrigger>
+                  <div className="flex justify-between w-full pr-4">
+                    <span className="font-medium">Recepción ID: {recepcionId.substring(0, 7)}</span>
+                    <span className="text-muted-foreground">Cliente: {data.cliente_nombre}</span>
+                    <span className="text-muted-foreground">Fecha: {data.fecha_recepcion}</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Equipo</TableHead>
+                        <TableHead>Problema Manifestado</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.equipos.map((equipo) => (
+                        <TableRow key={equipo.id}>
+                          <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
+                          <TableCell className="max-w-[300px] truncate">{equipo.problema_manifestado}</TableCell>
+                          <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => handleOpenDiagnostico(equipo)}>
+                                  <PenSquare className="mr-2 h-4 w-4"/>
+                                  Diagnosticar
+                              </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+          {Object.keys(groupedAndFilteredEquipos).length === 0 && <p className="text-center text-muted-foreground mt-4">No hay equipos pendientes de diagnóstico.</p>}
         </CardContent>
       </Card>
       

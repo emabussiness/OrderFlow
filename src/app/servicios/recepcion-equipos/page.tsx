@@ -31,13 +31,6 @@ type Cliente = { id: string; nombre: string; };
 type TipoEquipo = { id: string; nombre: string; };
 type Marca = { id: string; nombre: string; };
 
-type EquipoEnRecepcion = {
-    id: string;
-    tipo: string;
-    marca: string;
-    modelo: string;
-};
-
 type EquipoParaAgregar = {
     id?: string;
     tipo_equipo_id: string;
@@ -156,14 +149,16 @@ export default function RecepcionEquiposPage() {
     
     try {
         const batch = writeBatch(db);
-        const equiposParaResumen: { id: string }[] = [];
         const hoy = new Date();
+        const recepcionRef = doc(collection(db, "recepciones"));
+        const equiposParaResumen: { id: string }[] = [];
 
         for (const equipoData of equipos) {
             const equipoCompleto = equipoData as EquipoParaAgregar;
             const equipoRef = doc(collection(db, "equipos_en_servicio"));
             
             batch.set(equipoRef, {
+                recepcion_id: recepcionRef.id, // Guardar el ID de la recepción
                 cliente_id: selectedClienteId,
                 cliente_nombre: clienteSeleccionado.nombre,
                 fecha_recepcion: format(hoy, "yyyy-MM-dd"),
@@ -183,7 +178,6 @@ export default function RecepcionEquiposPage() {
             equiposParaResumen.push({ id: equipoRef.id });
         }
         
-        const recepcionRef = doc(collection(db, "recepciones"));
         batch.set(recepcionRef, {
             cliente_id: selectedClienteId,
             cliente_nombre: clienteSeleccionado.nombre,
@@ -422,5 +416,3 @@ export default function RecepcionEquiposPage() {
     </>
   );
 }
-
-    
