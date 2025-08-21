@@ -98,38 +98,45 @@ export default function ProveedoresPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentProveedor.nombre || !currentProveedor.ruc) {
+    const trimmedNombre = currentProveedor.nombre.trim();
+    const trimmedRuc = currentProveedor.ruc.trim();
+
+    if (!trimmedNombre || !trimmedRuc) {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'Nombre y RUC son requeridos.'});
         return;
     }
 
-    // Check for duplicates
-    const q = query(collection(db, 'proveedores'), where("ruc", "==", currentProveedor.ruc));
-    const snapshot = await getDocs(q);
-    if(!snapshot.empty) {
-        let isDuplicate = false;
-        if (isEditing && currentProveedorId) {
-            if (snapshot.docs[0].id !== currentProveedorId) {
-                isDuplicate = true;
-            }
-        } else {
-            isDuplicate = true;
-        }
+    // Case-insensitive duplicate check for both name and RUC
+    const isNameDuplicate = proveedores.some(p => 
+        p.nombre.toLowerCase() === trimmedNombre.toLowerCase() && p.id !== currentProveedorId
+    );
+    const isRucDuplicate = proveedores.some(p => 
+        p.ruc.toLowerCase() === trimmedRuc.toLowerCase() && p.id !== currentProveedorId
+    );
 
-        if (isDuplicate) {
-            toast({ variant: 'destructive', title: 'Proveedor duplicado', description: `Ya existe un proveedor con el RUC ${currentProveedor.ruc}.`});
-            return;
-        }
+    if (isNameDuplicate) {
+        toast({ variant: 'destructive', title: 'Proveedor duplicado', description: `Ya existe un proveedor con el nombre "${trimmedNombre}".`});
+        return;
+    }
+    if (isRucDuplicate) {
+        toast({ variant: 'destructive', title: 'Proveedor duplicado', description: `Ya existe un proveedor con el RUC ${trimmedRuc}.`});
+        return;
     }
 
 
     try {
+        const proveedorData = {
+            ...currentProveedor,
+            nombre: trimmedNombre,
+            ruc: trimmedRuc,
+        };
+
         if(isEditing && currentProveedorId) {
             const proveedorRef = doc(db, 'proveedores', currentProveedorId);
-            await updateDoc(proveedorRef, currentProveedor);
+            await updateDoc(proveedorRef, proveedorData);
             toast({ title: 'Proveedor Actualizado', description: 'El proveedor ha sido actualizado exitosamente.'});
         } else {
-            await addDoc(collection(db, 'proveedores'), currentProveedor);
+            await addDoc(collection(db, 'proveedores'), proveedorData);
             toast({ title: 'Proveedor Creado', description: 'El nuevo proveedor ha sido creado exitosamente.'});
         }
         await fetchProveedores();
