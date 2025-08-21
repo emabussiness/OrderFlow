@@ -44,17 +44,20 @@ type EquipoRecepcionado = {
     estado: "Recibido";
 };
 
+type EquipoEnRecepcion = {
+    id: string;
+    tipo: string;
+    marca: string;
+    modelo: string;
+    problema_manifestado?: string; // Add this to show in details
+};
+
 type Recepcion = {
   id: string;
   cliente_id: string;
   cliente_nombre: string;
   fecha_recepcion: string;
-  equipos: {
-      id: string; // ID from equipos_en_servicio collection
-      tipo: string;
-      marca: string;
-      modelo: string;
-  }[];
+  equipos: EquipoEnRecepcion[];
   usuario_id: string;
   fecha_creacion: any;
 };
@@ -72,6 +75,11 @@ export default function RecepcionEquiposPage() {
   const [openCreate, setOpenCreate] = useState(false);
   const [selectedClienteId, setSelectedClienteId] = useState('');
   const [equipos, setEquipos] = useState<Partial<EquipoRecepcionado>[]>([]);
+  
+  // Details Dialog state
+  const [openDetails, setOpenDetails] = useState(false);
+  const [selectedRecepcion, setSelectedRecepcion] = useState<Recepcion | null>(null);
+
   
   const fetchData = async () => {
     setLoading(true);
@@ -149,7 +157,7 @@ export default function RecepcionEquiposPage() {
     
     try {
         const batch = writeBatch(db);
-        const equiposParaRecepcion = [];
+        const equiposParaRecepcion: EquipoEnRecepcion[] = [];
         const hoy = new Date();
 
         // 1. Create individual equipment documents
@@ -166,9 +174,10 @@ export default function RecepcionEquiposPage() {
             });
             equiposParaRecepcion.push({
                 id: equipoRef.id,
-                tipo: equipo.tipo_equipo_nombre,
-                marca: equipo.marca_nombre,
-                modelo: equipo.modelo
+                tipo: equipo.tipo_equipo_nombre!,
+                marca: equipo.marca_nombre!,
+                modelo: equipo.modelo!,
+                problema_manifestado: equipo.problema_manifestado,
             });
         }
         
@@ -192,6 +201,11 @@ export default function RecepcionEquiposPage() {
         console.error("Error creating reception:", e);
         toast({ variant: 'destructive', title: 'Error', description: 'No se pudo registrar la recepción.' });
     }
+  };
+  
+  const handleOpenDetails = (recepcion: Recepcion) => {
+    setSelectedRecepcion(recepcion);
+    setOpenDetails(true);
   };
 
   useEffect(() => {
@@ -323,7 +337,7 @@ export default function RecepcionEquiposPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDetails(r)}>Ver Detalles</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -334,6 +348,58 @@ export default function RecepcionEquiposPage() {
           {recepciones.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay recepciones registradas.</p>}
         </CardContent>
       </Card>
+
+        <Dialog open={openDetails} onOpenChange={setOpenDetails}>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+            <DialogHeader>
+                <DialogTitle>Detalles de la Recepción: {selectedRecepcion?.id.substring(0, 7)}</DialogTitle>
+                <DialogDescription>
+                    Información detallada de la recepción y los equipos asociados.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="flex-grow overflow-y-auto pr-6 -mr-6">
+                {selectedRecepcion && (
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div><p className="font-semibold">Cliente:</p><p>{selectedRecepcion.cliente_nombre}</p></div>
+                        <div><p className="font-semibold">Fecha de Recepción:</p><p>{selectedRecepcion.fecha_recepcion}</p></div>
+                        <div><p className="font-semibold">ID Recepción:</p><p>{selectedRecepcion.id}</p></div>
+                        <div><p className="font-semibold">Registrado por:</p><p>{selectedRecepcion.usuario_id}</p></div>
+                    </div>
+
+                    <Card>
+                        <CardHeader><CardTitle>Equipos en esta Recepción</CardTitle></CardHeader>
+                        <CardContent>
+                             <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tipo</TableHead>
+                                        <TableHead>Marca</TableHead>
+                                        <TableHead>Modelo</TableHead>
+                                        <TableHead>Problema Manifestado</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {selectedRecepcion.equipos.map((item, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell>{item.tipo}</TableCell>
+                                            <TableCell>{item.marca}</TableCell>
+                                            <TableCell>{item.modelo}</TableCell>
+                                            <TableCell className="max-w-[200px] truncate">{item.problema_manifestado}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+            </div>
+            <DialogFooterComponent className="border-t pt-4">
+                <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
+            </DialogFooterComponent>
+            </DialogContent>
+        </Dialog>
     </>
   );
 }
