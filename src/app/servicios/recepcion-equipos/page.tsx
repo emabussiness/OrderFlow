@@ -49,7 +49,7 @@ type EquipoEnRecepcion = {
     tipo: string;
     marca: string;
     modelo: string;
-    problema_manifestado?: string; // Add this to show in details
+    problema_manifestado: string; 
 };
 
 type Recepcion = {
@@ -177,7 +177,7 @@ export default function RecepcionEquiposPage() {
                 tipo: equipo.tipo_equipo_nombre!,
                 marca: equipo.marca_nombre!,
                 modelo: equipo.modelo!,
-                problema_manifestado: equipo.problema_manifestado,
+                problema_manifestado: equipo.problema_manifestado!,
             });
         }
         
