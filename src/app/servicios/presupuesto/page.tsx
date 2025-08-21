@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { useState, useEffect, useMemo } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,6 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FilePlus2 } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Input } from "@/components/ui/input";
 
 // --- Types ---
 type EquipoDiagnosticado = {
@@ -26,11 +33,20 @@ type EquipoDiagnosticado = {
   recepcion_id: string;
 };
 
+type GroupedEquipos = {
+  [key: string]: {
+    cliente_nombre: string;
+    fecha_recepcion: string;
+    equipos: EquipoDiagnosticado[];
+  }
+}
+
 // --- Main Component ---
 export default function PresupuestoServicioPage() {
   const { toast } = useToast();
   const [equipos, setEquipos] = useState<EquipoDiagnosticado[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,17 +58,6 @@ export default function PresupuestoServicioPage() {
         );
         const querySnapshot = await getDocs(q);
         const equiposList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
-        
-        // Sort on the client side
-        equiposList.sort((a, b) => {
-            if (a.fecha_diagnostico && b.fecha_diagnostico) {
-                return new Date(b.fecha_diagnostico).getTime() - new Date(a.fecha_diagnostico).getTime();
-            }
-            if (a.fecha_diagnostico) return -1;
-            if (b.fecha_diagnostico) return 1;
-            return 0;
-        });
-
         setEquipos(equiposList);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -63,6 +68,38 @@ export default function PresupuestoServicioPage() {
     };
     fetchData();
   }, [toast]);
+  
+  const groupedAndFilteredEquipos = useMemo(() => {
+    const grouped: GroupedEquipos = {};
+
+    equipos.forEach(equipo => {
+      const term = searchTerm.toLowerCase();
+      const matchesSearch = !term ||
+        equipo.cliente_nombre.toLowerCase().includes(term) ||
+        equipo.recepcion_id?.toLowerCase().includes(term) ||
+        equipo.tipo_equipo_nombre.toLowerCase().includes(term) ||
+        equipo.marca_nombre.toLowerCase().includes(term) ||
+        equipo.modelo.toLowerCase().includes(term);
+
+      if (matchesSearch && equipo.recepcion_id) {
+        const key = equipo.recepcion_id;
+        if (!grouped[key]) {
+          grouped[key] = {
+            cliente_nombre: equipo.cliente_nombre,
+            fecha_recepcion: equipo.fecha_recepcion,
+            equipos: []
+          };
+        }
+        grouped[key].equipos.push(equipo);
+      }
+    });
+
+    return Object.entries(grouped)
+        .sort(([, valA], [, valB]) => new Date(valB.fecha_recepcion).getTime() - new Date(valA.fecha_recepcion).getTime())
+        .reduce((acc, [key, val]) => ({...acc, [key]: val}), {});
+
+  }, [equipos, searchTerm]);
+
 
   if (loading) return <p>Cargando equipos diagnosticados...</p>;
 
@@ -76,42 +113,60 @@ export default function PresupuestoServicioPage() {
         <CardHeader>
           <CardTitle>Equipos Pendientes de Presupuesto</CardTitle>
           <CardDescription>
-            Estos equipos ya han sido diagnosticados y están listos para que se les genere un presupuesto de reparación.
+            Equipos diagnosticados listos para generar un presupuesto de reparación.
+            <Input
+              placeholder="Buscar por cliente, ID de recepción, tipo, marca o modelo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID Recepción</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Equipo</TableHead>
-                <TableHead>Fecha Diag.</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {equipos.map((equipo) => (
-                <TableRow key={equipo.id}>
-                  <TableCell className="font-mono text-xs">{equipo.recepcion_id?.substring(0, 7) || 'N/A'}</TableCell>
-                  <TableCell className="font-medium">{equipo.cliente_nombre}</TableCell>
-                  <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
-                  <TableCell>{equipo.fecha_diagnostico}</TableCell>
-                  <TableCell>
-                      <Badge variant="secondary">{equipo.estado}</Badge>
-                  </TableCell>
-                  <TableCell>
-                      <Button variant="outline" size="sm">
-                          <FilePlus2 className="mr-2 h-4 w-4"/>
-                          Presupuestar
-                      </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {equipos.length === 0 && (
+           <Accordion type="single" collapsible className="w-full">
+            {Object.entries(groupedAndFilteredEquipos).map(([recepcionId, data]) => (
+              <AccordionItem value={recepcionId} key={recepcionId}>
+                <AccordionTrigger>
+                  <div className="flex justify-between w-full pr-4">
+                    <span className="font-medium">Recepción ID: {recepcionId.substring(0, 7)}</span>
+                    <span className="text-muted-foreground">Cliente: {data.cliente_nombre}</span>
+                    <span className="text-muted-foreground">Fecha: {data.fecha_recepcion}</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Equipo</TableHead>
+                        <TableHead>Fecha Diag.</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.equipos.map((equipo) => (
+                        <TableRow key={equipo.id}>
+                           <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
+                           <TableCell>{equipo.fecha_diagnostico}</TableCell>
+                           <TableCell>
+                               <Badge variant="secondary">{equipo.estado}</Badge>
+                           </TableCell>
+                           <TableCell>
+                               <Button variant="outline" size="sm">
+                                   <FilePlus2 className="mr-2 h-4 w-4"/>
+                                   Presupuestar
+                               </Button>
+                           </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+
+          {Object.keys(groupedAndFilteredEquipos).length === 0 && (
             <p className="text-center text-muted-foreground py-10">
               No hay equipos pendientes de presupuesto en este momento.
             </p>
