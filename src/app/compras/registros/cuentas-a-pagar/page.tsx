@@ -76,6 +76,7 @@ type PagoRealizado = {
     facturas_afectadas: {
         id: string;
         monto_aplicado: number;
+        numero_factura: string;
     }[];
 };
 
@@ -95,16 +96,16 @@ const HistorialPagosDialog = ({ cuenta, onOpenChange }: { cuenta: CuentaPagar, o
         const fetchPagos = async () => {
             setLoading(true);
             try {
-                const q = query(
-                    collection(db, 'pagos_proveedores'),
-                    where('facturas_afectadas', 'array-contains', { id: cuenta.id, monto_aplicado: 0, numero_factura: cuenta.numero_factura }) // This is a trick, but we'll filter client side
-                );
-                
-                const pagosSnap = await getDocs(query(collection(db, 'pagos_proveedores'), where('proveedor_id', '==', cuenta.proveedor_id)));
+                 // Correct way to query: Fetch all payments for the provider and then filter in the client
+                const pagosRef = collection(db, 'pagos_proveedores');
+                const q = query(pagosRef, where("proveedor_id", "==", cuenta.proveedor_id));
+
+                const pagosSnap = await getDocs(q);
                 
                 const pagosList: PagoRealizado[] = [];
                 pagosSnap.forEach(doc => {
                     const pagoData = doc.data() as PagoRealizado;
+                    // Check if this payment document includes the invoice we are interested in
                     if (pagoData.facturas_afectadas.some(f => f.id === cuenta.id)) {
                         pagosList.push({ id: doc.id, ...pagoData });
                     }
@@ -281,11 +282,11 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
 
             for (const factura of facturasParaPago) {
                 if (factura.monto_a_aplicar <= 0) continue;
-
-                const nuevoSaldo = factura.saldo_pendiente - factura.monto_a_aplicar;
-                const nuevoEstado = nuevoSaldo < 0.01 ? 'Pagado' : 'Pagado Parcial';
                 
                 const facturaRef = doc(db, 'cuentas_a_pagar', factura.id);
+                const nuevoSaldo = factura.saldo_pendiente - factura.monto_a_aplicar;
+                const nuevoEstado = nuevoSaldo < 1 ? 'Pagado' : 'Pagado Parcial';
+                
                 batch.update(facturaRef, {
                     saldo_pendiente: increment(-factura.monto_a_aplicar),
                     estado: nuevoEstado,
