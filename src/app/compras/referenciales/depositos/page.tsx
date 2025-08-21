@@ -106,18 +106,35 @@ export default function DepositosPage() {
   }
 
   const handleSubmit = async () => {
-    if (!currentDeposito.nombre || !currentDeposito.sucursal_id) {
+    const trimmedName = currentDeposito.nombre.trim();
+    if (!trimmedName || !currentDeposito.sucursal_id) {
         toast({ variant: 'destructive', title: 'Error de validación', description: 'Nombre y sucursal son requeridos.'});
         return;
     }
 
+    // Check for duplicates
+    const isDuplicate = depositos.some(dep => 
+        dep.nombre.toLowerCase() === trimmedName.toLowerCase() &&
+        dep.sucursal_id === currentDeposito.sucursal_id &&
+        dep.id !== currentDepositoId
+    );
+
+    if (isDuplicate) {
+        toast({ variant: 'destructive', title: 'Depósito duplicado', description: `Ya existe un depósito con el nombre "${trimmedName}" en la sucursal seleccionada.`});
+        return;
+    }
+
     try {
+        const depositoData = {
+            ...currentDeposito,
+            nombre: trimmedName,
+        };
         if(isEditing && currentDepositoId) {
             const depositoRef = doc(db, 'depositos', currentDepositoId);
-            await updateDoc(depositoRef, currentDeposito);
+            await updateDoc(depositoRef, depositoData);
             toast({ title: 'Depósito Actualizado', description: 'El depósito ha sido actualizado exitosamente.'});
         } else {
-            await addDoc(collection(db, 'depositos'), currentDeposito);
+            await addDoc(collection(db, 'depositos'), depositoData);
             toast({ title: 'Depósito Creado', description: 'El nuevo depósito ha sido creado exitosamente.'});
         }
         await fetchData();
@@ -242,4 +259,5 @@ export default function DepositosPage() {
       </Dialog>
     </>
   );
-}
+
+    
