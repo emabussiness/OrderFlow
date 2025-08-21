@@ -107,7 +107,7 @@ export default function RecepcionEquiposPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [toast]);
 
   const handleAddEquipo = () => {
     setEquipos(prev => [...prev, { problema_manifestado: '' }]);
@@ -164,8 +164,10 @@ export default function RecepcionEquiposPage() {
         const hoy = new Date();
 
         // 1. Create individual equipment documents in 'equipos_en_servicio'
-        for (const equipo of equipos as EquipoParaAgregar[]) {
+        for (const equipo of equipos) {
+            const equipoCompleto = equipo as EquipoParaAgregar;
             const equipoRef = doc(collection(db, "equipos_en_servicio"));
+            
             // The full data for the individual equipment document
             batch.set(equipoRef, {
                 cliente_id: selectedClienteId,
@@ -174,22 +176,23 @@ export default function RecepcionEquiposPage() {
                 estado: "Recibido",
                 usuario_id: "user-demo",
                 fecha_creacion: serverTimestamp(),
-                tipo_equipo_id: equipo.tipo_equipo_id,
-                tipo_equipo_nombre: equipo.tipo_equipo_nombre,
-                marca_id: equipo.marca_id,
-                marca_nombre: equipo.marca_nombre,
-                modelo: equipo.modelo,
-                numero_serie: equipo.numero_serie || null,
-                problema_manifestado: equipo.problema_manifestado,
-                accesorios: equipo.accesorios || null,
+                tipo_equipo_id: equipoCompleto.tipo_equipo_id,
+                tipo_equipo_nombre: equipoCompleto.tipo_equipo_nombre,
+                marca_id: equipoCompleto.marca_id,
+                marca_nombre: equipoCompleto.marca_nombre,
+                modelo: equipoCompleto.modelo,
+                numero_serie: equipoCompleto.numero_serie || null,
+                problema_manifestado: equipoCompleto.problema_manifestado,
+                accesorios: equipoCompleto.accesorios || null,
             });
+            
             // The summarized data for the 'recepciones' document array
             equiposParaRecepcion.push({
                 id: equipoRef.id,
-                tipo: equipo.tipo_equipo_nombre,
-                marca: equipo.marca_nombre,
-                modelo: equipo.modelo,
-                problema_manifestado: equipo.problema_manifestado,
+                tipo: equipoCompleto.tipo_equipo_nombre,
+                marca: equipoCompleto.marca_nombre,
+                modelo: equipoCompleto.modelo,
+                problema_manifestado: equipoCompleto.problema_manifestado,
             });
         }
         
