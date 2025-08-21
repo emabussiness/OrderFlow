@@ -170,11 +170,11 @@ export default function RecepcionEquiposPage() {
 
                 // Save the full equipment data in its own document
                 transaction.set(equipoRef, {
-                    recepcion_id: recepcionRef.id, // Link to parent reception
+                    recepcion_id: recepcionRef.id,
                     cliente_id: selectedClienteId,
                     cliente_nombre: clienteSeleccionado.nombre,
                     fecha_recepcion: fechaRecepcion,
-                    estado: "Recibido", // CRITICAL: Set initial state
+                    estado: "Recibido",
                     usuario_id: "user-demo",
                     fecha_creacion: serverTimestamp(),
                     tipo_equipo_id: equipoCompleto.tipo_equipo_id,
