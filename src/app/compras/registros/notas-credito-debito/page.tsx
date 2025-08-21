@@ -49,6 +49,7 @@ type ItemNotaCredito = {
   cantidad_ajustada: number;
   precio_unitario: number;
   iva_tipo: number;
+  cantidad_pendiente: number;
 };
 
 type NotaCreditoDebito = {
@@ -204,32 +205,53 @@ export default function NotasCreditoDebitoPage() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  useEffect(() => {
-    if (selectedCompra) {
-      setItems(selectedCompra.items.map(item => ({
-        producto_id: item.producto_id,
-        nombre: item.nombre,
-        cantidad_ajustada: 0, // Inicia en 0 para que el usuario ingrese la cantidad a devolver
-        precio_unitario: item.precio_unitario,
-        iva_tipo: item.iva_tipo
-      })));
-    } else {
-      setItems([]);
-    }
-  }, [selectedCompraId, selectedCompra]);
   
+  useEffect(() => {
+    const calculatePendingItems = async () => {
+        if (selectedCompra) {
+            const q = query(collection(db, 'notas_credito_debito_compras'), where("compra_id", "==", selectedCompra.id));
+            const prevNotasSnap = await getDocs(q);
+
+            const returnedQuantities = new Map<string, number>();
+            prevNotasSnap.forEach(doc => {
+                const notaData = doc.data() as NotaCreditoDebito;
+                notaData.items.forEach(item => {
+                    returnedQuantities.set(item.producto_id, (returnedQuantities.get(item.producto_id) || 0) + item.cantidad_ajustada);
+                });
+            });
+
+            const itemsWithPending = selectedCompra.items.map(item => {
+                const totalReturned = returnedQuantities.get(item.producto_id) || 0;
+                const pending = item.cantidad_recibida - totalReturned;
+                return {
+                    producto_id: item.producto_id,
+                    nombre: item.nombre,
+                    cantidad_ajustada: 0,
+                    precio_unitario: item.precio_unitario,
+                    iva_tipo: item.iva_tipo,
+                    cantidad_pendiente: pending,
+                };
+            });
+            setItems(itemsWithPending);
+        } else {
+            setItems([]);
+        }
+    };
+    calculatePendingItems();
+  }, [selectedCompraId, selectedCompra]);
+
+
   const handleItemChange = (index: number, value: string) => {
     const newItems = [...items];
-    const itemOriginal = selectedCompra?.items.find(i => i.producto_id === newItems[index].producto_id);
-    const cantidadOriginal = itemOriginal?.cantidad_recibida || 0;
+    const itemToChange = newItems[index];
+    const cantidadPendiente = itemToChange.cantidad_pendiente;
     
     let cantidadAjustada = Number(value);
     
     if (isNaN(cantidadAjustada) || cantidadAjustada < 0) cantidadAjustada = 0;
-    if (cantidadAjustada > cantidadOriginal) {
-        toast({ variant: 'destructive', title: 'Cantidad inválida', description: `No puede devolver más de lo comprado (${cantidadOriginal}).`})
-        cantidadAjustada = cantidadOriginal;
+    if (cantidadAjustada > cantidadPendiente) {
+        toast({ variant: 'destructive', title: 'Cantidad inválida', description: `No puede devolver más de lo pendiente (${cantidadPendiente}).`})
+        cantidadAjustada = cantidadPendiente;
     }
 
     newItems[index].cantidad_ajustada = cantidadAjustada;
@@ -294,7 +316,13 @@ export default function NotasCreditoDebitoPage() {
             fecha_emision: format(fechaEmision, "yyyy-MM-dd"),
             motivo,
             total: totalNota,
-            items: items.filter(i => i.cantidad_ajustada > 0),
+            items: items.filter(i => i.cantidad_ajustada > 0).map(i => ({
+                producto_id: i.producto_id,
+                nombre: i.nombre,
+                cantidad_ajustada: i.cantidad_ajustada,
+                precio_unitario: i.precio_unitario,
+                iva_tipo: i.iva_tipo
+            })),
             usuario_id: 'user-demo',
             fecha_creacion: serverTimestamp()
         });
@@ -421,6 +449,7 @@ export default function NotasCreditoDebitoPage() {
                                             <TableRow>
                                                 <TableHead>Producto</TableHead>
                                                 <TableHead className="w-[120px]">Cant. Comprada</TableHead>
+                                                <TableHead className="w-[120px]">Cant. Pendiente</TableHead>
                                                 <TableHead className="w-[120px]">Cant. a Devolver</TableHead>
                                                 <TableHead className="w-[120px]">P. Unit.</TableHead>
                                                 <TableHead className="text-right w-[150px]">Subtotal Ajuste</TableHead>
@@ -431,7 +460,8 @@ export default function NotasCreditoDebitoPage() {
                                                 <TableRow key={index}>
                                                     <TableCell>{item.nombre}</TableCell>
                                                     <TableCell>{selectedCompra.items.find(i => i.producto_id === item.producto_id)?.cantidad_recibida || 0}</TableCell>
-                                                    <TableCell><Input type="number" value={item.cantidad_ajustada} onChange={e => handleItemChange(index, e.target.value)} min="0"/></TableCell>
+                                                    <TableCell>{item.cantidad_pendiente}</TableCell>
+                                                    <TableCell><Input type="number" value={item.cantidad_ajustada} onChange={e => handleItemChange(index, e.target.value)} min="0" disabled={item.cantidad_pendiente === 0} /></TableCell>
                                                     <TableCell>{currencyFormatter.format(item.precio_unitario)}</TableCell>
                                                     <TableCell className="text-right">{currencyFormatter.format(item.cantidad_ajustada * item.precio_unitario)}</TableCell>
                                                 </TableRow>
@@ -563,3 +593,5 @@ export default function NotasCreditoDebitoPage() {
     </>
   );
 }
+
+    
