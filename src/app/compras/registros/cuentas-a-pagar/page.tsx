@@ -146,7 +146,7 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
             return;
         }
 
-        if (formaPagoSeleccionada?.nombre === 'Cheque' && (!numeroCheque || !fechaEmisionCheque || (tipoCheque === 'Diferido' && !fechaPagoCheque))) {
+        if (formaPagoSeleccionada?.nombre.toLowerCase() === 'cheque' && (!numeroCheque || !fechaEmisionCheque || (tipoCheque === 'Diferido' && !fechaPagoCheque))) {
              toast({ variant: 'destructive', title: 'Datos del Cheque Incompletos', description: 'Por favor, complete todos los campos requeridos para el cheque.' });
             return;
         }
@@ -170,7 +170,7 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
                 fecha_creacion: serverTimestamp(),
             };
 
-            if (formaPagoSeleccionada?.nombre === 'Cheque') {
+            if (formaPagoSeleccionada?.nombre.toLowerCase() === 'cheque') {
                 pagoData.cheque_info = {
                     tipo: tipoCheque,
                     numero: numeroCheque,
@@ -191,7 +191,7 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
                 monto: totalAPagar,
                 forma_pago_nombre: formaPagoSeleccionada?.nombre || 'N/A',
                 banco_nombre: bancoSeleccionado?.nombre || null,
-                referencia: formaPagoSeleccionada?.nombre === 'Cheque' ? `Cheque Nro ${numeroCheque}` : numeroReferencia || null,
+                referencia: formaPagoSeleccionada?.nombre.toLowerCase() === 'cheque' ? `Cheque Nro ${numeroCheque}` : numeroReferencia || null,
             });
 
             for (const factura of facturasParaPago) {
@@ -283,7 +283,7 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
                         <Combobox options={formasPago.map(f => ({ value: f.id, label: f.nombre }))} value={formaPagoId} onChange={setFormaPagoId} placeholder="Seleccione una forma de pago" />
                     </div>
                     
-                    {formaPagoSeleccionada?.nombre === 'Cheque' ? (
+                    {formaPagoSeleccionada?.nombre.toLowerCase() === 'cheque' ? (
                         <>
                             <div className="space-y-2">
                                 <Label htmlFor="tipo-cheque">Tipo de Cheque</Label>
