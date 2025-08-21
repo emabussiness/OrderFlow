@@ -383,7 +383,7 @@ export default function OrdenesCompraPage() {
             orden.id.toLowerCase().includes(searchTermLower) ||
             orden.proveedor_nombre.toLowerCase().includes(searchTermLower) ||
             orden.deposito_nombre.toLowerCase().includes(searchTermLower) ||
-            orden.items.some(item => item.nombre.toLowerCase().includes(searchTermLower));
+            orden.items.some(item => item.nombre && item.nombre.toLowerCase().includes(searchTermLower));
 
         const matchesStatus = statusFilter === '' || orden.estado === statusFilter;
         const matchesProveedor = proveedorFilter === '' || orden.proveedor_id === proveedorFilter;
@@ -835,4 +835,5 @@ export default function OrdenesCompraPage() {
     
 
     
+
 
