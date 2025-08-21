@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { collection, getDocs, addDoc, doc, serverTimestamp, query, orderBy, where, writeBatch, getDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, serverTimestamp, query, orderBy, where, writeBatch, getDoc, runTransaction } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -155,59 +155,62 @@ export default function RecepcionEquiposPage() {
     }
     
     try {
-        const batch = writeBatch(db);
-        const hoy = new Date();
-        
-        // 1. Create the parent reception document to get its ID
-        const recepcionRef = doc(collection(db, "recepciones"));
+        await runTransaction(db, async (transaction) => {
+            const hoy = new Date();
+            const fechaRecepcion = format(hoy, "yyyy-MM-dd");
 
-        const equiposParaRecepcion: { id: string, problema_manifestado: string }[] = [];
+            // 1. Create the main reception document first to get an ID.
+            const recepcionRef = doc(collection(db, "recepciones"));
+            const equiposParaRecepcion: { id: string, problema_manifestado: string }[] = [];
 
-        // 2. Create a document for each piece of equipment
-        for (const equipoData of equipos) {
-            const equipoCompleto = equipoData as EquipoParaAgregar;
-            const equipoRef = doc(collection(db, "equipos_en_servicio"));
-            
-            batch.set(equipoRef, {
-                recepcion_id: recepcionRef.id,
+            // 2. Create each equipment document, linking it to the reception.
+            for (const equipoData of equipos) {
+                const equipoCompleto = equipoData as EquipoParaAgregar;
+                const equipoRef = doc(collection(db, "equipos_en_servicio"));
+
+                // Save the full equipment data in its own document
+                transaction.set(equipoRef, {
+                    recepcion_id: recepcionRef.id, // Link to parent reception
+                    cliente_id: selectedClienteId,
+                    cliente_nombre: clienteSeleccionado.nombre,
+                    fecha_recepcion: fechaRecepcion,
+                    estado: "Recibido", // CRITICAL: Set initial state
+                    usuario_id: "user-demo",
+                    fecha_creacion: serverTimestamp(),
+                    tipo_equipo_id: equipoCompleto.tipo_equipo_id,
+                    tipo_equipo_nombre: equipoCompleto.tipo_equipo_nombre,
+                    marca_id: equipoCompleto.marca_id,
+                    marca_nombre: equipoCompleto.marca_nombre,
+                    modelo: equipoCompleto.modelo,
+                    numero_serie: equipoCompleto.numero_serie || null,
+                    problema_manifestado: equipoCompleto.problema_manifestado,
+                    accesorios: equipoCompleto.accesorios || null,
+                });
+
+                // Prepare the summary for the reception document
+                equiposParaRecepcion.push({ 
+                    id: equipoRef.id, 
+                    problema_manifestado: equipoCompleto.problema_manifestado 
+                });
+            }
+
+            // 3. Now set the data for the main reception document with the array of equipment summaries.
+            transaction.set(recepcionRef, {
                 cliente_id: selectedClienteId,
                 cliente_nombre: clienteSeleccionado.nombre,
-                fecha_recepcion: format(hoy, "yyyy-MM-dd"),
-                estado: "Recibido", // <<< --- CORRECCIÓN CLAVE AQUÍ
+                fecha_recepcion: fechaRecepcion,
+                equipos: equiposParaRecepcion,
                 usuario_id: "user-demo",
                 fecha_creacion: serverTimestamp(),
-                tipo_equipo_id: equipoCompleto.tipo_equipo_id,
-                tipo_equipo_nombre: equipoCompleto.tipo_equipo_nombre,
-                marca_id: equipoCompleto.marca_id,
-                marca_nombre: equipoCompleto.marca_nombre,
-                modelo: equipoCompleto.modelo,
-                numero_serie: equipoCompleto.numero_serie || null,
-                problema_manifestado: equipoCompleto.problema_manifestado,
-                accesorios: equipoCompleto.accesorios || null,
             });
-            
-            equiposParaRecepcion.push({ id: equipoRef.id, problema_manifestado: equipoCompleto.problema_manifestado });
-        }
-        
-        // 3. Set the data for the reception document, including the array of equipment IDs
-        batch.set(recepcionRef, {
-            cliente_id: selectedClienteId,
-            cliente_nombre: clienteSeleccionado.nombre,
-            fecha_recepcion: format(hoy, "yyyy-MM-dd"),
-            equipos: equiposParaRecepcion,
-            usuario_id: "user-demo",
-            fecha_creacion: serverTimestamp(),
         });
-        
-        // 4. Commit all operations atomically
-        await batch.commit();
 
         toast({ title: 'Recepción Registrada', description: 'Los equipos han sido registrados y están listos para diagnóstico.' });
         setOpenCreate(false);
         await fetchData();
     } catch (e) {
         console.error("Error creating reception:", e);
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo registrar la recepción.' });
+        toast({ variant: 'destructive', title: 'Error en Transacción', description: (e as Error).message || 'No se pudo registrar la recepción.' });
     }
   };
   
