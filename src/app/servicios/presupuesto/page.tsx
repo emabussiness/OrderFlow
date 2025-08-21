@@ -30,6 +30,7 @@ type EquipoDiagnosticado = {
   modelo: string;
   problema_manifestado: string;
   diagnostico_tecnico?: string;
+  trabajos_a_realizar?: string;
   estado: "Recibido" | "Diagnosticado" | "Presupuestado" | "En Reparación" | "Reparado" | "Retirado";
   recepcion_id: string;
 };
@@ -73,7 +74,11 @@ export default function PresupuestoServicioPage() {
   const groupedAndFilteredEquipos = useMemo(() => {
     const grouped: GroupedEquipos = {};
 
-    equipos.forEach(equipo => {
+    const sortedEquipos = [...equipos].sort((a, b) => 
+        new Date(b.fecha_diagnostico || 0).getTime() - new Date(a.fecha_diagnostico || 0).getTime()
+    );
+
+    sortedEquipos.forEach(equipo => {
       const term = searchTerm.toLowerCase();
       const matchesSearch = !term ||
         equipo.cliente_nombre.toLowerCase().includes(term) ||
@@ -154,12 +159,18 @@ export default function PresupuestoServicioPage() {
                                   <PopoverTrigger asChild>
                                       <Badge variant="secondary" className="cursor-pointer">{equipo.estado}</Badge>
                                   </PopoverTrigger>
-                                  <PopoverContent className="w-80">
+                                  <PopoverContent className="w-96">
                                     <div className="grid gap-4">
                                       <div className="space-y-2">
                                         <h4 className="font-medium leading-none">Diagnóstico Técnico</h4>
                                         <p className="text-sm text-muted-foreground">
                                           {equipo.diagnostico_tecnico || "No se ha proporcionado un diagnóstico."}
+                                        </p>
+                                      </div>
+                                       <div className="space-y-2">
+                                        <h4 className="font-medium leading-none">Trabajos a Realizar</h4>
+                                        <p className="text-sm text-muted-foreground">
+                                          {equipo.trabajos_a_realizar || "No se han especificado los trabajos."}
                                         </p>
                                       </div>
                                     </div>
