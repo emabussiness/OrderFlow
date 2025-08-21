@@ -36,6 +36,7 @@ type Compra = {
   id: string;
   proveedor_id: string;
   proveedor_nombre: string;
+  proveedor_ruc: string;
   deposito_id: string;
   numero_factura: string;
   fecha_compra: string;
@@ -192,7 +193,11 @@ export default function NotasCreditoDebitoPage() {
       setNotas(notasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotaCreditoDebito)));
 
       const comprasSnapshot = await getDocs(query(collection(db, 'compras'), orderBy("fecha_creacion", "desc")));
-      setCompras(comprasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Compra)));
+       const comprasList = comprasSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Compra));
+      setCompras(comprasList);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -301,76 +306,65 @@ export default function NotasCreditoDebitoPage() {
     }
 
     try {
-        await runTransaction(db, async (transaction) => {
-            const qCuentas = query(collection(db, 'cuentas_a_pagar'), where("compra_id", "==", selectedCompraId));
-            const cuentaSnapshot = await getDocs(qCuentas);
-            
-            if (cuentaSnapshot.empty) {
-                throw new Error("La cuenta a pagar asociada a esta compra no existe.");
-            }
-
-            const cuentaDoc = cuentaSnapshot.docs[0];
-            const cuentaRef = cuentaDoc.ref;
-            const cuentaData = (await transaction.get(cuentaRef)).data();
-            
-            if (!cuentaData) {
-                 throw new Error("No se pudieron obtener los datos de la cuenta a pagar.");
-            }
-            
-            const notaRef = doc(collection(db, "notas_credito_debito_compras"));
-            transaction.set(notaRef, {
-                compra_id: selectedCompraId,
-                proveedor_id: selectedCompra.proveedor_id,
-                proveedor_nombre: selectedCompra.proveedor_nombre,
-                numero_factura_compra: selectedCompra.numero_factura,
-                numero_nota_credito: trimmedNota,
-                fecha_emision: format(fechaEmision, "yyyy-MM-dd"),
-                motivo,
-                total: totalNota,
-                items: items.filter(i => i.cantidad_ajustada > 0).map(i => ({
-                    producto_id: i.producto_id,
-                    nombre: i.nombre,
-                    cantidad_ajustada: i.cantidad_ajustada,
-                    precio_unitario: i.precio_unitario,
-                    iva_tipo: i.iva_tipo
-                })),
-                usuario_id: 'user-demo',
-                fecha_creacion: serverTimestamp()
-            });
-
-            const nuevoSaldo = cuentaData.saldo_pendiente - totalNota;
-            let nuevoEstado = cuentaData.estado;
-
-            if (nuevoSaldo <= 0.01) { // Usamos un pequeño umbral para evitar problemas de punto flotante
-               nuevoEstado = "Pagado";
-            } else if (nuevoSaldo < cuentaData.monto_total) {
-               nuevoEstado = "Pagado Parcial";
-            } else {
-               nuevoEstado = "Pendiente";
-            }
-            
-            transaction.update(cuentaRef, {
-                saldo_pendiente: increment(-totalNota),
-                estado: nuevoEstado
-            });
-
-            const itemsAjustados = items.filter(i => i.cantidad_ajustada > 0);
-            for (const item of itemsAjustados) {
-                const qStock = query(
-                    collection(db, 'stock'),
-                    where('producto_id', '==', item.producto_id),
-                    where('deposito_id', '==', selectedCompra.deposito_id)
-                );
-                const stockSnapshot = await getDocs(qStock);
-                if (!stockSnapshot.empty) {
-                    const stockDoc = stockSnapshot.docs[0];
-                    transaction.update(stockDoc.ref, { 
-                        cantidad: increment(-item.cantidad_ajustada),
-                        fecha_actualizacion: serverTimestamp()
-                    });
-                }
-            }
+        const batch = writeBatch(db);
+        
+        // 1. Create Nota de Credito document
+        const notaRef = doc(collection(db, "notas_credito_debito_compras"));
+        batch.set(notaRef, {
+            compra_id: selectedCompraId,
+            proveedor_id: selectedCompra.proveedor_id,
+            proveedor_nombre: selectedCompra.proveedor_nombre,
+            numero_factura_compra: selectedCompra.numero_factura,
+            numero_nota_credito: trimmedNota,
+            fecha_emision: format(fechaEmision, "yyyy-MM-dd"),
+            motivo,
+            total: totalNota,
+            items: items.filter(i => i.cantidad_ajustada > 0).map(i => ({
+                producto_id: i.producto_id,
+                nombre: i.nombre,
+                cantidad_ajustada: i.cantidad_ajustada,
+                precio_unitario: i.precio_unitario,
+                iva_tipo: i.iva_tipo
+            })),
+            usuario_id: 'user-demo',
+            fecha_creacion: serverTimestamp()
         });
+
+        // 2. Create a new Cuentas a Pagar document for the credit note (negative value)
+        const cuentaPagarRef = doc(collection(db, 'cuentas_a_pagar'));
+        batch.set(cuentaPagarRef, {
+           compra_id: selectedCompraId,
+           nota_credito_id: notaRef.id,
+           proveedor_id: selectedCompra.proveedor_id,
+           proveedor_nombre: selectedCompra.proveedor_nombre,
+           numero_factura: trimmedNota, // Use NC number as the reference
+           fecha_emision: format(fechaEmision, "yyyy-MM-dd"),
+           fecha_vencimiento: format(fechaEmision, "yyyy-MM-dd"), // Same day
+           monto_total: -totalNota, // Negative amount
+           saldo_pendiente: -totalNota, // Negative balance
+           estado: 'Pendiente', // It is a pending credit
+           tipo_documento: 'Nota de Crédito'
+        });
+        
+        // 3. Update stock
+        const itemsAjustados = items.filter(i => i.cantidad_ajustada > 0);
+        for (const item of itemsAjustados) {
+            const qStock = query(
+                collection(db, 'stock'),
+                where('producto_id', '==', item.producto_id),
+                where('deposito_id', '==', selectedCompra.deposito_id)
+            );
+            const stockSnapshot = await getDocs(qStock);
+            if (!stockSnapshot.empty) {
+                const stockDoc = stockSnapshot.docs[0];
+                batch.update(stockDoc.ref, { 
+                    cantidad: increment(-item.cantidad_ajustada),
+                    fecha_actualizacion: serverTimestamp()
+                });
+            }
+        }
+        
+        await batch.commit();
         
         toast({ title: 'Nota de Crédito Registrada', description: `La nota, el stock y la cuenta a pagar han sido actualizados.`});
         setOpenCreate(false);
@@ -405,7 +399,7 @@ export default function NotasCreditoDebitoPage() {
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Registrar Nueva Nota de Crédito por Devolución o Ajuste</DialogTitle>
-                    <DialogDescription>Este proceso ajustará la cuenta a pagar y el stock de los productos devueltos a un proveedor.</DialogDescription>
+                    <DialogDescription>Este proceso ajustará el stock y generará un saldo a favor en Cuentas por Pagar.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-grow grid gap-4 py-4 overflow-y-auto pr-2 -mr-2">
                     <div className="space-y-2">

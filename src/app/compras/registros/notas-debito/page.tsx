@@ -240,26 +240,21 @@ export default function NotasDebitoPage() {
                 fecha_creacion: serverTimestamp()
             });
 
-            // 2. Adjust Cuentas a Pagar
-            const qCuentas = query(collection(db, 'cuentas_a_pagar'), where("compra_id", "==", selectedCompraId));
-            const cuentaSnapshot = await getDocs(qCuentas);
-            if(!cuentaSnapshot.empty) {
-                const cuentaDoc = cuentaSnapshot.docs[0];
-                const cuentaData = cuentaDoc.data();
-                
-                // If the account was paid, it's now partially paid because of the new debit.
-                // If it was already pending or partially paid, it remains so.
-                let nuevoEstado = cuentaData.estado;
-                if (cuentaData.estado === 'Pagado') {
-                    nuevoEstado = 'Pagado Parcial';
-                }
-
-                batch.update(cuentaDoc.ref, {
-                    monto_total: increment(totalNota),
-                    saldo_pendiente: increment(totalNota),
-                    estado: nuevoEstado
-                });
-            }
+             // 2. Create a new Cuentas a Pagar document for the debit note
+            const cuentaPagarRef = doc(collection(db, 'cuentas_a_pagar'));
+            batch.set(cuentaPagarRef, {
+                compra_id: selectedCompraId,
+                nota_debito_id: notaRef.id,
+                proveedor_id: selectedCompra.proveedor_id,
+                proveedor_nombre: selectedCompra.proveedor_nombre,
+                numero_factura: trimmedNota, // Use ND number as the reference
+                fecha_emision: format(fechaEmision, "yyyy-MM-dd"),
+                fecha_vencimiento: format(fechaEmision, "yyyy-MM-dd"), // Same day, or could be configurable
+                monto_total: totalNota,
+                saldo_pendiente: totalNota,
+                estado: 'Pendiente',
+                tipo_documento: 'Nota de Débito'
+            });
             
             // 3. Create Libro IVA Compras entry for the debit note
             const libroIvaRef = doc(collection(db, 'libro_iva_compras'));
@@ -473,5 +468,3 @@ export default function NotasDebitoPage() {
             </Dialog>
         </>
     );
-
-    

@@ -35,13 +35,15 @@ type CuentaPagar = {
   compra_id: string;
   proveedor_id: string;
   proveedor_nombre: string;
-  numero_factura: string;
+  numero_factura: string; // Could be invoice number, NC number, or ND number
   fecha_emision: string;
   fecha_vencimiento: string;
   monto_total: number;
   saldo_pendiente: number;
   estado: "Pendiente" | "Pagado Parcial" | "Pagado";
+  tipo_documento?: 'Factura Compra' | 'Nota de Crédito' | 'Nota de Débito';
 };
+
 
 type Compra = {
   id: string;
@@ -207,25 +209,22 @@ const HistorialPagosDialog = ({ cuenta, onOpenChange }: { cuenta: CuentaPagar, o
         const fetchPagos = async () => {
             setLoading(true);
             try {
-                const pagosRef = collection(db, 'pagos_proveedores');
-                const q = query(pagosRef, where("facturas_afectadas", "array-contains", {
-                    id: cuenta.id,
-                    monto_aplicado: cuenta.monto_total, // This is a bit of a hack, Firestore can't query inside objects in arrays perfectly
-                    numero_factura: cuenta.numero_factura
-                }));
-                // A more robust query if the above fails due to monto_aplicado changing
-                const allPagosQuery = query(pagosRef, where("proveedor_id", "==", cuenta.proveedor_id));
+                 const allPagosQuery = query(
+                    collection(db, 'pagos_proveedores'),
+                    where('proveedor_id', '==', cuenta.proveedor_id),
+                    orderBy('fecha_pago', 'desc')
+                );
                 const pagosSnap = await getDocs(allPagosQuery);
                 
                 const pagosList: PagoRealizado[] = [];
                 pagosSnap.forEach(doc => {
-                    const pagoData = doc.data() as PagoRealizado;
+                    const pagoData = { id: doc.id, ...doc.data() } as PagoRealizado;
                     if (pagoData.facturas_afectadas.some(f => f.id === cuenta.id)) {
-                        pagosList.push({ id: doc.id, ...pagoData });
+                        pagosList.push(pagoData);
                     }
                 });
 
-                setPagos(pagosList.sort((a,b) => new Date(b.fecha_pago).getTime() - new Date(a.fecha_pago).getTime()));
+                setPagos(pagosList);
 
             } catch (error) {
                 console.error("Error fetching payment history:", error);
@@ -312,9 +311,18 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
 
         let montoValidado = monto;
         if (monto < 0) montoValidado = 0;
-        if (monto > facturaOriginal.saldo_pendiente) {
-            toast({ variant: 'destructive', title: 'Monto inválido', description: `El monto a aplicar no puede ser mayor al saldo de ${currencyFormatter.format(facturaOriginal.saldo_pendiente)}.` });
-            montoValidado = facturaOriginal.saldo_pendiente;
+        
+        // Allow applying credit from negative balances, but don't exceed it
+        if (facturaOriginal.monto_total < 0) {
+            if (monto < facturaOriginal.monto_total) {
+                toast({ variant: 'destructive', title: 'Monto inválido', description: `El crédito a aplicar no puede ser mayor al saldo de ${currencyFormatter.format(facturaOriginal.saldo_pendiente)}.` });
+                montoValidado = facturaOriginal.saldo_pendiente;
+            }
+        } else {
+             if (monto > facturaOriginal.saldo_pendiente) {
+                toast({ variant: 'destructive', title: 'Monto inválido', description: `El monto a aplicar no puede ser mayor al saldo de ${currencyFormatter.format(facturaOriginal.saldo_pendiente)}.` });
+                montoValidado = facturaOriginal.saldo_pendiente;
+            }
         }
 
         setFacturasParaPago(prev => prev.map(f => f.id === facturaId ? { ...f, monto_a_aplicar: montoValidado } : f));
@@ -395,11 +403,11 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
             });
 
             for (const factura of facturasParaPago) {
-                if (factura.monto_a_aplicar <= 0) continue;
+                if (factura.monto_a_aplicar === 0) continue;
                 
                 const facturaRef = doc(db, 'cuentas_a_pagar', factura.id);
                 const nuevoSaldo = factura.saldo_pendiente - factura.monto_a_aplicar;
-                const nuevoEstado = nuevoSaldo < 1 ? 'Pagado' : 'Pagado Parcial';
+                const nuevoEstado = Math.abs(nuevoSaldo) < 0.01 ? 'Pagado' : 'Pagado Parcial';
                 
                 batch.update(facturaRef, {
                     saldo_pendiente: increment(-factura.monto_a_aplicar),
@@ -425,17 +433,18 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Registrar Pago a {facturas[0]?.proveedor_nombre}</DialogTitle>
-                    <CardDescription>Seleccione las facturas y defina el monto a aplicar en cada una.</CardDescription>
+                    <CardDescription>Seleccione las facturas y defina el monto a aplicar en cada una. Puede incluir saldos a favor (notas de crédito).</CardDescription>
                 </DialogHeader>
                 <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 overflow-y-auto pr-4 -mr-4">
                     <div className="md:col-span-2">
-                        <Label>Facturas Pendientes</Label>
+                        <Label>Documentos Pendientes</Label>
                         <ScrollArea className="h-48 border rounded-md mt-2">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-10"></TableHead>
-                                        <TableHead>Factura Nro.</TableHead>
+                                        <TableHead>Documento Nro.</TableHead>
+                                        <TableHead>Tipo</TableHead>
                                         <TableHead>Vencimiento</TableHead>
                                         <TableHead className="text-right">Saldo</TableHead>
                                         <TableHead className="text-right w-[150px]">Monto a Aplicar</TableHead>
@@ -446,8 +455,13 @@ const RegistrarPagoDialog = ({ proveedorId, facturas, formasPago, bancos, onSucc
                                         <TableRow key={f.id}>
                                             <TableCell><Checkbox checked={selectedFacturas[f.id]} onCheckedChange={(checked) => setSelectedFacturas(prev => ({...prev, [f.id]: !!checked}))} /></TableCell>
                                             <TableCell>{f.numero_factura}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={f.tipo_documento === 'Nota de Crédito' ? 'default' : 'secondary'}>
+                                                    {f.tipo_documento || 'Factura Compra'}
+                                                </Badge>
+                                            </TableCell>
                                             <TableCell>{f.fecha_vencimiento}</TableCell>
-                                            <TableCell className="text-right">{currencyFormatter.format(f.saldo_pendiente)}</TableCell>
+                                            <TableCell className={cn("text-right", f.saldo_pendiente < 0 && "text-green-500")}>{currencyFormatter.format(f.saldo_pendiente)}</TableCell>
                                             <TableCell className="text-right">
                                                 {selectedFacturas[f.id] && (
                                                     <Input 
@@ -610,7 +624,7 @@ export default function CuentasPagarPage() {
       setSelectedCompra(compraAsociada);
       setOpenDetails(true);
     } else {
-        toast({ variant: 'destructive', title: 'Error', description: 'No se encontró la compra asociada.' });
+        toast({ variant: 'destructive', title: 'Error', description: 'No se encontró la compra asociada a este documento.' });
     }
   }
 
@@ -624,13 +638,11 @@ export default function CuentasPagarPage() {
       setOpenHistorialNotas(true);
   }
 
-  const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
-    switch (status) {
-      case "Pendiente": return "destructive";
-      case "Pagado": return "default";
-      case "Pagado Parcial": return "secondary";
-      default: return "outline";
-    }
+  const getStatusVariant = (status: string, saldo: number): "secondary" | "default" | "destructive" | "outline" => {
+    if (status === "Pagado") return "default";
+    if (status === "Pagado Parcial") return "secondary";
+    if (saldo < 0) return "outline";
+    return "destructive";
   };
 
   const filteredCuentas = allCuentas.filter(cuenta => {
@@ -693,8 +705,8 @@ export default function CuentasPagarPage() {
       </div>
 
       {Object.entries(cuentasAgrupadas).map(([proveedorId, facturas]) => {
-        const facturasPendientes = facturas.filter(f => f.estado === 'Pendiente' || f.estado === 'Pagado Parcial');
-        const totalDeuda = facturasPendientes.reduce((sum, f) => sum + f.saldo_pendiente, 0);
+        const documentosPendientes = facturas.filter(f => f.estado === 'Pendiente' || f.estado === 'Pagado Parcial');
+        const totalDeuda = documentosPendientes.reduce((sum, f) => sum + f.saldo_pendiente, 0);
 
         return (
             <Card key={proveedorId} className="mb-6">
@@ -702,15 +714,15 @@ export default function CuentasPagarPage() {
                     <div>
                         <CardTitle>{facturas[0].proveedor_nombre}</CardTitle>
                         <CardDescription>
-                            {facturasPendientes.length > 0 
-                                ? `${facturasPendientes.length} factura(s) con saldo. Deuda total: ${currencyFormatter.format(totalDeuda)}`
-                                : `No hay facturas pendientes de pago.`
+                            {documentosPendientes.length > 0 
+                                ? `${documentosPendientes.length} documento(s) con saldo. Saldo Total: ${currencyFormatter.format(totalDeuda)}`
+                                : `No hay documentos pendientes de pago.`
                             }
                         </CardDescription>
                     </div>
                     <RegistrarPagoDialog 
                         proveedorId={proveedorId} 
-                        facturas={facturasPendientes}
+                        facturas={documentosPendientes}
                         formasPago={formasPago}
                         bancos={bancos}
                         onSuccessfulPayment={fetchData}
@@ -720,7 +732,8 @@ export default function CuentasPagarPage() {
                 <Table>
                     <TableHeader>
                     <TableRow>
-                        <TableHead>Factura Nro.</TableHead>
+                        <TableHead>Documento Nro.</TableHead>
+                        <TableHead>Tipo Doc.</TableHead>
                         <TableHead>Fecha Emisión</TableHead>
                         <TableHead>Fecha Venc.</TableHead>
                         <TableHead>Estado</TableHead>
@@ -733,13 +746,18 @@ export default function CuentasPagarPage() {
                     {facturas.map((cuenta) => (
                         <TableRow key={cuenta.id} className={cn(cuenta.estado === 'Pagado' && 'text-muted-foreground bg-muted/30')}>
                         <TableCell>{cuenta.numero_factura}</TableCell>
+                        <TableCell>
+                          <Badge variant={cuenta.tipo_documento === 'Nota de Crédito' ? 'outline' : 'secondary'}>
+                            {cuenta.tipo_documento || 'Factura Compra'}
+                          </Badge>
+                        </TableCell>
                         <TableCell>{cuenta.fecha_emision}</TableCell>
                         <TableCell>{cuenta.fecha_vencimiento}</TableCell>
                         <TableCell>
-                            <Badge variant={getStatusVariant(cuenta.estado)}>{cuenta.estado}</Badge>
+                            <Badge variant={getStatusVariant(cuenta.estado, cuenta.saldo_pendiente)}>{cuenta.saldo_pendiente < 0 ? 'A favor' : cuenta.estado}</Badge>
                         </TableCell>
                         <TableCell className="text-right">{currencyFormatter.format(cuenta.monto_total)}</TableCell>
-                        <TableCell className="text-right font-medium">{currencyFormatter.format(cuenta.saldo_pendiente)}</TableCell>
+                        <TableCell className={cn("text-right font-medium", cuenta.saldo_pendiente < 0 && 'text-green-500')}>{currencyFormatter.format(cuenta.saldo_pendiente)}</TableCell>
                         <TableCell>
                             <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -749,9 +767,9 @@ export default function CuentasPagarPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenDetails(cuenta)}>Ver Compra Asociada</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenDetails(cuenta)} disabled={!cuenta.compra_id}>Ver Compra Asociada</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleOpenHistorial(cuenta)}><History className="mr-2 h-4 w-4"/>Ver Pagos Realizados</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenHistorialNotas(cuenta)}><FileText className="mr-2 h-4 w-4"/>Ver Notas de Ajuste</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenHistorialNotas(cuenta)} disabled={!cuenta.compra_id}><FileText className="mr-2 h-4 w-4"/>Ver Notas de Ajuste</DropdownMenuItem>
                             </DropdownMenuContent>
                             </DropdownMenu>
                         </TableCell>
@@ -854,4 +872,3 @@ export default function CuentasPagarPage() {
     </>
   );
 }
-
