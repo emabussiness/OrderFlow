@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // --- Types ---
 type EquipoEnServicio = {
@@ -241,9 +242,29 @@ export default function DiagnosticoPage() {
                           <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                           <TableCell className="max-w-[300px] truncate">{equipo.problema_manifestado}</TableCell>
                           <TableCell>
-                            <Badge variant={equipo.estado === 'Diagnosticado' ? 'default' : 'secondary'}>
-                              {equipo.estado}
-                            </Badge>
+                            {equipo.estado === 'Diagnosticado' ? (
+                                <Popover>
+                                <PopoverTrigger asChild>
+                                    <Badge variant="default" className="cursor-pointer">Diagnosticado</Badge>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-96">
+                                    <div className="grid gap-4">
+                                        <div className="space-y-2">
+                                            <h4 className="font-medium leading-none">Diagnóstico Técnico</h4>
+                                            <p className="text-sm text-muted-foreground">{equipo.diagnostico_tecnico}</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <h4 className="font-medium leading-none">Trabajos a Realizar</h4>
+                                            <p className="text-sm text-muted-foreground">{equipo.trabajos_a_realizar}</p>
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                                </Popover>
+                            ) : (
+                                <Badge variant='secondary'>
+                                    {equipo.estado}
+                                </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
                               <Button 
