@@ -73,7 +73,7 @@ export default function DiagnosticoPage() {
     try {
       const qEquipos = query(
         collection(db, 'equipos_en_servicio'),
-        where("estado", "==", "Recibido")
+        where("estado", "in", ["Recibido", "Diagnosticado"])
       );
       const equiposSnapshot = await getDocs(qEquipos);
       const equiposList = equiposSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
@@ -156,17 +156,19 @@ export default function DiagnosticoPage() {
       
       try {
           const equipoRef = doc(db, 'equipos_en_servicio', selectedEquipo.id);
+          const isNewDiagnosis = selectedEquipo.estado === 'Recibido';
+
           await updateDoc(equipoRef, {
               estado: "Diagnosticado",
               diagnostico_tecnico: diagnosticoTecnico.trim(),
               trabajos_a_realizar: trabajosARealizar.trim(),
-              fecha_diagnostico: format(new Date(), "yyyy-MM-dd"),
+              fecha_diagnostico: selectedEquipo.fecha_diagnostico || format(new Date(), "yyyy-MM-dd"),
               // tecnico_id: "hardcoded_technician" // TODO: Add technician selection
           });
           
-          toast({ title: "Diagnóstico Guardado", description: "El equipo ha sido actualizado y está listo para presupuestar."});
+          toast({ title: "Diagnóstico Guardado", description: `El diagnóstico ha sido ${isNewDiagnosis ? 'registrado' : 'actualizado'} exitosamente.`});
           setOpenDiagnostico(false);
-          await fetchData(); // Refresh data to remove diagnosed item from list
+          await fetchData();
           
       } catch (error) {
            console.error("Error saving diagnosis:", error);
@@ -186,6 +188,7 @@ export default function DiagnosticoPage() {
         <CardHeader>
           <CardTitle>Recepciones con Equipos Pendientes</CardTitle>
           <CardDescription>
+              Equipos en estado "Recibido" o "Diagnosticado" que están pendientes de acción.
               <Input
                 placeholder="Buscar por cliente, ID de recepción, tipo, marca o modelo..."
                 value={searchTerm}
@@ -211,6 +214,7 @@ export default function DiagnosticoPage() {
                       <TableRow>
                         <TableHead>Equipo</TableHead>
                         <TableHead>Problema Manifestado</TableHead>
+                        <TableHead>Estado</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -220,9 +224,14 @@ export default function DiagnosticoPage() {
                           <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                           <TableCell className="max-w-[300px] truncate">{equipo.problema_manifestado}</TableCell>
                           <TableCell>
+                            <Badge variant={equipo.estado === 'Diagnosticado' ? 'default' : 'secondary'}>
+                              {equipo.estado}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
                               <Button variant="outline" size="sm" onClick={() => handleOpenDiagnostico(equipo)}>
                                   <PenSquare className="mr-2 h-4 w-4"/>
-                                  Diagnosticar
+                                  {equipo.estado === 'Diagnosticado' ? 'Editar' : 'Diagnosticar'}
                               </Button>
                           </TableCell>
                         </TableRow>
@@ -286,5 +295,3 @@ export default function DiagnosticoPage() {
     </>
   );
 }
-
-    
