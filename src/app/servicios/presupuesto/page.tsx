@@ -36,6 +36,12 @@ type EquipoDiagnosticado = {
   recepcion_id: string;
 };
 
+type PresupuestoServicio = {
+    id: string;
+    equipo_id: string;
+    // ... otros campos
+}
+
 type GroupedEquipos = {
   [key: string]: {
     cliente_nombre: string;
@@ -69,6 +75,7 @@ export default function PresupuestoServicioPage() {
   const [equipos, setEquipos] = useState<EquipoDiagnosticado[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [presupuestos, setPresupuestos] = useState<PresupuestoServicio[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -81,16 +88,18 @@ export default function PresupuestoServicioPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [equiposSnap, productosSnap, serviciosSnap] = await Promise.all([
+      const [equiposSnap, productosSnap, serviciosSnap, presupuestosSnap] = await Promise.all([
         getDocs(query(collection(db, 'equipos_en_servicio'), where("estado", "==", "Diagnosticado"))),
         getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
-        getDocs(query(collection(db, 'servicios'), orderBy("nombre")))
+        getDocs(query(collection(db, 'servicios'), orderBy("nombre"))),
+        getDocs(collection(db, 'presupuestos_servicio'))
       ]);
       
       const equiposList = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
       setEquipos(equiposList);
       setProductos(productosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto)));
       setServicios(serviciosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Servicio)));
+      setPresupuestos(presupuestosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PresupuestoServicio)));
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -104,6 +113,10 @@ export default function PresupuestoServicioPage() {
     fetchData();
   }, [fetchData]);
   
+  const equiposYaPresupuestados = useMemo(() => {
+    return new Set(presupuestos.map(p => p.equipo_id));
+  }, [presupuestos]);
+
   const groupedAndFilteredEquipos = useMemo(() => {
     const grouped: GroupedEquipos = {};
 
@@ -211,7 +224,7 @@ export default function PresupuestoServicioPage() {
         // 1. Create Presupuesto document
         const presupuestoRef = doc(collection(db, 'presupuestos_servicio'));
         batch.set(presupuestoRef, {
-            equipo_id: selectedEquipo.id, // Ensure traceability
+            equipo_id: selectedEquipo.id,
             recepcion_id: selectedEquipo.recepcion_id,
             cliente_nombre: selectedEquipo.cliente_nombre,
             fecha_presupuesto: new Date().toISOString().split('T')[0],
@@ -279,7 +292,9 @@ export default function PresupuestoServicioPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.equipos.map((equipo) => (
+                      {data.equipos.map((equipo) => {
+                        const presupuestoExistente = equiposYaPresupuestados.has(equipo.id);
+                        return (
                         <TableRow key={equipo.id}>
                            <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                            <TableCell>{equipo.fecha_diagnostico}</TableCell>
@@ -307,13 +322,17 @@ export default function PresupuestoServicioPage() {
                                 </Popover>
                            </TableCell>
                            <TableCell>
-                               <Button variant="outline" size="sm" onClick={() => handleOpenPresupuesto(equipo)}>
-                                   <FilePlus2 className="mr-2 h-4 w-4"/>
-                                   Presupuestar
+                               <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleOpenPresupuesto(equipo)}
+                                  disabled={presupuestoExistente}
+                                >
+                                   {presupuestoExistente ? 'Presupuestado' : <><FilePlus2 className="mr-2 h-4 w-4"/>Presupuestar</>}
                                </Button>
                            </TableCell>
                         </TableRow>
-                      ))}
+                      )})}
                     </TableBody>
                   </Table>
                 </AccordionContent>
@@ -363,7 +382,7 @@ export default function PresupuestoServicioPage() {
                             <ScrollArea className="h-64 pr-4">
                               <div className="space-y-4">
                                 {itemsPresupuesto.map((item, index) => (
-                                  <div key={index} className="space-y-3">
+                                  <div key={index} className="space-y-3 p-2 border rounded-md">
                                      <div className="flex items-center justify-between">
                                         <Label className="font-semibold">{item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}</Label>
                                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(index)}>
