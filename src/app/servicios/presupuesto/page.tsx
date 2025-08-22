@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { collection, getDocs, query, where, doc, writeBatch, serverTimestamp, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -78,30 +78,31 @@ export default function PresupuestoServicioPage() {
   const [itemsPresupuesto, setItemsPresupuesto] = useState<ItemPresupuesto[]>([]);
   const [observaciones, setObservaciones] = useState('');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [equiposSnap, productosSnap, serviciosSnap] = await Promise.all([
-          getDocs(query(collection(db, 'equipos_en_servicio'), where("estado", "==", "Diagnosticado"))),
-          getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
-          getDocs(query(collection(db, 'servicios'), orderBy("nombre")))
-        ]);
-        
-        const equiposList = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
-        setEquipos(equiposList);
-        setProductos(productosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto)));
-        setServicios(serviciosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Servicio)));
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [equiposSnap, productosSnap, serviciosSnap] = await Promise.all([
+        getDocs(query(collection(db, 'equipos_en_servicio'), where("estado", "==", "Diagnosticado"))),
+        getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
+        getDocs(query(collection(db, 'servicios'), orderBy("nombre")))
+      ]);
+      
+      const equiposList = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
+      setEquipos(equiposList);
+      setProductos(productosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto)));
+      setServicios(serviciosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Servicio)));
 
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos necesarios." });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos necesarios." });
+    } finally {
+      setLoading(false);
+    }
   }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
   
   const groupedAndFilteredEquipos = useMemo(() => {
     const grouped: GroupedEquipos = {};
@@ -370,8 +371,8 @@ export default function PresupuestoServicioPage() {
                               <div className="space-y-4">
                                 {itemsPresupuesto.map((item, index) => (
                                   <div key={`${item.id}-${index}`} className="space-y-3">
-                                    <div className="flex items-center gap-2">
-                                      <Label className="flex-1">
+                                    <div className="flex items-center justify-between">
+                                      <Label className="font-semibold">
                                         {item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}
                                       </Label>
                                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(index)}>
