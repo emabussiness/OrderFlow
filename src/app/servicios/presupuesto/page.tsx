@@ -18,6 +18,7 @@ import { Combobox } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
 // --- Types ---
 type EquipoDiagnosticado = {
@@ -363,47 +364,46 @@ export default function PresupuestoServicioPage() {
                               <CardTitle>Ítems del Presupuesto</CardTitle>
                           </CardHeader>
                           <CardContent>
-                              <ScrollArea className="h-64">
-                                  <Table>
-                                      <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Descripción</TableHead>
-                                            <TableHead className="w-24">Cant.</TableHead>
-                                            <TableHead className="w-32">P. Unit.</TableHead>
-                                            <TableHead className="w-12"></TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                          {itemsPresupuesto.map((item, index) => (
-                                              <TableRow key={`${item.id}-${index}`}>
-                                                  <TableCell>
-                                                      <Combobox 
-                                                          options={
-                                                              item.tipo === 'Repuesto' 
-                                                              ? productos.map(p => ({ value: p.id, label: p.nombre }))
-                                                              : servicios.map(s => ({ value: s.id, label: s.nombre }))
-                                                          }
-                                                          value={item.id}
-                                                          onChange={(val) => handleItemChange(index, 'id', val)}
-                                                          searchPlaceholder={`Buscar ${item.tipo}...`}
-                                                      />
-                                                  </TableCell>
-                                                   <TableCell>
-                                                      <Input type="number" value={item.cantidad} onChange={e => handleItemChange(index, 'cantidad', e.target.value)} />
-                                                   </TableCell>
-                                                   <TableCell>
-                                                        <Input type="number" value={item.precio_unitario} onChange={e => handleItemChange(index, 'precio_unitario', e.target.value)} />
-                                                   </TableCell>
-                                                   <TableCell>
-                                                       <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
-                                                           <Trash2 className="h-4 w-4 text-destructive" />
-                                                       </Button>
-                                                   </TableCell>
-                                              </TableRow>
-                                          ))}
-                                      </TableBody>
-                                  </Table>
-                              </ScrollArea>
+                            <ScrollArea className="h-64 pr-4">
+                              <div className="space-y-4">
+                                {itemsPresupuesto.map((item, index) => (
+                                  <div key={`${item.id}-${index}`} className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                      <Label className="flex-1">
+                                        {item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}
+                                      </Label>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(index)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    </div>
+                                    <Combobox
+                                      options={
+                                          item.tipo === 'Repuesto'
+                                              ? productos.map(p => ({ value: p.id, label: p.nombre }))
+                                              : servicios.map(s => ({ value: s.id, label: s.nombre }))
+                                      }
+                                      value={item.id}
+                                      onChange={(val) => handleItemChange(index, 'id', val)}
+                                      searchPlaceholder={`Buscar ${item.tipo}...`}
+                                    />
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-1">
+                                        <Label htmlFor={`qty-${index}`} className="text-xs">Cantidad</Label>
+                                        <Input id={`qty-${index}`} type="number" value={item.cantidad} onChange={e => handleItemChange(index, 'cantidad', e.target.value)} />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label htmlFor={`price-${index}`} className="text-xs">P. Unitario</Label>
+                                        <Input id={`price-${index}`} type="number" value={item.precio_unitario} onChange={e => handleItemChange(index, 'precio_unitario', e.target.value)} />
+                                      </div>
+                                    </div>
+                                    {index < itemsPresupuesto.length - 1 && <Separator className="mt-4"/>}
+                                  </div>
+                                ))}
+                                {itemsPresupuesto.length === 0 && (
+                                  <p className="text-sm text-center text-muted-foreground py-4">Añada ítems al presupuesto.</p>
+                                )}
+                              </div>
+                            </ScrollArea>
                           </CardContent>
                           <CardFooter className="gap-2">
                               <Button variant="outline" size="sm" onClick={() => handleAddItem('Mano de Obra')}><PlusCircle className="mr-2 h-4 w-4" />Añadir Servicio</Button>
