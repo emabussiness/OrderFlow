@@ -174,7 +174,6 @@ export default function PresupuestoServicioPage() {
           const list = currentItem.tipo === 'Repuesto' ? productos : servicios;
           const selectedItem = list.find(p => p.id === value);
 
-          // Check for duplicates before updating
            if (newItems.some(item => item.id === value && item.tipo === currentItem.tipo)) {
               toast({ variant: 'destructive', description: `El ítem "${selectedItem?.nombre}" ya está en la lista.` });
               return;
@@ -212,7 +211,7 @@ export default function PresupuestoServicioPage() {
         // 1. Create Presupuesto document
         const presupuestoRef = doc(collection(db, 'presupuestos_servicio'));
         batch.set(presupuestoRef, {
-            equipo_id: selectedEquipo.id,
+            equipo_id: selectedEquipo.id, // Ensure traceability
             recepcion_id: selectedEquipo.recepcion_id,
             cliente_nombre: selectedEquipo.cliente_nombre,
             fecha_presupuesto: new Date().toISOString().split('T')[0],
@@ -226,7 +225,7 @@ export default function PresupuestoServicioPage() {
         
         await batch.commit();
         
-        toast({ title: "Presupuesto Guardado", description: "El equipo está pendiente de la aprobación del cliente."});
+        toast({ title: "Presupuesto Guardado", description: "El presupuesto ha sido creado y está pendiente de aprobación."});
         setOpenPresupuesto(false);
         await fetchData();
 
@@ -275,7 +274,6 @@ export default function PresupuestoServicioPage() {
                       <TableRow>
                         <TableHead>Equipo</TableHead>
                         <TableHead>Fecha Diag.</TableHead>
-                        <TableHead>ID Recepción</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
@@ -285,7 +283,6 @@ export default function PresupuestoServicioPage() {
                         <TableRow key={equipo.id}>
                            <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                            <TableCell>{equipo.fecha_diagnostico}</TableCell>
-                           <TableCell>{equipo.recepcion_id.substring(0, 7)}</TableCell>
                            <TableCell>
                                 <Popover>
                                   <PopoverTrigger asChild>
@@ -366,7 +363,7 @@ export default function PresupuestoServicioPage() {
                             <ScrollArea className="h-64 pr-4">
                               <div className="space-y-4">
                                 {itemsPresupuesto.map((item, index) => (
-                                  <div key={`${item.id}-${index}`} className="space-y-3">
+                                  <div key={index} className="space-y-3">
                                      <div className="flex items-center justify-between">
                                         <Label className="font-semibold">{item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}</Label>
                                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(index)}>
