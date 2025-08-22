@@ -156,7 +156,7 @@ export default function PresupuestoServicioPage() {
 
   const handleAddItem = (type: 'Repuesto' | 'Mano de Obra') => {
       const newItem: ItemPresupuesto = {
-        id: '', // Dejar vacío para que el usuario seleccione
+        id: '',
         nombre: '',
         tipo: type,
         cantidad: 1,
@@ -212,7 +212,7 @@ export default function PresupuestoServicioPage() {
         // 1. Create Presupuesto document
         const presupuestoRef = doc(collection(db, 'presupuestos_servicio'));
         batch.set(presupuestoRef, {
-            equipo_id: selectedEquipo.id,
+            equipo_id: selectedEquipo.id, // CRITICAL FIX: Add equipo_id for traceability
             recepcion_id: selectedEquipo.recepcion_id,
             cliente_nombre: selectedEquipo.cliente_nombre,
             fecha_presupuesto: new Date().toISOString().split('T')[0],
@@ -371,13 +371,11 @@ export default function PresupuestoServicioPage() {
                               <div className="space-y-4">
                                 {itemsPresupuesto.map((item, index) => (
                                   <div key={`${item.id}-${index}`} className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                      <Label className="font-semibold">
-                                        {item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}
-                                      </Label>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(index)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
+                                     <div className="flex items-center justify-between">
+                                        <Label className="font-semibold">{item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}</Label>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(index)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
                                     </div>
                                     <Combobox
                                       options={
