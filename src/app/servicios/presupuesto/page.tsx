@@ -232,6 +232,7 @@ export default function PresupuestoServicioPage() {
         batch.set(presupuestoRef, {
             equipo_id: selectedEquipo.id,
             cliente_nombre: selectedEquipo.cliente_nombre,
+            recepcion_id: selectedEquipo.recepcion_id,
             fecha_presupuesto: new Date().toISOString().split('T')[0],
             items: itemsPresupuesto,
             total: totalPresupuesto,
@@ -331,7 +332,7 @@ export default function PresupuestoServicioPage() {
                                {tienePresupuesto && presupuestoExistente ? (
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <span tabIndex={0}>
+                                            <span tabIndex={0} className="inline-block">
                                                 <Button variant="outline" size="sm" disabled className="pointer-events-none w-full">Presupuestado</Button>
                                             </span>
                                         </PopoverTrigger>
@@ -344,8 +345,8 @@ export default function PresupuestoServicioPage() {
                                                 <div className="space-y-2">
                                                     <h4 className="font-medium leading-none">Ítems</h4>
                                                     <ul className="list-disc list-inside text-sm text-muted-foreground">
-                                                        {presupuestoExistente.items.map(item => (
-                                                            <li key={item.id}>{item.nombre} ({item.cantidad}x) - {currencyFormatter.format(item.precio_unitario)}</li>
+                                                        {presupuestoExistente.items.map((item, idx) => (
+                                                            <li key={idx}>{item.nombre} ({item.cantidad}x) - {currencyFormatter.format(item.precio_unitario)}</li>
                                                         ))}
                                                     </ul>
                                                 </div>
@@ -447,6 +448,9 @@ export default function PresupuestoServicioPage() {
                                             </div>
                                         </div>
                                          <Separator />
+                                         <div className="text-right font-medium">
+                                            Subtotal: {currencyFormatter.format(item.cantidad * item.precio_unitario)}
+                                         </div>
                                     </div>
                                 ))}
                                 {itemsPresupuesto.length === 0 && (
@@ -476,3 +480,4 @@ export default function PresupuestoServicioPage() {
     </>
   );
 }
+
