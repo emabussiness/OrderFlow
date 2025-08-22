@@ -236,6 +236,24 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                         <SidebarMenuItem><Link href="/servicios/garantias"><SidebarMenuButton isActive={pathname.startsWith('/servicios/garantias')}>Garantías</SidebarMenuButton></Link></SidebarMenuItem>
                         <SidebarMenuItem><Link href="/servicios/reclamos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/reclamos')}>Reclamos</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
+                     <Collapsible>
+                       <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton className="justify-between">
+                            <div className="flex items-center gap-2">
+                              <BarChart3 />
+                              <span>Informes</span>
+                            </div>
+                            <ChevronDown className="h-4 w-4" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                      </SidebarMenuItem>
+                      <CollapsibleContent className="ml-4">
+                         <SidebarMenu>
+                            <SidebarMenuItem><Link href="/servicios/informes/historial-diagnosticos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/informes/historial-diagnosticos')}>Historial de Diagnósticos</SidebarMenuButton></Link></SidebarMenuItem>
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </CollapsibleContent>
             </Collapsible>
 
