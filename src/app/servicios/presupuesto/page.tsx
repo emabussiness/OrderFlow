@@ -231,7 +231,6 @@ export default function PresupuestoServicioPage() {
         const presupuestoRef = doc(collection(db, 'presupuestos_servicio'));
         batch.set(presupuestoRef, {
             equipo_id: selectedEquipo.id,
-            recepcion_id: selectedEquipo.recepcion_id,
             cliente_nombre: selectedEquipo.cliente_nombre,
             fecha_presupuesto: new Date().toISOString().split('T')[0],
             items: itemsPresupuesto,
