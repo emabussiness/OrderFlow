@@ -39,7 +39,9 @@ type EquipoDiagnosticado = {
 type PresupuestoServicio = {
     id: string;
     equipo_id: string;
-    // ... otros campos
+    items: ItemPresupuesto[];
+    total: number;
+    fecha_presupuesto: string;
 }
 
 type GroupedEquipos = {
@@ -115,6 +117,10 @@ export default function PresupuestoServicioPage() {
   
   const equiposYaPresupuestados = useMemo(() => {
     return new Set(presupuestos.map(p => p.equipo_id));
+  }, [presupuestos]);
+
+  const presupuestosMap = useMemo(() => {
+    return new Map(presupuestos.map(p => [p.equipo_id, p]));
   }, [presupuestos]);
 
   const groupedAndFilteredEquipos = useMemo(() => {
@@ -221,7 +227,7 @@ export default function PresupuestoServicioPage() {
     try {
         const batch = writeBatch(db);
 
-        // 1. Create Presupuesto document
+        // Create Presupuesto document
         const presupuestoRef = doc(collection(db, 'presupuestos_servicio'));
         batch.set(presupuestoRef, {
             equipo_id: selectedEquipo.id,
@@ -235,6 +241,10 @@ export default function PresupuestoServicioPage() {
             usuario_id: 'user-demo',
             fecha_creacion: serverTimestamp(),
         });
+        
+        // This was the error, it's removed now.
+        // const equipoRef = doc(db, 'equipos_en_servicio', selectedEquipo.id);
+        // batch.update(equipoRef, { estado: 'Presupuestado' });
         
         await batch.commit();
         
@@ -293,7 +303,7 @@ export default function PresupuestoServicioPage() {
                     </TableHeader>
                     <TableBody>
                       {data.equipos.map((equipo) => {
-                        const presupuestoExistente = equiposYaPresupuestados.has(equipo.id);
+                        const presupuestoExistente = presupuestosMap.get(equipo.id);
                         return (
                         <TableRow key={equipo.id}>
                            <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
@@ -322,14 +332,42 @@ export default function PresupuestoServicioPage() {
                                 </Popover>
                            </TableCell>
                            <TableCell>
-                               <Button 
+                               {presupuestoExistente ? (
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" size="sm" disabled>Presupuestado</Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-96">
+                                            <div className="grid gap-4">
+                                                 <div className="space-y-2">
+                                                    <h4 className="font-medium leading-none">Presupuesto Generado</h4>
+                                                    <p className="text-sm text-muted-foreground">Fecha: {presupuestoExistente.fecha_presupuesto}</p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <h4 className="font-medium leading-none">Ítems</h4>
+                                                    <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                                        {presupuestoExistente.items.map(item => (
+                                                            <li key={item.id}>{item.nombre} ({item.cantidad}x) - {currencyFormatter.format(item.precio_unitario)}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                                <Separator />
+                                                <div className="flex justify-between font-bold">
+                                                    <span>Total:</span>
+                                                    <span>{currencyFormatter.format(presupuestoExistente.total)}</span>
+                                                </div>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
+                               ) : (
+                                 <Button 
                                   variant="outline" 
                                   size="sm" 
                                   onClick={() => handleOpenPresupuesto(equipo)}
-                                  disabled={presupuestoExistente}
                                 >
-                                   {presupuestoExistente ? 'Presupuestado' : <><FilePlus2 className="mr-2 h-4 w-4"/>Presupuestar</>}
+                                   <FilePlus2 className="mr-2 h-4 w-4"/>Presupuestar
                                </Button>
+                               )}
                            </TableCell>
                         </TableRow>
                       )})}
@@ -382,7 +420,7 @@ export default function PresupuestoServicioPage() {
                             <ScrollArea className="h-64 pr-4">
                               <div className="space-y-4">
                                 {itemsPresupuesto.map((item, index) => (
-                                  <div key={index} className="space-y-3 p-2 border rounded-md">
+                                  <div key={index} className="space-y-3 p-2 border rounded-md relative">
                                      <div className="flex items-center justify-between">
                                         <Label className="font-semibold">{item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}</Label>
                                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(index)}>
@@ -410,7 +448,6 @@ export default function PresupuestoServicioPage() {
                                         <Input id={`price-${index}`} type="number" value={item.precio_unitario} onChange={e => handleItemChange(index, 'precio_unitario', e.target.value)} />
                                       </div>
                                     </div>
-                                    {index < itemsPresupuesto.length - 1 && <Separator className="mt-4"/>}
                                   </div>
                                 ))}
                                 {itemsPresupuesto.length === 0 && (
