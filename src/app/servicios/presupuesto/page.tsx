@@ -2,22 +2,21 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, writeBatch, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FilePlus2 } from "lucide-react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { FilePlus2, PlusCircle, Trash2 } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Combobox } from "@/components/ui/command";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 
 // --- Types ---
 type EquipoDiagnosticado = {
@@ -43,27 +42,58 @@ type GroupedEquipos = {
   }
 }
 
+type Producto = { id: string; nombre: string; precio_referencia: number; };
+type Servicio = { id: string; nombre: string; precio: number; };
+
+type ItemPresupuesto = {
+  id: string; // Puede ser producto_id o servicio_id
+  nombre: string;
+  tipo: 'Repuesto' | 'Mano de Obra';
+  cantidad: number;
+  precio_unitario: number;
+};
+
+const currencyFormatter = new Intl.NumberFormat('es-PY', {
+  style: 'currency',
+  currency: 'PYG',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+
 // --- Main Component ---
 export default function PresupuestoServicioPage() {
   const { toast } = useToast();
   const [equipos, setEquipos] = useState<EquipoDiagnosticado[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [servicios, setServicios] = useState<Servicio[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Dialog State
+  const [openPresupuesto, setOpenPresupuesto] = useState(false);
+  const [selectedEquipo, setSelectedEquipo] = useState<EquipoDiagnosticado | null>(null);
+  const [itemsPresupuesto, setItemsPresupuesto] = useState<ItemPresupuesto[]>([]);
+  const [observaciones, setObservaciones] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const q = query(
-          collection(db, 'equipos_en_servicio'),
-          where("estado", "==", "Diagnosticado")
-        );
-        const querySnapshot = await getDocs(q);
-        const equiposList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
+        const [equiposSnap, productosSnap, serviciosSnap] = await Promise.all([
+          getDocs(query(collection(db, 'equipos_en_servicio'), where("estado", "==", "Diagnosticado"))),
+          getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
+          getDocs(query(collection(db, 'servicios'), orderBy("nombre")))
+        ]);
+        
+        const equiposList = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
         setEquipos(equiposList);
+        setProductos(productosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto)));
+        setServicios(serviciosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Servicio)));
+
       } catch (error) {
         console.error("Error fetching data:", error);
-        toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los equipos diagnosticados." });
+        toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos necesarios." });
       } finally {
         setLoading(false);
       }
@@ -106,6 +136,105 @@ export default function PresupuestoServicioPage() {
 
   }, [equipos, searchTerm]);
 
+  const handleOpenPresupuesto = (equipo: EquipoDiagnosticado) => {
+    setSelectedEquipo(equipo);
+    setOpenPresupuesto(true);
+  }
+  
+  const resetDialog = () => {
+      setSelectedEquipo(null);
+      setItemsPresupuesto([]);
+      setObservaciones('');
+  }
+  
+  useEffect(() => {
+      if(!openPresupuesto) resetDialog();
+  }, [openPresupuesto]);
+
+  const handleAddItem = (type: 'Repuesto' | 'Mano de Obra') => {
+      let newItem: ItemPresupuesto;
+      if (type === 'Repuesto') {
+          const firstProduct = productos[0];
+          newItem = { id: firstProduct?.id || '', nombre: firstProduct?.nombre || '', tipo: 'Repuesto', cantidad: 1, precio_unitario: firstProduct?.precio_referencia || 0 };
+      } else {
+          const firstService = servicios[0];
+          newItem = { id: firstService?.id || '', nombre: firstService?.nombre || '', tipo: 'Mano de Obra', cantidad: 1, precio_unitario: firstService?.precio || 0 };
+      }
+      // Evitar duplicados
+      if(itemsPresupuesto.some(item => item.id === newItem.id && item.tipo === newItem.tipo)) {
+          toast({ variant: 'destructive', description: `El ítem "${newItem.nombre}" ya está en la lista.`});
+          return;
+      }
+      setItemsPresupuesto(prev => [...prev, newItem]);
+  };
+  
+  const handleItemChange = (index: number, field: keyof ItemPresupuesto, value: any) => {
+      const newItems = [...itemsPresupuesto];
+      const currentItem = newItems[index];
+
+      if (field === 'id') {
+          const list = currentItem.tipo === 'Repuesto' ? productos : servicios;
+          const selectedItem = list.find(p => p.id === value);
+          if (selectedItem) {
+              currentItem.id = selectedItem.id;
+              currentItem.nombre = selectedItem.nombre;
+              currentItem.precio_unitario = (selectedItem as any).precio_referencia || (selectedItem as any).precio || 0;
+          }
+      } else if (field === 'cantidad' || field === 'precio_unitario') {
+          (currentItem as any)[field] = Number(value) < 0 ? 0 : Number(value);
+      }
+      
+      setItemsPresupuesto(newItems);
+  };
+
+  const handleRemoveItem = (index: number) => {
+      setItemsPresupuesto(prev => prev.filter((_, i) => i !== index));
+  }
+
+  const totalPresupuesto = useMemo(() => {
+      return itemsPresupuesto.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
+  }, [itemsPresupuesto]);
+  
+  const handleSavePresupuesto = async () => {
+    if (!selectedEquipo || itemsPresupuesto.length === 0) {
+        toast({ variant: 'destructive', description: 'Debe añadir al menos un ítem al presupuesto.' });
+        return;
+    }
+
+    try {
+        const batch = writeBatch(db);
+
+        // 1. Create Presupuesto document
+        const presupuestoRef = doc(collection(db, 'presupuestos_servicio'));
+        batch.set(presupuestoRef, {
+            equipo_id: selectedEquipo.id,
+            recepcion_id: selectedEquipo.recepcion_id,
+            cliente_nombre: selectedEquipo.cliente_nombre,
+            fecha_presupuesto: new Date().toISOString().split('T')[0],
+            items: itemsPresupuesto,
+            total: totalPresupuesto,
+            estado: 'Pendiente de Aprobación',
+            observaciones,
+            usuario_id: 'user-demo',
+            fecha_creacion: serverTimestamp(),
+        });
+        
+        // 2. Update Equipo status
+        const equipoRef = doc(db, 'equipos_en_servicio', selectedEquipo.id);
+        batch.update(equipoRef, { estado: 'Presupuestado' });
+        
+        await batch.commit();
+        
+        toast({ title: "Presupuesto Guardado", description: "El equipo está pendiente de la aprobación del cliente."});
+        setOpenPresupuesto(false);
+        await fetchData();
+
+    } catch (error) {
+        console.error("Error saving presupuesto:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo guardar el presupuesto.' });
+    }
+  };
+
 
   if (loading) return <p>Cargando equipos diagnosticados...</p>;
 
@@ -145,6 +274,7 @@ export default function PresupuestoServicioPage() {
                       <TableRow>
                         <TableHead>Equipo</TableHead>
                         <TableHead>Fecha Diag.</TableHead>
+                        <TableHead>ID Recepción</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
@@ -154,6 +284,7 @@ export default function PresupuestoServicioPage() {
                         <TableRow key={equipo.id}>
                            <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                            <TableCell>{equipo.fecha_diagnostico}</TableCell>
+                           <TableCell>{equipo.recepcion_id.substring(0, 7)}</TableCell>
                            <TableCell>
                                 <Popover>
                                   <PopoverTrigger asChild>
@@ -178,7 +309,7 @@ export default function PresupuestoServicioPage() {
                                 </Popover>
                            </TableCell>
                            <TableCell>
-                               <Button variant="outline" size="sm">
+                               <Button variant="outline" size="sm" onClick={() => handleOpenPresupuesto(equipo)}>
                                    <FilePlus2 className="mr-2 h-4 w-4"/>
                                    Presupuestar
                                </Button>
@@ -199,6 +330,98 @@ export default function PresupuestoServicioPage() {
           )}
         </CardContent>
       </Card>
+      
+      <Dialog open={openPresupuesto} onOpenChange={setOpenPresupuesto}>
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+              <DialogHeader>
+                  <DialogTitle>Crear Presupuesto de Servicio</DialogTitle>
+                  {selectedEquipo && (
+                      <DialogDescription>
+                        {`${selectedEquipo.tipo_equipo_nombre} ${selectedEquipo.marca_nombre} ${selectedEquipo.modelo} | Cliente: ${selectedEquipo.cliente_nombre}`}
+                      </DialogDescription>
+                  )}
+              </DialogHeader>
+              <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto pr-4 -mr-4">
+                  <div className="space-y-4">
+                      <Card>
+                          <CardHeader className="pb-2"><CardTitle className="text-base">Diagnóstico</CardTitle></CardHeader>
+                          <CardContent><p className="text-sm text-muted-foreground">{selectedEquipo?.diagnostico_tecnico}</p></CardContent>
+                      </Card>
+                       <Card>
+                          <CardHeader className="pb-2"><CardTitle className="text-base">Trabajos Sugeridos</CardTitle></CardHeader>
+                          <CardContent><p className="text-sm text-muted-foreground">{selectedEquipo?.trabajos_a_realizar}</p></CardContent>
+                      </Card>
+                       <div className="space-y-2">
+                            <Label htmlFor="observaciones">Observaciones Adicionales</Label>
+                            <Textarea id="observaciones" value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={4} />
+                        </div>
+                  </div>
+                  <div className="space-y-4">
+                      <Card>
+                          <CardHeader>
+                              <CardTitle>Ítems del Presupuesto</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                              <ScrollArea className="h-64">
+                                  <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Descripción</TableHead>
+                                            <TableHead className="w-24">Cant.</TableHead>
+                                            <TableHead className="w-32">P. Unit.</TableHead>
+                                            <TableHead className="w-12"></TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                          {itemsPresupuesto.map((item, index) => (
+                                              <TableRow key={`${item.id}-${index}`}>
+                                                  <TableCell>
+                                                      <Combobox 
+                                                          options={
+                                                              item.tipo === 'Repuesto' 
+                                                              ? productos.map(p => ({ value: p.id, label: p.nombre }))
+                                                              : servicios.map(s => ({ value: s.id, label: s.nombre }))
+                                                          }
+                                                          value={item.id}
+                                                          onChange={(val) => handleItemChange(index, 'id', val)}
+                                                          searchPlaceholder={`Buscar ${item.tipo}...`}
+                                                      />
+                                                  </TableCell>
+                                                   <TableCell>
+                                                      <Input type="number" value={item.cantidad} onChange={e => handleItemChange(index, 'cantidad', e.target.value)} />
+                                                   </TableCell>
+                                                   <TableCell>
+                                                        <Input type="number" value={item.precio_unitario} onChange={e => handleItemChange(index, 'precio_unitario', e.target.value)} />
+                                                   </TableCell>
+                                                   <TableCell>
+                                                       <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
+                                                           <Trash2 className="h-4 w-4 text-destructive" />
+                                                       </Button>
+                                                   </TableCell>
+                                              </TableRow>
+                                          ))}
+                                      </TableBody>
+                                  </Table>
+                              </ScrollArea>
+                          </CardContent>
+                          <CardFooter className="gap-2">
+                              <Button variant="outline" size="sm" onClick={() => handleAddItem('Mano de Obra')}><PlusCircle className="mr-2 h-4 w-4" />Añadir Servicio</Button>
+                              <Button variant="outline" size="sm" onClick={() => handleAddItem('Repuesto')}><PlusCircle className="mr-2 h-4 w-4" />Añadir Repuesto</Button>
+                          </CardFooter>
+                      </Card>
+                  </div>
+              </div>
+              <DialogFooter className="border-t pt-4 flex-shrink-0">
+                  <div className="w-full flex justify-between items-center">
+                      <p className="text-xl font-bold">Total: {currencyFormatter.format(totalPresupuesto)}</p>
+                      <div>
+                          <Button variant="outline" className="mr-2" onClick={() => setOpenPresupuesto(false)}>Cancelar</Button>
+                          <Button onClick={handleSavePresupuesto}>Guardar Presupuesto</Button>
+                      </div>
+                  </div>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </>
   );
 }
