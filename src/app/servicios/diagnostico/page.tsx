@@ -47,6 +47,11 @@ type Recepcion = {
   fecha_recepcion: string;
 }
 
+type PresupuestoServicio = {
+    id: string;
+    equipo_id: string;
+}
+
 type GroupedEquipos = {
   [key: string]: {
     cliente_nombre: string;
@@ -60,6 +65,7 @@ export default function DiagnosticoPage() {
   const { toast } = useToast();
   const [equipos, setEquipos] = useState<EquipoEnServicio[]>([]);
   const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
+  const [presupuestos, setPresupuestos] = useState<PresupuestoServicio[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -72,17 +78,23 @@ export default function DiagnosticoPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const qEquipos = query(
-        collection(db, 'equipos_en_servicio'),
-        where("estado", "in", ["Recibido", "Diagnosticado"])
-      );
-      const equiposSnapshot = await getDocs(qEquipos);
-      const equiposList = equiposSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
+      const [equiposSnap, recepcionesSnap, presupuestosSnap] = await Promise.all([
+        getDocs(query(
+            collection(db, 'equipos_en_servicio'),
+            where("estado", "in", ["Recibido", "Diagnosticado"])
+        )),
+        getDocs(query(collection(db, 'recepciones'), orderBy("fecha_creacion", "desc"))),
+        getDocs(collection(db, 'presupuestos_servicio'))
+      ]);
+
+      const equiposList = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
       setEquipos(equiposList);
 
-      const recepcionesSnapshot = await getDocs(query(collection(db, 'recepciones'), orderBy("fecha_creacion", "desc")));
-      const recepcionesList = recepcionesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Recepcion));
+      const recepcionesList = recepcionesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Recepcion));
       setRecepciones(recepcionesList);
+      
+      const presupuestosList = presupuestosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PresupuestoServicio));
+      setPresupuestos(presupuestosList);
 
 
     } catch (error) {
@@ -97,6 +109,10 @@ export default function DiagnosticoPage() {
     fetchData();
   }, [toast]);
   
+  const equiposYaPresupuestados = useMemo(() => {
+    return new Set(presupuestos.map(p => p.equipo_id));
+  }, [presupuestos]);
+
   const groupedAndFilteredEquipos = useMemo(() => {
     const recepcionesMap = new Map(recepciones.map(r => [r.id, r]));
 
@@ -230,9 +246,14 @@ export default function DiagnosticoPage() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                              <Button variant="outline" size="sm" onClick={() => handleOpenDiagnostico(equipo)}>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleOpenDiagnostico(equipo)}
+                                disabled={equiposYaPresupuestados.has(equipo.id)}
+                              >
                                   <PenSquare className="mr-2 h-4 w-4"/>
-                                  {equipo.estado === 'Diagnosticado' ? 'Editar' : 'Diagnosticar'}
+                                  {equiposYaPresupuestados.has(equipo.id) ? 'Presupuestado' : (equipo.estado === 'Diagnosticado' ? 'Editar' : 'Diagnosticar')}
                               </Button>
                           </TableCell>
                         </TableRow>
