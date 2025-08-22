@@ -154,19 +154,14 @@ export default function PresupuestoServicioPage() {
   }, [openPresupuesto]);
 
   const handleAddItem = (type: 'Repuesto' | 'Mano de Obra') => {
-      let newItem: ItemPresupuesto;
-      if (type === 'Repuesto') {
-          const firstProduct = productos[0];
-          newItem = { id: firstProduct?.id || '', nombre: firstProduct?.nombre || '', tipo: 'Repuesto', cantidad: 1, precio_unitario: firstProduct?.precio_referencia || 0 };
-      } else {
-          const firstService = servicios[0];
-          newItem = { id: firstService?.id || '', nombre: firstService?.nombre || '', tipo: 'Mano de Obra', cantidad: 1, precio_unitario: firstService?.precio || 0 };
-      }
-      // Evitar duplicados
-      if(itemsPresupuesto.some(item => item.id === newItem.id && item.tipo === newItem.tipo)) {
-          toast({ variant: 'destructive', description: `El ítem "${newItem.nombre}" ya está en la lista.`});
-          return;
-      }
+      const newItem: ItemPresupuesto = {
+        id: '', // Dejar vacío para que el usuario seleccione
+        nombre: '',
+        tipo: type,
+        cantidad: 1,
+        precio_unitario: 0,
+      };
+      
       setItemsPresupuesto(prev => [...prev, newItem]);
   };
   
@@ -177,6 +172,13 @@ export default function PresupuestoServicioPage() {
       if (field === 'id') {
           const list = currentItem.tipo === 'Repuesto' ? productos : servicios;
           const selectedItem = list.find(p => p.id === value);
+
+          // Check for duplicates before updating
+           if (newItems.some(item => item.id === value && item.tipo === currentItem.tipo)) {
+              toast({ variant: 'destructive', description: `El ítem "${selectedItem?.nombre}" ya está en la lista.` });
+              return;
+           }
+
           if (selectedItem) {
               currentItem.id = selectedItem.id;
               currentItem.nombre = selectedItem.nombre;
@@ -198,8 +200,8 @@ export default function PresupuestoServicioPage() {
   }, [itemsPresupuesto]);
   
   const handleSavePresupuesto = async () => {
-    if (!selectedEquipo || itemsPresupuesto.length === 0) {
-        toast({ variant: 'destructive', description: 'Debe añadir al menos un ítem al presupuesto.' });
+    if (!selectedEquipo || itemsPresupuesto.length === 0 || itemsPresupuesto.some(i => !i.id)) {
+        toast({ variant: 'destructive', description: 'Debe añadir al menos un ítem y seleccionar un producto/servicio válido para cada uno.' });
         return;
     }
 
@@ -384,6 +386,7 @@ export default function PresupuestoServicioPage() {
                                       }
                                       value={item.id}
                                       onChange={(val) => handleItemChange(index, 'id', val)}
+                                      placeholder={`Seleccionar ${item.tipo}...`}
                                       searchPlaceholder={`Buscar ${item.tipo}...`}
                                     />
                                     <div className="grid grid-cols-2 gap-4">
