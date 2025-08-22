@@ -242,10 +242,6 @@ export default function PresupuestoServicioPage() {
             fecha_creacion: serverTimestamp(),
         });
         
-        // This was the error, it's removed now.
-        // const equipoRef = doc(db, 'equipos_en_servicio', selectedEquipo.id);
-        // batch.update(equipoRef, { estado: 'Presupuestado' });
-        
         await batch.commit();
         
         toast({ title: "Presupuesto Guardado", description: "El presupuesto ha sido creado y está pendiente de aprobación."});
@@ -335,7 +331,9 @@ export default function PresupuestoServicioPage() {
                                {presupuestoExistente ? (
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <Button variant="outline" size="sm" disabled>Presupuestado</Button>
+                                            <span tabIndex={0}>
+                                                <Button variant="outline" size="sm" disabled className="pointer-events-none w-full">Presupuestado</Button>
+                                            </span>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-96">
                                             <div className="grid gap-4">
@@ -420,24 +418,24 @@ export default function PresupuestoServicioPage() {
                             <ScrollArea className="h-64 pr-4">
                               <div className="space-y-4">
                                 {itemsPresupuesto.map((item, index) => (
-                                  <div key={index} className="space-y-3 p-2 border rounded-md relative">
-                                     <div className="flex items-center justify-between">
-                                        <Label className="font-semibold">{item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}</Label>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(index)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </div>
-                                    <Combobox
-                                      options={
-                                          item.tipo === 'Repuesto'
-                                              ? productos.map(p => ({ value: p.id, label: p.nombre }))
-                                              : servicios.map(s => ({ value: s.id, label: s.nombre }))
-                                      }
-                                      value={item.id}
-                                      onChange={(val) => handleItemChange(index, 'id', val)}
-                                      placeholder={`Seleccionar ${item.tipo}...`}
-                                      searchPlaceholder={`Buscar ${item.tipo}...`}
-                                    />
+                                  <div key={index} className="space-y-3 p-3 border rounded-md relative">
+                                     <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => handleRemoveItem(index)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                     </Button>
+                                     <div className="space-y-2">
+                                         <Label>{item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}</Label>
+                                         <Combobox
+                                          options={
+                                              item.tipo === 'Repuesto'
+                                                  ? productos.map(p => ({ value: p.id, label: p.nombre }))
+                                                  : servicios.map(s => ({ value: s.id, label: s.nombre }))
+                                          }
+                                          value={item.id}
+                                          onChange={(val) => handleItemChange(index, 'id', val)}
+                                          placeholder={`Seleccionar ${item.tipo}...`}
+                                          searchPlaceholder={`Buscar ${item.tipo}...`}
+                                        />
+                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                       <div className="space-y-1">
                                         <Label htmlFor={`qty-${index}`} className="text-xs">Cantidad</Label>
