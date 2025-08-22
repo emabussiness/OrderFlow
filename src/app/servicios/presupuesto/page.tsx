@@ -174,16 +174,16 @@ export default function PresupuestoServicioPage() {
   }, [openPresupuesto]);
 
   const handleAddItem = (type: 'Repuesto' | 'Mano de Obra') => {
-      const newItem: ItemPresupuesto = {
-        id: '',
-        nombre: '',
-        tipo: type,
-        cantidad: 1,
-        precio_unitario: 0,
-      };
-      
-      setItemsPresupuesto(prev => [...prev, newItem]);
-  };
+    const newItem: ItemPresupuesto = {
+      id: '',
+      nombre: '',
+      tipo: type,
+      cantidad: 1,
+      precio_unitario: 0,
+    };
+    
+    setItemsPresupuesto(prev => [...prev, newItem]);
+};
   
   const handleItemChange = (index: number, field: keyof ItemPresupuesto, value: any) => {
       const newItems = [...itemsPresupuesto];
@@ -300,6 +300,7 @@ export default function PresupuestoServicioPage() {
                     <TableBody>
                       {data.equipos.map((equipo) => {
                         const presupuestoExistente = presupuestosMap.get(equipo.id);
+                        const tienePresupuesto = equiposYaPresupuestados.has(equipo.id);
                         return (
                         <TableRow key={equipo.id}>
                            <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
@@ -328,7 +329,7 @@ export default function PresupuestoServicioPage() {
                                 </Popover>
                            </TableCell>
                            <TableCell>
-                               {presupuestoExistente ? (
+                               {tienePresupuesto && presupuestoExistente ? (
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <span tabIndex={0}>
@@ -418,35 +419,36 @@ export default function PresupuestoServicioPage() {
                             <ScrollArea className="h-64 pr-4">
                               <div className="space-y-4">
                                 {itemsPresupuesto.map((item, index) => (
-                                  <div key={index} className="space-y-3 p-3 border rounded-md relative">
-                                     <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => handleRemoveItem(index)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                     </Button>
-                                     <div className="space-y-2">
-                                         <Label>{item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}</Label>
-                                         <Combobox
-                                          options={
-                                              item.tipo === 'Repuesto'
-                                                  ? productos.map(p => ({ value: p.id, label: p.nombre }))
-                                                  : servicios.map(s => ({ value: s.id, label: s.nombre }))
-                                          }
-                                          value={item.id}
-                                          onChange={(val) => handleItemChange(index, 'id', val)}
-                                          placeholder={`Seleccionar ${item.tipo}...`}
-                                          searchPlaceholder={`Buscar ${item.tipo}...`}
-                                        />
-                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div className="space-y-1">
-                                        <Label htmlFor={`qty-${index}`} className="text-xs">Cantidad</Label>
-                                        <Input id={`qty-${index}`} type="number" value={item.cantidad} onChange={e => handleItemChange(index, 'cantidad', e.target.value)} />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <Label htmlFor={`price-${index}`} className="text-xs">P. Unitario</Label>
-                                        <Input id={`price-${index}`} type="number" value={item.precio_unitario} onChange={e => handleItemChange(index, 'precio_unitario', e.target.value)} />
-                                      </div>
+                                    <div key={index} className="p-3 border rounded-md relative space-y-3">
+                                        <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => handleRemoveItem(index)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                        <div className="space-y-2">
+                                            <Label>{item.tipo === 'Repuesto' ? 'Repuesto' : 'Mano de Obra'} #{index + 1}</Label>
+                                            <Combobox
+                                                options={
+                                                    item.tipo === 'Repuesto'
+                                                        ? productos.map(p => ({ value: p.id, label: p.nombre }))
+                                                        : servicios.map(s => ({ value: s.id, label: s.nombre }))
+                                                }
+                                                value={item.id}
+                                                onChange={(val) => handleItemChange(index, 'id', val)}
+                                                placeholder={`Seleccionar ${item.tipo}...`}
+                                                searchPlaceholder={`Buscar ${item.tipo}...`}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <Label htmlFor={`qty-${index}`} className="text-xs">Cantidad</Label>
+                                                <Input id={`qty-${index}`} type="number" value={item.cantidad} onChange={e => handleItemChange(index, 'cantidad', e.target.value)} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor={`price-${index}`} className="text-xs">P. Unitario</Label>
+                                                <Input id={`price-${index}`} type="number" value={item.precio_unitario} onChange={e => handleItemChange(index, 'precio_unitario', e.target.value)} />
+                                            </div>
+                                        </div>
+                                         <Separator />
                                     </div>
-                                  </div>
                                 ))}
                                 {itemsPresupuesto.length === 0 && (
                                   <p className="text-sm text-center text-muted-foreground py-4">Añada ítems al presupuesto.</p>
