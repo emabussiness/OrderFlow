@@ -212,7 +212,7 @@ export default function PresupuestoServicioPage() {
         // 1. Create Presupuesto document
         const presupuestoRef = doc(collection(db, 'presupuestos_servicio'));
         batch.set(presupuestoRef, {
-            equipo_id: selectedEquipo.id, // CRITICAL FIX: Add equipo_id for traceability
+            equipo_id: selectedEquipo.id,
             recepcion_id: selectedEquipo.recepcion_id,
             cliente_nombre: selectedEquipo.cliente_nombre,
             fecha_presupuesto: new Date().toISOString().split('T')[0],
@@ -223,10 +223,6 @@ export default function PresupuestoServicioPage() {
             usuario_id: 'user-demo',
             fecha_creacion: serverTimestamp(),
         });
-        
-        // 2. Update Equipo status
-        const equipoRef = doc(db, 'equipos_en_servicio', selectedEquipo.id);
-        batch.update(equipoRef, { estado: 'Presupuestado' });
         
         await batch.commit();
         
