@@ -19,8 +19,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
@@ -343,21 +341,48 @@ export default function PresupuestoServicioPage() {
                            <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                            <TableCell>{equipo.fecha_diagnostico}</TableCell>
                            <TableCell>
+                               <Popover>
+                                <PopoverTrigger asChild>
+                                    <Badge variant="outline" className="cursor-pointer">Ver Diagnóstico</Badge>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-96">
+                                    <div className="grid gap-4">
+                                        <div className="space-y-2">
+                                            <h4 className="font-medium leading-none">Diagnóstico Técnico</h4>
+                                            <p className="text-sm text-muted-foreground">{equipo.diagnostico_tecnico}</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <h4 className="font-medium leading-none">Trabajos a Realizar</h4>
+                                            <p className="text-sm text-muted-foreground">{equipo.trabajos_a_realizar}</p>
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                                </Popover>
+                           </TableCell>
+                           <TableCell>
                                {presupuestoExistente ? (
-                                   <Popover>
-                                       <PopoverTrigger asChild>
-                                            <Badge variant={getStatusBadgeVariant(presupuestoExistente.estado)} className="cursor-pointer">
-                                                {presupuestoExistente.estado}
-                                            </Badge>
-                                       </PopoverTrigger>
-                                       <PopoverContent className="w-96" align="start">
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" size="sm" disabled>
+                                                <Eye className="mr-2 h-4 w-4"/>
+                                                Presupuestado
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[500px]" align="end">
                                             <div className="grid gap-4">
                                                 <div className="space-y-2">
-                                                    <h4 className="font-medium leading-none">Presupuesto para {equipo.modelo}</h4>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        Total: {currencyFormatter.format(presupuestoExistente.total)}
-                                                    </p>
-                                                    {presupuestoExistente.observaciones && (
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <h4 className="font-medium leading-none">Presupuesto para {equipo.modelo}</h4>
+                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                Total: {currencyFormatter.format(presupuestoExistente.total)}
+                                                            </p>
+                                                        </div>
+                                                        <Badge variant={getStatusBadgeVariant(presupuestoExistente.estado)}>
+                                                          {presupuestoExistente.estado}
+                                                        </Badge>
+                                                    </div>
+                                                     {presupuestoExistente.observaciones && (
                                                         <p className="text-xs text-muted-foreground pt-2">
                                                            <strong>Obs:</strong> {presupuestoExistente.observaciones}
                                                         </p>
@@ -368,8 +393,8 @@ export default function PresupuestoServicioPage() {
                                                     <Table>
                                                         <TableHeader><TableRow><TableHead>Ítem</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">Precio</TableHead></TableRow></TableHeader>
                                                         <TableBody>
-                                                            {presupuestoExistente.items.map(item => (
-                                                                <TableRow key={item.id}>
+                                                            {presupuestoExistente.items.map((item, index) => (
+                                                                <TableRow key={index}>
                                                                     <TableCell>{item.nombre}</TableCell>
                                                                     <TableCell>{item.cantidad}</TableCell>
                                                                     <TableCell className="text-right">{currencyFormatter.format(item.precio_unitario)}</TableCell>
@@ -378,69 +403,40 @@ export default function PresupuestoServicioPage() {
                                                         </TableBody>
                                                     </Table>
                                                 </ScrollArea>
+                                                {presupuestoExistente.estado === 'Pendiente de Aprobación' && (
+                                                <div className="flex justify-end gap-2 pt-2 border-t">
+                                                     <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                           <Button variant="destructive" size="sm"><XCircle className="mr-2 h-4 w-4"/>Rechazar</Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader><AlertDialogTitle>¿Confirmar Rechazo?</AlertDialogTitle></AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleUpdatePresupuestoStatus(presupuestoExistente, 'Rechazado')} className="bg-destructive hover:bg-destructive/90">Confirmar</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button size="sm"><CheckCircle className="mr-2 h-4 w-4"/>Aprobar</Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader><AlertDialogTitle>¿Confirmar Aprobación?</AlertDialogTitle></AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleUpdatePresupuestoStatus(presupuestoExistente, 'Aprobado')}>Confirmar</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </div>
+                                                )}
                                             </div>
                                         </PopoverContent>
-                                   </Popover>
-                               ) : (
-                                   <Badge variant="outline">Pendiente</Badge>
-                               )}
-                           </TableCell>
-                           <TableCell>
-                               {presupuestoExistente ? (
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <DropdownMenuItem onSelect={e => e.preventDefault()} disabled={presupuestoExistente.estado !== 'Pendiente de Aprobación'}>
-                                                        <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
-                                                    </DropdownMenuItem>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>¿Confirmar Aprobación?</AlertDialogTitle>
-                                                        <AlertDialogDescriptionComponent>
-                                                            Esto cambiará el estado del equipo a "En Reparación" y generará una Orden de Trabajo.
-                                                        </AlertDialogDescriptionComponent>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleUpdatePresupuestoStatus(presupuestoExistente, 'Aprobado')}>
-                                                            Confirmar
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500" disabled={presupuestoExistente.estado !== 'Pendiente de Aprobación'}>
-                                                        <XCircle className="mr-2 h-4 w-4" /> Rechazar
-                                                    </DropdownMenuItem>
-                                                </AlertDialogTrigger>
-                                                 <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>¿Confirmar Rechazo?</AlertDialogTitle>
-                                                        <AlertDialogDescriptionComponent>
-                                                            Esta acción no se puede deshacer. El presupuesto será marcado como rechazado.
-                                                        </AlertDialogDescriptionComponent>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleUpdatePresupuestoStatus(presupuestoExistente, 'Rechazado')} className="bg-destructive hover:bg-destructive/90">
-                                                            Confirmar Rechazo
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    </Popover>
                                ) : (
                                  <Button 
-                                  variant="outline" 
+                                  variant="default" 
                                   size="sm" 
                                   onClick={() => handleOpenPresupuesto(equipo)}
                                 >
