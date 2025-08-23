@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FilePlus2, PlusCircle, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { FilePlus2, PlusCircle, Trash2, CheckCircle, XCircle, Eye } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -19,7 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -96,7 +96,7 @@ export default function PresupuestoServicioPage() {
     setLoading(true);
     try {
       const [equiposSnap, productosSnap, serviciosSnap, presupuestosSnap] = await Promise.all([
-        getDocs(query(collection(db, 'equipos_en_servicio'), where("estado", "in", ["Diagnosticado", "Presupuestado"]))),
+        getDocs(query(collection(db, 'equipos_en_servicio'), where("estado", "in", ["Diagnosticado", "Presupuestado", "En Reparación", "Reparado"]))),
         getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
         getDocs(query(collection(db, 'servicios'), orderBy("nombre"))),
         getDocs(query(collection(db, 'presupuestos_servicio')))
@@ -259,7 +259,7 @@ export default function PresupuestoServicioPage() {
     }
   };
   
-   const handleUpdatePresupuestoStatus = async (presupuesto: PresupuestoServicio, equipo: EquipoDiagnosticado, newStatus: "Aprobado" | "Rechazado") => {
+   const handleUpdatePresupuestoStatus = async (presupuesto: PresupuestoServicio, newStatus: "Aprobado" | "Rechazado") => {
     try {
       const batch = writeBatch(db);
 
@@ -267,7 +267,7 @@ export default function PresupuestoServicioPage() {
       batch.update(presupuestoRef, { estado: newStatus });
 
       if (newStatus === "Aprobado") {
-        const equipoRef = doc(db, "equipos_en_servicio", equipo.id);
+        const equipoRef = doc(db, "equipos_en_servicio", presupuesto.equipo_id);
         batch.update(equipoRef, { estado: "En Reparación" });
       }
 
@@ -281,6 +281,15 @@ export default function PresupuestoServicioPage() {
       toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado." });
     }
   };
+
+  const getStatusBadgeVariant = (estado?: PresupuestoServicio['estado']) => {
+    switch (estado) {
+        case 'Aprobado': return 'default';
+        case 'Rechazado': return 'destructive';
+        case 'Pendiente de Aprobación': return 'secondary';
+        default: return 'outline';
+    }
+  }
 
 
   if (loading) return <p>Cargando equipos diagnosticados...</p>;
@@ -321,7 +330,7 @@ export default function PresupuestoServicioPage() {
                       <TableRow>
                         <TableHead>Equipo</TableHead>
                         <TableHead>Fecha Diag.</TableHead>
-                        <TableHead>Estado</TableHead>
+                        <TableHead>Estado Presupuesto</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -333,27 +342,11 @@ export default function PresupuestoServicioPage() {
                            <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                            <TableCell>{equipo.fecha_diagnostico}</TableCell>
                            <TableCell>
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                      <Badge variant="secondary" className="cursor-pointer">{equipo.estado}</Badge>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-96">
-                                    <div className="grid gap-4">
-                                      <div className="space-y-2">
-                                        <h4 className="font-medium leading-none">Diagnóstico Técnico</h4>
-                                        <p className="text-sm text-muted-foreground">
-                                          {equipo.diagnostico_tecnico || "No se ha proporcionado un diagnóstico."}
-                                        </p>
-                                      </div>
-                                       <div className="space-y-2">
-                                        <h4 className="font-medium leading-none">Trabajos a Realizar</h4>
-                                        <p className="text-sm text-muted-foreground">
-                                          {equipo.trabajos_a_realizar || "No se han especificado los trabajos."}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </PopoverContent>
-                                </Popover>
+                               {presupuestoExistente ? (
+                                   <Badge variant={getStatusBadgeVariant(presupuestoExistente.estado)}>{presupuestoExistente.estado}</Badge>
+                               ) : (
+                                   <Badge variant="outline">Pendiente</Badge>
+                               )}
                            </TableCell>
                            <TableCell>
                                {presupuestoExistente ? (
@@ -364,6 +357,39 @@ export default function PresupuestoServicioPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                                                        <Eye className="mr-2 h-4 w-4" /> Ver Detalles
+                                                    </DropdownMenuItem>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-96" align="start">
+                                                    <div className="grid gap-4">
+                                                        <div className="space-y-2">
+                                                            <h4 className="font-medium leading-none">Presupuesto para {equipo.modelo}</h4>
+                                                            <p className="text-sm text-muted-foreground">
+                                                                Total: {currencyFormatter.format(presupuestoExistente.total)}
+                                                            </p>
+                                                        </div>
+                                                        <Separator/>
+                                                         <ScrollArea className="h-48">
+                                                            <Table>
+                                                                <TableHeader><TableRow><TableHead>Ítem</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">Precio</TableHead></TableRow></TableHeader>
+                                                                <TableBody>
+                                                                    {presupuestoExistente.items.map(item => (
+                                                                        <TableRow key={item.id}>
+                                                                            <TableCell>{item.nombre}</TableCell>
+                                                                            <TableCell>{item.cantidad}</TableCell>
+                                                                            <TableCell className="text-right">{currencyFormatter.format(item.precio_unitario)}</TableCell>
+                                                                        </TableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </ScrollArea>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <DropdownMenuSeparator />
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <DropdownMenuItem onSelect={e => e.preventDefault()} disabled={presupuestoExistente.estado !== 'Pendiente de Aprobación'}>
@@ -379,7 +405,7 @@ export default function PresupuestoServicioPage() {
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
                                                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleUpdatePresupuestoStatus(presupuestoExistente, equipo, 'Aprobado')}>
+                                                        <AlertDialogAction onClick={() => handleUpdatePresupuestoStatus(presupuestoExistente, 'Aprobado')}>
                                                             Confirmar
                                                         </AlertDialogAction>
                                                     </AlertDialogFooter>
@@ -400,7 +426,7 @@ export default function PresupuestoServicioPage() {
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
                                                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleUpdatePresupuestoStatus(presupuestoExistente, equipo, 'Rechazado')} className="bg-destructive hover:bg-destructive/90">
+                                                        <AlertDialogAction onClick={() => handleUpdatePresupuestoStatus(presupuestoExistente, 'Rechazado')} className="bg-destructive hover:bg-destructive/90">
                                                             Confirmar Rechazo
                                                         </AlertDialogAction>
                                                     </AlertDialogFooter>
