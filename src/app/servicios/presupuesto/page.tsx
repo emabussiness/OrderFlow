@@ -47,6 +47,7 @@ type PresupuestoServicio = {
     total: number;
     fecha_presupuesto: string;
     estado: 'Pendiente de Aprobación' | 'Aprobado' | 'Rechazado';
+    observaciones?: string;
 }
 
 type GroupedEquipos = {
@@ -343,7 +344,43 @@ export default function PresupuestoServicioPage() {
                            <TableCell>{equipo.fecha_diagnostico}</TableCell>
                            <TableCell>
                                {presupuestoExistente ? (
-                                   <Badge variant={getStatusBadgeVariant(presupuestoExistente.estado)}>{presupuestoExistente.estado}</Badge>
+                                   <Popover>
+                                       <PopoverTrigger asChild>
+                                            <Badge variant={getStatusBadgeVariant(presupuestoExistente.estado)} className="cursor-pointer">
+                                                {presupuestoExistente.estado}
+                                            </Badge>
+                                       </PopoverTrigger>
+                                       <PopoverContent className="w-96" align="start">
+                                            <div className="grid gap-4">
+                                                <div className="space-y-2">
+                                                    <h4 className="font-medium leading-none">Presupuesto para {equipo.modelo}</h4>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Total: {currencyFormatter.format(presupuestoExistente.total)}
+                                                    </p>
+                                                    {presupuestoExistente.observaciones && (
+                                                        <p className="text-xs text-muted-foreground pt-2">
+                                                           <strong>Obs:</strong> {presupuestoExistente.observaciones}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <Separator/>
+                                                 <ScrollArea className="h-48">
+                                                    <Table>
+                                                        <TableHeader><TableRow><TableHead>Ítem</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">Precio</TableHead></TableRow></TableHeader>
+                                                        <TableBody>
+                                                            {presupuestoExistente.items.map(item => (
+                                                                <TableRow key={item.id}>
+                                                                    <TableCell>{item.nombre}</TableCell>
+                                                                    <TableCell>{item.cantidad}</TableCell>
+                                                                    <TableCell className="text-right">{currencyFormatter.format(item.precio_unitario)}</TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </ScrollArea>
+                                            </div>
+                                        </PopoverContent>
+                                   </Popover>
                                ) : (
                                    <Badge variant="outline">Pendiente</Badge>
                                )}
@@ -352,44 +389,11 @@ export default function PresupuestoServicioPage() {
                                {presupuestoExistente ? (
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" size="icon" className="h-8 w-8">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
                                                 <MoreHorizontal className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                                                        <Eye className="mr-2 h-4 w-4" /> Ver Detalles
-                                                    </DropdownMenuItem>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-96" align="start">
-                                                    <div className="grid gap-4">
-                                                        <div className="space-y-2">
-                                                            <h4 className="font-medium leading-none">Presupuesto para {equipo.modelo}</h4>
-                                                            <p className="text-sm text-muted-foreground">
-                                                                Total: {currencyFormatter.format(presupuestoExistente.total)}
-                                                            </p>
-                                                        </div>
-                                                        <Separator/>
-                                                         <ScrollArea className="h-48">
-                                                            <Table>
-                                                                <TableHeader><TableRow><TableHead>Ítem</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">Precio</TableHead></TableRow></TableHeader>
-                                                                <TableBody>
-                                                                    {presupuestoExistente.items.map(item => (
-                                                                        <TableRow key={item.id}>
-                                                                            <TableCell>{item.nombre}</TableCell>
-                                                                            <TableCell>{item.cantidad}</TableCell>
-                                                                            <TableCell className="text-right">{currencyFormatter.format(item.precio_unitario)}</TableCell>
-                                                                        </TableRow>
-                                                                    ))}
-                                                                </TableBody>
-                                                            </Table>
-                                                        </ScrollArea>
-                                                    </div>
-                                                </PopoverContent>
-                                            </Popover>
-                                            <DropdownMenuSeparator />
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <DropdownMenuItem onSelect={e => e.preventDefault()} disabled={presupuestoExistente.estado !== 'Pendiente de Aprobación'}>
@@ -556,4 +560,3 @@ export default function PresupuestoServicioPage() {
     </>
   );
 }
-
