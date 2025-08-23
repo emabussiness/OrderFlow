@@ -186,9 +186,9 @@ const Combobox = ({ options, value, onChange, placeholder, searchPlaceholder, di
                             {options.map((option) => (
                                 <CommandItem
                                     key={option.value}
-                                    value={option.label} // Use label for filtering
-                                    onSelect={() => {
-                                        onChange(option.value === value ? "" : option.value)
+                                    value={option.value} // Use value for uniqueness
+                                    onSelect={(currentValue) => {
+                                        onChange(currentValue === value ? "" : currentValue)
                                         setOpen(false)
                                     }}
                                 >
@@ -221,5 +221,3 @@ export {
   CommandSeparator,
   Combobox
 }
-
-    
