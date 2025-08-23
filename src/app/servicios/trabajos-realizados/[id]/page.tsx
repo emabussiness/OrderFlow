@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { doc, getDoc, collection, getDocs, query, where, writeBatch, serverTimestamp, increment } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, where, writeBatch, serverTimestamp, increment, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -326,4 +326,3 @@ export default function TrabajosRealizadosPage({ params }: { params: { id: strin
     </div>
   );
 }
-
