@@ -9,11 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 // --- Types ---
 type PresupuestoAprobado = {
@@ -32,6 +32,8 @@ type Equipo = {
   marca_nombre: string;
   modelo: string;
   estado: "En Reparación" | "Reparado" | "Retirado";
+  diagnostico_tecnico?: string;
+  trabajos_a_realizar?: string;
 };
 
 type OrdenTrabajo = {
@@ -41,6 +43,8 @@ type OrdenTrabajo = {
   recepcion_id: string;
   equipo_info: string;
   equipo_estado: string;
+  diagnostico_tecnico?: string;
+  trabajos_a_realizar?: string;
   total: number;
 };
 
@@ -85,11 +89,13 @@ export default function OrdenDeTrabajoPage() {
           const equipo = equiposMap.get(presupuesto.equipo_id);
           return {
             id: presupuesto.id,
-            fecha_aprobacion: presupuesto.fecha_presupuesto, // Assuming approval date is budget date for now
+            fecha_aprobacion: presupuesto.fecha_presupuesto,
             cliente_nombre: presupuesto.cliente_nombre,
             recepcion_id: presupuesto.recepcion_id,
             equipo_info: equipo ? `${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}` : "Info no disponible",
             equipo_estado: equipo?.estado || 'Desconocido',
+            diagnostico_tecnico: equipo?.diagnostico_tecnico,
+            trabajos_a_realizar: equipo?.trabajos_a_realizar,
             total: presupuesto.total,
           };
         }).sort((a,b) => new Date(b.fecha_aprobacion).getTime() - new Date(a.fecha_aprobacion).getTime());
@@ -160,7 +166,29 @@ export default function OrdenDeTrabajoPage() {
             <TableBody>
               {filteredOrdenes.map((ot) => (
                 <TableRow key={ot.id}>
-                  <TableCell className="font-medium">{ot.id.substring(0, 7)}</TableCell>
+                  <TableCell className="font-medium">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                         <Button variant="link" className="p-0 h-auto">{ot.id.substring(0, 7)}</Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-96">
+                        <div className="grid gap-4">
+                          <div className="space-y-2">
+                            <h4 className="font-medium leading-none">Diagnóstico Técnico</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {ot.diagnostico_tecnico || "No especificado"}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <h4 className="font-medium leading-none">Trabajos a Realizar</h4>
+                            <p className="text-sm text-muted-foreground">
+                               {ot.trabajos_a_realizar || "No especificado"}
+                            </p>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </TableCell>
                   <TableCell>{ot.fecha_aprobacion}</TableCell>
                   <TableCell>{ot.cliente_nombre}</TableCell>
                   <TableCell>{ot.equipo_info}</TableCell>
@@ -178,7 +206,7 @@ export default function OrdenDeTrabajoPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                           <Link href={`/servicios/trabajos-realizados?ot_id=${ot.id}`}>Registrar Trabajo</Link>
+                           <Link href={`/servicios/trabajos-realizados/${ot.id}`}>Registrar Trabajo</Link>
                         </DropdownMenuItem>
                          <DropdownMenuItem asChild>
                            <Link href={`/servicios/retiro-equipos?ot_id=${ot.id}`}>Registrar Retiro</Link>
@@ -200,4 +228,3 @@ export default function OrdenDeTrabajoPage() {
     </>
   );
 }
-
