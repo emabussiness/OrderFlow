@@ -2,14 +2,14 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { collection, getDocs, query, where, doc, writeBatch, serverTimestamp, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, writeBatch, serverTimestamp, orderBy, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FilePlus2, PlusCircle, Trash2 } from "lucide-react";
+import { FilePlus2, PlusCircle, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -19,6 +19,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
 
 // --- Types ---
 type EquipoDiagnosticado = {
@@ -42,6 +46,7 @@ type PresupuestoServicio = {
     items: ItemPresupuesto[];
     total: number;
     fecha_presupuesto: string;
+    estado: 'Pendiente de Aprobación' | 'Aprobado' | 'Rechazado';
 }
 
 type GroupedEquipos = {
@@ -91,10 +96,10 @@ export default function PresupuestoServicioPage() {
     setLoading(true);
     try {
       const [equiposSnap, productosSnap, serviciosSnap, presupuestosSnap] = await Promise.all([
-        getDocs(query(collection(db, 'equipos_en_servicio'), where("estado", "==", "Diagnosticado"))),
+        getDocs(query(collection(db, 'equipos_en_servicio'), where("estado", "in", ["Diagnosticado", "Presupuestado"]))),
         getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
         getDocs(query(collection(db, 'servicios'), orderBy("nombre"))),
-        getDocs(collection(db, 'presupuestos_servicio'))
+        getDocs(query(collection(db, 'presupuestos_servicio')))
       ]);
       
       const equiposList = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
@@ -114,10 +119,6 @@ export default function PresupuestoServicioPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-  
-  const equiposYaPresupuestados = useMemo(() => {
-    return new Set(presupuestos.map(p => p.equipo_id));
-  }, [presupuestos]);
 
   const presupuestosMap = useMemo(() => {
     return new Map(presupuestos.map(p => [p.equipo_id, p]));
@@ -242,6 +243,10 @@ export default function PresupuestoServicioPage() {
             fecha_creacion: serverTimestamp(),
         });
         
+        // Update equipo state
+        const equipoRef = doc(db, 'equipos_en_servicio', selectedEquipo.id);
+        batch.update(equipoRef, { estado: "Presupuestado" });
+
         await batch.commit();
         
         toast({ title: "Presupuesto Guardado", description: "El presupuesto ha sido creado y está pendiente de aprobación."});
@@ -251,6 +256,29 @@ export default function PresupuestoServicioPage() {
     } catch (error) {
         console.error("Error saving presupuesto:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'No se pudo guardar el presupuesto.' });
+    }
+  };
+  
+   const handleUpdatePresupuestoStatus = async (presupuesto: PresupuestoServicio, equipo: EquipoDiagnosticado, newStatus: "Aprobado" | "Rechazado") => {
+    try {
+      const batch = writeBatch(db);
+
+      const presupuestoRef = doc(db, "presupuestos_servicio", presupuesto.id);
+      batch.update(presupuestoRef, { estado: newStatus });
+
+      if (newStatus === "Aprobado") {
+        const equipoRef = doc(db, "equipos_en_servicio", equipo.id);
+        batch.update(equipoRef, { estado: "En Reparación" });
+      }
+
+      await batch.commit();
+      
+      toast({ title: `Presupuesto ${newStatus}`, description: "El estado ha sido actualizado." });
+      await fetchData();
+
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado." });
     }
   };
 
@@ -265,9 +293,9 @@ export default function PresupuestoServicioPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Equipos Pendientes de Presupuesto</CardTitle>
+          <CardTitle>Equipos Pendientes de Presupuesto o Aprobación</CardTitle>
           <CardDescription>
-            Equipos diagnosticados listos para generar un presupuesto de reparación.
+            Equipos diagnosticados listos para generar un presupuesto de reparación o esperando la aprobación del cliente.
             <Input
               placeholder="Buscar por cliente, ID de recepción, tipo, marca o modelo..."
               value={searchTerm}
@@ -300,7 +328,6 @@ export default function PresupuestoServicioPage() {
                     <TableBody>
                       {data.equipos.map((equipo) => {
                         const presupuestoExistente = presupuestosMap.get(equipo.id);
-                        const tienePresupuesto = equiposYaPresupuestados.has(equipo.id);
                         return (
                         <TableRow key={equipo.id}>
                            <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
@@ -329,35 +356,58 @@ export default function PresupuestoServicioPage() {
                                 </Popover>
                            </TableCell>
                            <TableCell>
-                               {tienePresupuesto && presupuestoExistente ? (
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <span tabIndex={0} className="inline-block">
-                                                <Button variant="outline" size="sm" disabled className="pointer-events-none w-full">Presupuestado</Button>
-                                            </span>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-96">
-                                            <div className="grid gap-4">
-                                                 <div className="space-y-2">
-                                                    <h4 className="font-medium leading-none">Presupuesto Generado</h4>
-                                                    <p className="text-sm text-muted-foreground">Fecha: {presupuestoExistente.fecha_presupuesto}</p>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <h4 className="font-medium leading-none">Ítems</h4>
-                                                    <ul className="list-disc list-inside text-sm text-muted-foreground">
-                                                        {presupuestoExistente.items.map((item, idx) => (
-                                                            <li key={idx}>{item.nombre} ({item.cantidad}x) - {currencyFormatter.format(item.precio_unitario)}</li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                                <Separator />
-                                                <div className="flex justify-between font-bold">
-                                                    <span>Total:</span>
-                                                    <span>{currencyFormatter.format(presupuestoExistente.total)}</span>
-                                                </div>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
+                               {presupuestoExistente ? (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline" size="icon" className="h-8 w-8">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <DropdownMenuItem onSelect={e => e.preventDefault()} disabled={presupuestoExistente.estado !== 'Pendiente de Aprobación'}>
+                                                        <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
+                                                    </DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>¿Confirmar Aprobación?</AlertDialogTitle>
+                                                        <AlertDialogDescriptionComponent>
+                                                            Esto cambiará el estado del equipo a "En Reparación" y generará una Orden de Trabajo.
+                                                        </AlertDialogDescriptionComponent>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleUpdatePresupuestoStatus(presupuestoExistente, equipo, 'Aprobado')}>
+                                                            Confirmar
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500" disabled={presupuestoExistente.estado !== 'Pendiente de Aprobación'}>
+                                                        <XCircle className="mr-2 h-4 w-4" /> Rechazar
+                                                    </DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                                 <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>¿Confirmar Rechazo?</AlertDialogTitle>
+                                                        <AlertDialogDescriptionComponent>
+                                                            Esta acción no se puede deshacer. El presupuesto será marcado como rechazado.
+                                                        </AlertDialogDescriptionComponent>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleUpdatePresupuestoStatus(presupuestoExistente, equipo, 'Rechazado')} className="bg-destructive hover:bg-destructive/90">
+                                                            Confirmar Rechazo
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                ) : (
                                  <Button 
                                   variant="outline" 
