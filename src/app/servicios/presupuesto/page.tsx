@@ -46,6 +46,8 @@ type PresupuestoServicio = {
     fecha_presupuesto: string;
     estado: 'Pendiente de Aprobación' | 'Aprobado' | 'Rechazado';
     observaciones?: string;
+    cliente_nombre: string;
+    recepcion_id: string;
 }
 
 type GroupedEquipos = {
@@ -329,7 +331,7 @@ export default function PresupuestoServicioPage() {
                       <TableRow>
                         <TableHead>Equipo</TableHead>
                         <TableHead>Fecha Diag.</TableHead>
-                        <TableHead>Estado Presupuesto</TableHead>
+                        <TableHead>Estado</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -341,7 +343,7 @@ export default function PresupuestoServicioPage() {
                            <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                            <TableCell>{equipo.fecha_diagnostico}</TableCell>
                            <TableCell>
-                               <Popover>
+                                <Popover>
                                 <PopoverTrigger asChild>
                                     <Badge variant="outline" className="cursor-pointer">Ver Diagnóstico</Badge>
                                 </PopoverTrigger>
@@ -363,7 +365,7 @@ export default function PresupuestoServicioPage() {
                                {presupuestoExistente ? (
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <Button variant="outline" size="sm" disabled>
+                                            <Button variant="outline" size="sm">
                                                 <Eye className="mr-2 h-4 w-4"/>
                                                 Presupuestado
                                             </Button>
@@ -556,3 +558,4 @@ export default function PresupuestoServicioPage() {
     </>
   );
 }
+
