@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Combobox } from "@/components/ui/command";
 import { PlusCircle, Trash2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useParams } from 'next/navigation'
 import { Separator } from "@/components/ui/separator";
 
 // --- Types ---
@@ -63,9 +64,10 @@ const currencyFormatter = new Intl.NumberFormat('es-PY', {
 
 
 // --- Main Component ---
-export default function TrabajosRealizadosPage({ params }: { params: { id: string } }) {
+export default function TrabajosRealizadosPage() {
   const { toast } = useToast();
-  const otId = params.id;
+  const params = useParams();
+  const otId = params.id as string;
   const [loading, setLoading] = useState(true);
   const [presupuesto, setPresupuesto] = useState<PresupuestoServicio | null>(null);
   const [equipo, setEquipo] = useState<Equipo | null>(null);
