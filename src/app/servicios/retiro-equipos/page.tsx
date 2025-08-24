@@ -20,6 +20,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { CheckCheck } from "lucide-react";
 import { addDays } from 'date-fns';
+import { Textarea } from "@/components/ui/textarea";
 
 // --- Types ---
 type EquipoParaRetiro = {
@@ -68,6 +69,9 @@ export default function RetiroEquiposPage() {
   const [selectedEquipo, setSelectedEquipo] = useState<EquipoParaRetiro | null>(null);
   const [nombreRetira, setNombreRetira] = useState("");
   const [ciRetira, setCiRetira] = useState("");
+  const [pagoId, setPagoId] = useState("");
+  const [diasGarantia, setDiasGarantia] = useState(90);
+  const [notasGarantia, setNotasGarantia] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -75,18 +79,17 @@ export default function RetiroEquiposPage() {
       // 1. Fetch all equipment that is either repaired or has a rejected budget
       const equiposReparadosQuery = query(collection(db, 'equipos_en_servicio'), where("estado", "==", "Reparado"));
       
-      // We need to fetch equipos whose budget is rejected. The equipment state remains 'Presupuestado'.
       const presupuestosRechazadosQuery = query(collection(db, 'presupuestos_servicio'), where("estado", "==", "Rechazado"));
 
       const [equiposReparadosSnap, presupuestosRechazadosSnap] = await Promise.all([
           getDocs(equiposReparadosQuery),
-          getDocs(presupuestosRechazadosQuery)
+          getDocs(presupuestosRechazadosSnap)
       ]);
 
       const equiposParaRetiro: EquipoParaRetiro[] = [];
       const presupuestoIds = new Set<string>();
 
-      // Add repaired equipment to the list
+      // Find the associated budget for each repaired equipment
       for (const equipoDoc of equiposReparadosSnap.docs) {
           const equipoData = { id: equipoDoc.id, ...equipoDoc.data() } as any;
           const presupuestoId = await findPresupuestoId(equipoData.id);
@@ -98,7 +101,6 @@ export default function RetiroEquiposPage() {
           }
       }
       
-      // Add equipment with rejected budgets to the list
       const equiposRechazadosIds = presupuestosRechazadosSnap.docs.map(doc => doc.data().equipo_id);
       if(equiposRechazadosIds.length > 0) {
         const equiposRechazadosQuery = query(collection(db, 'equipos_en_servicio'), where('__name__', 'in', equiposRechazadosIds));
@@ -106,7 +108,7 @@ export default function RetiroEquiposPage() {
 
         for (const equipoDoc of equiposRechazadosSnap.docs) {
            const presupuestoRechazado = presupuestosRechazadosSnap.docs.find(p => p.data().equipo_id === equipoDoc.id);
-           if(presupuestoRechazado) {
+           if(presupuestoRechazado && !equiposParaRetiro.some(e => e.id === equipoDoc.id)) {
              const equipoData = { id: equipoDoc.id, ...equipoDoc.data(), motivo_retiro: 'Presupuesto Rechazado', presupuesto_id: presupuestoRechazado.id } as any;
              presupuestoIds.add(presupuestoRechazado.id);
              equiposParaRetiro.push(equipoData);
@@ -116,7 +118,6 @@ export default function RetiroEquiposPage() {
 
       setEquipos(equiposParaRetiro);
 
-      // Fetch all required budgets in one query
       if (presupuestoIds.size > 0) {
         const presupuestosQuery = query(collection(db, 'presupuestos_servicio'), where('__name__', 'in', [...presupuestoIds]));
         const presupuestosSnap = await getDocs(presupuestosQuery);
@@ -180,6 +181,9 @@ export default function RetiroEquiposPage() {
     setSelectedEquipo(equipo);
     setNombreRetira("");
     setCiRetira("");
+    setPagoId("");
+    setDiasGarantia(90);
+    setNotasGarantia("La garantía cubre defectos de la reparación realizada y los repuestos instalados. No cubre daños por mal uso, sobretensión o problemas de software no relacionados.");
     setOpenRetiro(true);
   };
   
@@ -189,17 +193,25 @@ export default function RetiroEquiposPage() {
         return;
     }
 
+    const presupuestoAsociado = presupuestos.get(selectedEquipo.presupuesto_id);
+    const montoCobrado = presupuestoAsociado?.estado === 'Aprobado' ? presupuestoAsociado.total : 0;
+    
+    if (montoCobrado > 0 && !pagoId.trim()){
+        toast({ variant: 'destructive', title: 'Error de Validación', description: 'Se debe registrar el ID de pago para equipos reparados.' });
+        return;
+    }
+
+
     try {
         const batch = writeBatch(db);
 
-        // 1. Update equipo status to "Retirado"
         const equipoRef = doc(db, 'equipos_en_servicio', selectedEquipo.id);
-        batch.update(equipoRef, { estado: "Retirado" });
+        batch.update(equipoRef, { 
+            estado: "Retirado",
+            retiro_id: doc(collection(db, 'retiros_equipo')).id,
+            pago_id: pagoId || null
+        });
         
-        const presupuestoAsociado = presupuestos.get(selectedEquipo.presupuesto_id);
-        const montoCobrado = presupuestoAsociado?.estado === 'Aprobado' ? presupuestoAsociado.total : 0;
-
-        // 2. Create a retiro record for audit purposes
         const retiroRef = doc(collection(db, 'retiros_equipo'));
         batch.set(retiroRef, {
             equipo_id: selectedEquipo.id,
@@ -208,13 +220,13 @@ export default function RetiroEquiposPage() {
             cliente_nombre: selectedEquipo.cliente_nombre,
             nombre_retira: nombreRetira.trim(),
             ci_retira: ciRetira.trim(),
+            pago_id: pagoId || null,
             fecha_retiro: new Date().toISOString().split('T')[0],
             monto_cobrado: montoCobrado,
             usuario_id: "user-demo",
             fecha_creacion: serverTimestamp(),
         });
 
-        // 3. Create a warranty record if the service was completed
         if (selectedEquipo.motivo_retiro === 'Reparación Finalizada') {
             const garantiaRef = doc(collection(db, 'garantias_servicio'));
             const hoy = new Date();
@@ -224,7 +236,9 @@ export default function RetiroEquiposPage() {
                 cliente_nombre: selectedEquipo.cliente_nombre,
                 equipo_info: `${selectedEquipo.tipo_equipo_nombre} ${selectedEquipo.marca_nombre} ${selectedEquipo.modelo}`,
                 fecha_inicio: new Date().toISOString().split('T')[0],
-                fecha_fin: addDays(hoy, 90).toISOString().split('T')[0], // 90-day warranty
+                fecha_fin: addDays(hoy, diasGarantia).toISOString().split('T')[0],
+                dias_validez: diasGarantia,
+                notas: notasGarantia,
                 estado: 'Activa',
             });
         }
@@ -320,7 +334,7 @@ export default function RetiroEquiposPage() {
       </Card>
 
       <Dialog open={openRetiro} onOpenChange={setOpenRetiro}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-2xl">
               <DialogHeader>
                   <DialogTitle>Confirmar Retiro de Equipo</DialogTitle>
                   {selectedEquipo && (
@@ -331,27 +345,51 @@ export default function RetiroEquiposPage() {
                       </DialogDescription>
                   )}
               </DialogHeader>
-              <div className="py-4 space-y-4">
+              <div className="py-4 space-y-6">
                   <div className="p-4 rounded-lg bg-secondary">
                       <Label>Monto Final a Pagar</Label>
                       <p className="text-2xl font-bold">{currencyFormatter.format(presupuestos.get(selectedEquipo?.presupuesto_id || '')?.estado === 'Aprobado' ? presupuestos.get(selectedEquipo?.presupuesto_id || '')?.total || 0 : 0)}</p>
-                      <p className="text-xs text-muted-foreground">Verifique que el pago se haya realizado o se realice en este momento.</p>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                        <Label htmlFor="nombre_retira">Nombre de quien retira</Label>
+                        <Input id="nombre_retira" value={nombreRetira} onChange={e => setNombreRetira(e.target.value)} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="ci_retira">Nº de Cédula de Identidad</Label>
+                        <Input id="ci_retira" value={ciRetira} onChange={e => setCiRetira(e.target.value)} />
+                    </div>
+                  </div>
+                  
                   <div className="space-y-2">
-                      <Label htmlFor="nombre_retira">Nombre de quien retira</Label>
-                      <Input id="nombre_retira" value={nombreRetira} onChange={e => setNombreRetira(e.target.value)} />
+                    <Label htmlFor="pago_id">ID de Pago (Opcional si no hay monto a pagar)</Label>
+                    <Input id="pago_id" value={pagoId} onChange={e => setPagoId(e.target.value)} placeholder="Ej: ID de la transacción, Nro. de factura..."/>
                   </div>
-                   <div className="space-y-2">
-                      <Label htmlFor="ci_retira">Nº de Cédula de Identidad</Label>
-                      <Input id="ci_retira" value={ciRetira} onChange={e => setCiRetira(e.target.value)} />
-                  </div>
+                  
+                  {selectedEquipo?.motivo_retiro === 'Reparación Finalizada' && (
+                     <Card>
+                        <CardHeader><CardTitle className="text-base">Configuración de Garantía</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                             <div className="space-y-2">
+                                <Label htmlFor="dias_garantia">Días de Garantía</Label>
+                                <Input id="dias_garantia" type="number" value={diasGarantia} onChange={e => setDiasGarantia(Number(e.target.value) || 0)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="notas_garantia">Notas y Cobertura de la Garantía</Label>
+                                <Textarea id="notas_garantia" rows={4} value={notasGarantia} onChange={e => setNotasGarantia(e.target.value)} />
+                            </div>
+                        </CardContent>
+                    </Card>
+                  )}
+
               </div>
               <DialogFooter>
                   <Button variant="outline" onClick={() => setOpenRetiro(false)}>Cancelar</Button>
-                  <Button onClick={handleRegistrarRetiro}>Confirmar Entrega</Button>
+                  <Button onClick={handleRegistrarRetiro}>Confirmar Entrega y Registrar</Button>
               </DialogFooter>
           </DialogContent>
       </Dialog>
     </>
   );
 }
+
