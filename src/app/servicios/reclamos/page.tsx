@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
-import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
+import { useState, useEffect, useCallback } from "react";
+import { collection, getDocs, query, orderBy, where, writeBatch, doc, serverTimestamp, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,7 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FileWarning, PlusCircle } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 
 // --- Types ---
@@ -22,39 +25,58 @@ type GarantiaActiva = {
   fecha_inicio: string;
   fecha_fin: string;
   estado: 'Activa';
+  recepcion_id: string;
 };
 
+type EquipoOriginal = {
+    id: string;
+    tipo_equipo_id: string;
+    tipo_equipo_nombre: string;
+    marca_id: string;
+    marca_nombre: string;
+    modelo: string;
+    numero_serie?: string;
+    accesorios?: string;
+}
 
 export default function ReclamosServicioPage() {
     const { toast } = useToast();
     const [garantias, setGarantias] = useState<GarantiaActiva[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    
+    // Dialog State
+    const [openReclamo, setOpenReclamo] = useState(false);
+    const [selectedGarantia, setSelectedGarantia] = useState<GarantiaActiva | null>(null);
+    const [problemaReclamo, setProblemaReclamo] = useState("");
+    const [accesoriosReclamo, setAccesoriosReclamo] = useState("");
+    const [equipoOriginal, setEquipoOriginal] = useState<EquipoOriginal | null>(null);
+
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const q = query(
+                collection(db, 'garantias_servicio'), 
+                where("estado", "==", "Activa")
+            );
+            const snapshot = await getDocs(q);
+            const dataList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GarantiaActiva));
+            
+            dataList.sort((a, b) => new Date(a.fecha_fin).getTime() - new Date(b.fecha_fin).getTime());
+            
+            setGarantias(dataList);
+        } catch (error) {
+            console.error("Error fetching active warranties:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las garantías activas.' });
+        } finally {
+            setLoading(false);
+        }
+    }, [toast]);
 
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const q = query(
-                    collection(db, 'garantias_servicio'), 
-                    where("estado", "==", "Activa")
-                );
-                const snapshot = await getDocs(q);
-                const dataList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GarantiaActiva));
-                
-                // Sort data on the client side
-                dataList.sort((a, b) => new Date(a.fecha_fin).getTime() - new Date(b.fecha_fin).getTime());
-                
-                setGarantias(dataList);
-            } catch (error) {
-                console.error("Error fetching active warranties:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las garantías activas.' });
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchData();
-    }, [toast]);
+    }, [fetchData]);
     
     const filteredGarantias = garantias.filter(g => {
       const term = searchTerm.toLowerCase();
@@ -62,14 +84,83 @@ export default function ReclamosServicioPage() {
           g.cliente_nombre.toLowerCase().includes(term) ||
           g.equipo_info.toLowerCase().includes(term);
     });
+    
+    const handleOpenReclamo = async (garantia: GarantiaActiva) => {
+        setSelectedGarantia(garantia);
+        // Fetch original equipment data to pre-fill info
+        const equipoRef = doc(db, "equipos_en_servicio", garantia.equipo_id);
+        const equipoSnap = await getDoc(equipoRef);
+        if (equipoSnap.exists()) {
+            setEquipoOriginal({id: equipoSnap.id, ...equipoSnap.data()} as EquipoOriginal);
+            setAccesoriosReclamo(equipoSnap.data().accesorios || "");
+        }
+        setOpenReclamo(true);
+    };
 
-    const handleIniciarReclamo = (garantiaId: string) => {
-        // TODO: Implement logic to start a new service cycle for the warranty claim
-        toast({
-            title: "Función en Desarrollo",
-            description: `Se iniciaría un nuevo ciclo de servicio para la garantía ID: ${garantiaId.substring(0,7)}`,
-        });
-    }
+    const handleCloseReclamo = () => {
+        setOpenReclamo(false);
+        setSelectedGarantia(null);
+        setProblemaReclamo("");
+        setAccesoriosReclamo("");
+        setEquipoOriginal(null);
+    };
+    
+    const handleSubmitReclamo = async () => {
+        if (!selectedGarantia || !equipoOriginal || !problemaReclamo.trim()) {
+            toast({ variant: 'destructive', title: 'Error', description: 'El problema manifestado es obligatorio.' });
+            return;
+        }
+
+        try {
+            const batch = writeBatch(db);
+
+            // 1. Mark original warranty as "Utilizada"
+            const garantiaRef = doc(db, "garantias_servicio", selectedGarantia.id);
+            batch.update(garantiaRef, { estado: "Utilizada" });
+
+            // 2. Create a new reception record for the claim
+            const nuevaRecepcionRef = doc(collection(db, "recepciones"));
+            batch.set(nuevaRecepcionRef, {
+                cliente_id: doc(db, 'clientes', selectedGarantia.cliente_nombre).id, // This is a simplification, assumes client name is unique ID
+                cliente_nombre: selectedGarantia.cliente_nombre,
+                fecha_recepcion: new Date().toISOString().split('T')[0],
+                usuario_id: 'user-demo',
+                fecha_creacion: serverTimestamp(),
+                origen_reclamo_id: selectedGarantia.id, // Link to original warranty claim
+                equipos: [], // Will be populated by the equipment record
+            });
+
+            // 3. Create new equipment_en_servicio record for the claim
+            const nuevoEquipoRef = doc(collection(db, "equipos_en_servicio"));
+            batch.set(nuevoEquipoRef, {
+                ...equipoOriginal, // Spread original equipment data
+                recepcion_id: nuevaRecepcionRef.id,
+                origen_garantia_id: selectedGarantia.id, // Link to the warranty
+                estado: "Recibido",
+                problema_manifestado: problemaReclamo,
+                accesorios: accesoriosReclamo,
+                fecha_recepcion: new Date().toISOString().split('T')[0],
+                fecha_creacion: serverTimestamp(),
+                usuario_id: "user-demo",
+            });
+            
+            // 4. Update the reception with the new equipment ID (circular reference solved)
+            batch.update(nuevaRecepcionRef, {
+                equipos: [{ id: nuevoEquipoRef.id, problema_manifestado: problemaReclamo }]
+            });
+
+            await batch.commit();
+
+            toast({ title: "Reclamo Iniciado", description: "Se ha creado un nuevo ciclo de servicio para la garantía." });
+            handleCloseReclamo();
+            await fetchData();
+
+        } catch (error) {
+            console.error("Error creating claim:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo iniciar el reclamo de garantía.' });
+        }
+    };
+
 
     if (loading) return <p>Cargando garantías activas...</p>;
 
@@ -113,7 +204,7 @@ export default function ReclamosServicioPage() {
                         <Badge variant="default">{garantia.estado}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                        <Button size="sm" onClick={() => handleIniciarReclamo(garantia.id)}>
+                        <Button size="sm" onClick={() => handleOpenReclamo(garantia)}>
                             <FileWarning className="mr-2 h-4 w-4"/>
                             Iniciar Reclamo
                         </Button>
@@ -129,6 +220,53 @@ export default function ReclamosServicioPage() {
             )}
             </CardContent>
         </Card>
+        
+        <Dialog open={openReclamo} onOpenChange={handleCloseReclamo}>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Iniciar Reclamo de Garantía</DialogTitle>
+                    <DialogDescription>
+                        Registrar una nueva recepción de servicio para la garantía seleccionada.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                    <Card className="bg-secondary/50">
+                        <CardHeader className="pb-2">
+                           <CardTitle className="text-lg">Información del Equipo</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <p><strong>Cliente:</strong> {selectedGarantia?.cliente_nombre}</p>
+                             <p><strong>Equipo:</strong> {selectedGarantia?.equipo_info}</p>
+                             <p><strong>Garantía válida hasta:</strong> {selectedGarantia?.fecha_fin}</p>
+                        </CardContent>
+                    </Card>
+                    <div className="space-y-2">
+                        <Label htmlFor="problema-reclamo">Problema Manifestado (Actual)</Label>
+                        <Textarea 
+                            id="problema-reclamo" 
+                            value={problemaReclamo} 
+                            onChange={(e) => setProblemaReclamo(e.target.value)}
+                            placeholder="Describa el nuevo problema o la recurrencia del problema anterior."
+                            rows={4}
+                        />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="accesorios-reclamo">Accesorios Entregados (Actual)</Label>
+                        <Input 
+                            id="accesorios-reclamo" 
+                            value={accesoriosReclamo} 
+                            onChange={(e) => setAccesoriosReclamo(e.target.value)}
+                            placeholder="Ej: Cargador, cable, etc. (los mismos de la vez anterior si aplica)"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={handleCloseReclamo}>Cancelar</Button>
+                    <Button onClick={handleSubmitReclamo}>Confirmar e Iniciar Reclamo</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
         </div>
     );
 }
