@@ -390,6 +390,9 @@ export default function PresupuestoServicioPage() {
                                                            <strong>Obs:</strong> {presupuestoExistente.observaciones}
                                                         </p>
                                                     )}
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Registrado por: {presupuestoExistente.usuario_id || 'N/A'}
+                                                    </p>
                                                 </div>
                                                 <Separator/>
                                                  <ScrollArea className="h-48">
