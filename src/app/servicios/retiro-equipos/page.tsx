@@ -48,6 +48,7 @@ type ItemPresupuesto = {
 type TrabajoRealizado = {
     id: string;
     items_cubiertos_garantia?: ItemPresupuesto[];
+    costo_total_trabajo: number;
 }
 
 type EquipoParaRetiro = {
@@ -90,6 +91,7 @@ export default function RetiroEquiposPage() {
   const { toast } = useToast();
   const [equipos, setEquipos] = useState<EquipoParaRetiro[]>([]);
   const [presupuestos, setPresupuestos] = useState<Map<string, PresupuestoServicio>>(new Map());
+  const [trabajos, setTrabajos] = useState<Map<string, TrabajoRealizado>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -165,13 +167,14 @@ export default function RetiroEquiposPage() {
           const trabajosQuery = query(collection(db, 'trabajos_realizados'), where('orden_trabajo_id', 'in', [...otIds]));
           const trabajosSnap = await getDocs(trabajosQuery);
           trabajosSnap.forEach(doc => {
-              const trabajoData = { id: doc.id, ...doc.data() } as TrabajoRealizado;
+              const trabajoData = doc.data() as Omit<TrabajoRealizado, 'id'>;
               const otId = doc.data().orden_trabajo_id;
               if (otId) {
-                  trabajosMap.set(otId, trabajoData);
+                  trabajosMap.set(otId, {id: doc.id, ...trabajoData});
               }
           });
       }
+      setTrabajos(trabajosMap);
 
       const retirosMap = new Map<string, RetiroInfo>();
       if (equipoIds.size > 0) {
@@ -273,9 +276,10 @@ export default function RetiroEquiposPage() {
     }
 
     const presupuestoAsociado = presupuestos.get(selectedEquipo.presupuesto_id);
-    const montoCobrado = presupuestoAsociado?.estado === 'Aprobado' ? presupuestoAsociado.total : 0;
+    const trabajoRealizado = trabajos.get(selectedEquipo.presupuesto_id);
+    const montoCobrado = trabajoRealizado?.costo_total_trabajo ?? presupuestoAsociado?.total ?? 0;
     
-    if (montoCobrado > 0 && !pagoId.trim()){
+    if (presupuestoAsociado?.estado === 'Aprobado' && montoCobrado > 0 && !pagoId.trim()){
         toast({ variant: 'destructive', title: 'Error de Validación', description: 'Se debe registrar el ID de pago para equipos reparados.' });
         return;
     }
@@ -390,7 +394,9 @@ export default function RetiroEquiposPage() {
                     <TableBody>
                       {data.equipos.map((equipo) => {
                         const presupuesto = presupuestos.get(equipo.presupuesto_id);
-                        const montoAPagar = presupuesto?.estado === 'Aprobado' ? presupuesto.total : 0;
+                        const trabajo = trabajos.get(equipo.presupuesto_id);
+                        const montoAPagar = trabajo?.costo_total_trabajo ?? (presupuesto?.estado === 'Aprobado' ? presupuesto.total : 0);
+                        
                         return (
                         <TableRow key={equipo.id}>
                           <TableCell className="font-medium">{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre}`}</TableCell>
@@ -473,7 +479,7 @@ export default function RetiroEquiposPage() {
                 <div className="py-4 space-y-6 px-1">
                     <div className="p-4 rounded-lg bg-secondary">
                         <Label>Monto Final a Pagar</Label>
-                        <p className="text-2xl font-bold">{currencyFormatter.format(presupuestos.get(selectedEquipo?.presupuesto_id || '')?.estado === 'Aprobado' ? presupuestos.get(selectedEquipo?.presupuesto_id || '')?.total || 0 : 0)}</p>
+                        <p className="text-2xl font-bold">{currencyFormatter.format(trabajos.get(selectedEquipo?.presupuesto_id || '')?.costo_total_trabajo ?? (presupuestos.get(selectedEquipo?.presupuesto_id || '')?.estado === 'Aprobado' ? presupuestos.get(selectedEquipo?.presupuesto_id || '')?.total || 0 : 0))}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
