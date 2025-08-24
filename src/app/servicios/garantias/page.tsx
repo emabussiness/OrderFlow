@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +16,9 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Package, Wrench, Info } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 
 // --- Types ---
@@ -28,7 +30,24 @@ type Garantia = {
   fecha_inicio: string;
   fecha_fin: string;
   estado: 'Activa' | 'Vencida' | 'Utilizada';
+  trabajo_realizado?: TrabajoRealizado; // Optional field to hold details
 };
+
+type ItemPresupuesto = {
+  id: string;
+  nombre: string;
+  tipo: 'Repuesto' | 'Mano de Obra';
+  cantidad: number;
+  precio_unitario: number;
+};
+
+type TrabajoRealizado = {
+  id: string;
+  items_utilizados: ItemPresupuesto[];
+  items_adicionales: ItemPresupuesto[];
+  observaciones_tecnicas: string;
+};
+
 
 const getStatusVariant = (status: Garantia['estado']): "default" | "secondary" | "destructive" => {
     const hoy = new Date().toISOString().split('T')[0];
@@ -47,14 +66,14 @@ export default function GarantiasPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
         const q = query(collection(db, 'garantias_servicio'), orderBy("fecha_inicio", "desc"));
         const snapshot = await getDocs(q);
-        const dataList = snapshot.docs.map(doc => {
-            const data = doc.data() as Omit<Garantia, 'id'>;
+        
+        const garantiasList = snapshot.docs.map(doc => {
+            const data = doc.data() as Omit<Garantia, 'id'| 'trabajo_realizado'>;
             const hoy = new Date().toISOString().split('T')[0];
             let estado = data.estado;
             if (estado === 'Activa' && data.fecha_fin < hoy) {
@@ -62,16 +81,39 @@ export default function GarantiasPage() {
             }
             return { id: doc.id, ...data, estado };
         });
-        setGarantias(dataList);
-      } catch (error) {
+
+        // Fetch related trabajos realizados
+        const equipoIds = garantiasList.map(g => g.equipo_id);
+        if(equipoIds.length > 0) {
+            const trabajosQuery = query(collection(db, 'trabajos_realizados'), where('equipo_id', 'in', equipoIds));
+            const trabajosSnap = await getDocs(trabajosQuery);
+            const trabajosMap = new Map<string, TrabajoRealizado>();
+            trabajosSnap.forEach(doc => {
+                const trabajoData = { id: doc.id, ...doc.data() } as TrabajoRealizado;
+                const equipoId = doc.data().equipo_id;
+                if(equipoId) {
+                    trabajosMap.set(equipoId, trabajoData);
+                }
+            });
+            
+            garantiasList.forEach(g => {
+                g.trabajo_realizado = trabajosMap.get(g.equipo_id);
+            });
+        }
+        
+        setGarantias(garantiasList);
+
+    } catch (error) {
         console.error("Error fetching warranties:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las garantías.' });
-      } finally {
+    } finally {
         setLoading(false);
-      }
-    };
-    fetchData();
+    }
   }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
   
   const filteredGarantias = garantias.filter(g => {
       const term = searchTerm.toLowerCase();
@@ -94,6 +136,64 @@ export default function GarantiasPage() {
 
   if (loading) return <p>Cargando garantías...</p>;
 
+  const renderStatusBadge = (garantia: Garantia) => {
+    const badge = <Badge variant={getStatusVariant(garantia.estado)}>{garantia.estado}</Badge>;
+    const trabajo = garantia.trabajo_realizado;
+
+    if (garantia.estado === 'Activa' && trabajo) {
+      return (
+        <Popover>
+          <PopoverTrigger asChild>
+            <span className="relative">
+              {badge}
+              <Info className="h-3 w-3 absolute -top-1 -right-1 text-primary-foreground bg-primary rounded-full" />
+            </span>
+          </PopoverTrigger>
+          <PopoverContent className="w-96" align="end">
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h4 className="font-medium">Cobertura de Garantía</h4>
+                <p className="text-sm text-muted-foreground">Detalles de la reparación original.</p>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <h5 className="font-semibold text-sm">Ítems Cubiertos</h5>
+                <ScrollArea className="h-40">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Descripción</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead className="text-right">Cant.</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {trabajo.items_utilizados.map(item => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.nombre}</TableCell>
+                          <TableCell><Badge variant={item.tipo === 'Repuesto' ? 'outline' : 'secondary'} className="text-xs">{item.tipo}</Badge></TableCell>
+                          <TableCell className="text-right">{item.cantidad}</TableCell>
+                        </TableRow>
+                      ))}
+                       {trabajo.items_adicionales.map(item => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.nombre}</TableCell>
+                          <TableCell><Badge variant={item.tipo === 'Repuesto' ? 'outline' : 'secondary'} className="text-xs">{item.tipo}</Badge></TableCell>
+                          <TableCell className="text-right">{item.cantidad}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+      );
+    }
+    return badge;
+  };
+
   return (
     <>
       <div className="flex justify-between items-center mb-6">
@@ -103,10 +203,8 @@ export default function GarantiasPage() {
       <Card>
         <CardHeader>
           <CardTitle>Historial de Garantías</CardTitle>
-          <CardDescription>
-            Consulte y filtre las garantías de servicio emitidas.
-          </CardDescription>
-          <div className="flex flex-col md:flex-row gap-4 mt-2">
+          <CardDescription>Consulte y filtre las garantías de servicio emitidas.</CardDescription>
+          <div className="flex flex-col md:flex-row gap-4 pt-2">
             <Input
               placeholder="Buscar por cliente o equipo..."
               value={searchTerm}
@@ -151,9 +249,7 @@ export default function GarantiasPage() {
                   <TableCell>{garantia.fecha_inicio}</TableCell>
                   <TableCell>{garantia.fecha_fin}</TableCell>
                   <TableCell>
-                      <Badge variant={getStatusVariant(garantia.estado)}>
-                          {garantia.estado}
-                      </Badge>
+                      {renderStatusBadge(garantia)}
                   </TableCell>
                 </TableRow>
               ))}
