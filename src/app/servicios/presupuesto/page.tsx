@@ -87,6 +87,8 @@ export default function PresupuestoServicioPage() {
   const [presupuestos, setPresupuestos] = useState<PresupuestoServicio[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<'Pendiente de Aprobación' | 'Aprobado' | 'Rechazado' | ''>('');
+
 
   // Dialog State
   const [openPresupuesto, setOpenPresupuesto] = useState(false);
@@ -101,7 +103,7 @@ export default function PresupuestoServicioPage() {
         getDocs(query(collection(db, 'equipos_en_servicio'), where("diagnostico_tecnico", "!=", null))),
         getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
         getDocs(query(collection(db, 'servicios'), orderBy("nombre"))),
-        getDocs(query(collection(db, 'presupuestos_servicio')))
+        getDocs(collection(db, 'presupuestos_servicio'))
       ]);
       
       const equiposList = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
@@ -134,6 +136,20 @@ export default function PresupuestoServicioPage() {
     );
 
     sortedEquipos.forEach(equipo => {
+      // Status Filter
+      const presupuesto = presupuestosMap.get(equipo.id);
+      if (statusFilter) {
+          if (!presupuesto || presupuesto.estado !== statusFilter) {
+              // Special case: if filtering by pending, include those without a budget yet
+              if(statusFilter === 'Pendiente de Aprobación' && !presupuesto) {
+                // allow to pass
+              } else {
+                return;
+              }
+          }
+      }
+      
+      // Search Term Filter
       const term = searchTerm.toLowerCase();
       const matchesSearch = !term ||
         equipo.cliente_nombre.toLowerCase().includes(term) ||
@@ -159,7 +175,7 @@ export default function PresupuestoServicioPage() {
         .sort(([, valA], [, valB]) => new Date(valB.fecha_recepcion).getTime() - new Date(valA.fecha_recepcion).getTime())
         .reduce((acc, [key, val]) => ({...acc, [key]: val}), {});
 
-  }, [equipos, searchTerm]);
+  }, [equipos, searchTerm, statusFilter, presupuestosMap]);
 
   const handleOpenPresupuesto = (equipo: EquipoDiagnosticado) => {
     setSelectedEquipo(equipo);
@@ -307,12 +323,20 @@ export default function PresupuestoServicioPage() {
           <CardTitle>Equipos Pendientes de Presupuesto o Aprobación</CardTitle>
           <CardDescription>
             Equipos diagnosticados listos para generar un presupuesto de reparación o esperando la aprobación del cliente.
-            <Input
-              placeholder="Buscar por cliente, ID de recepción, tipo, marca o modelo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="mt-2"
-            />
+             <div className="flex flex-col md:flex-row gap-4 mt-2">
+                 <Input
+                  placeholder="Buscar por cliente, ID de recepción, tipo, marca o modelo..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-grow"
+                />
+                <div className="flex items-center gap-2">
+                    <Button variant={statusFilter === '' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('')}>Todos</Button>
+                    <Button variant={statusFilter === 'Pendiente de Aprobación' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Pendiente de Aprobación')}>Pendientes</Button>
+                    <Button variant={statusFilter === 'Aprobado' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Aprobado')}>Aprobados</Button>
+                    <Button variant={statusFilter === 'Rechazado' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Rechazado')}>Rechazados</Button>
+                </div>
+            </div>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -462,7 +486,7 @@ export default function PresupuestoServicioPage() {
 
           {Object.keys(groupedAndFilteredEquipos).length === 0 && (
             <p className="text-center text-muted-foreground py-10">
-              No hay equipos pendientes de presupuesto en este momento.
+              No hay equipos que coincidan con los filtros aplicados.
             </p>
           )}
         </CardContent>
@@ -563,3 +587,4 @@ export default function PresupuestoServicioPage() {
     </>
   );
 }
+
