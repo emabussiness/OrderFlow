@@ -143,8 +143,8 @@ export default function GarantiasPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {garantia.items_cubiertos.map(item => (
-                        <TableRow key={item.id}>
+                      {garantia.items_cubiertos.map((item, index) => (
+                        <TableRow key={`${item.id}-${index}`}>
                           <TableCell>{item.nombre}</TableCell>
                           <TableCell><Badge variant={item.tipo === 'Repuesto' ? 'outline' : 'secondary'} className="text-xs">{item.tipo}</Badge></TableCell>
                           <TableCell className="text-right">{item.cantidad}</TableCell>
