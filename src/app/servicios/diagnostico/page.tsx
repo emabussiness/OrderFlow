@@ -210,7 +210,37 @@ export default function DiagnosticoPage() {
       }
   };
 
-  if (loading) return <p>Cargando equipos pendientes...</p>;
+  const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
+    switch (status) {
+      case "Diagnosticado": return "default";
+      case "Presupuestado": return "secondary";
+      case "En Reparación": return "outline";
+      case "Reparado": return "default";
+      case "Retirado": return "secondary";
+      default: return "destructive";
+    }
+  };
+
+  const renderActionButton = (equipo: EquipoEnServicio) => {
+    const isPresupuestado = equiposYaPresupuestados.has(equipo.id);
+
+    if (isPresupuestado) {
+        return <Button variant="outline" size="sm" disabled><PenSquare className="mr-2 h-4 w-4"/>Presupuestado</Button>;
+    }
+    
+    if (equipo.estado === 'Recibido') {
+        return <Button variant="default" size="sm" onClick={() => handleOpenDiagnostico(equipo)}><PenSquare className="mr-2 h-4 w-4"/>Diagnosticar</Button>;
+    }
+    
+    if (equipo.estado === 'Diagnosticado') {
+        return <Button variant="secondary" size="sm" onClick={() => handleOpenDiagnostico(equipo)}><PenSquare className="mr-2 h-4 w-4"/>Editar Diagnóstico</Button>;
+    }
+
+    // For states like "En Reparacion", "Reparado", etc.
+    return <Button variant="outline" size="sm" disabled>{equipo.estado}</Button>;
+  };
+
+  if (loading) return <p>Cargando equipos...</p>;
 
   return (
     <>
@@ -220,9 +250,9 @@ export default function DiagnosticoPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recepciones con Equipos Pendientes</CardTitle>
+          <CardTitle>Recepciones con Equipos</CardTitle>
           <CardDescription>
-              Equipos en estado "Recibido" o "Diagnosticado" que están pendientes de acción.
+              Listado completo de todos los equipos ingresados. Utilice el buscador para filtrar.
               <Input
                 placeholder="Buscar por cliente, ID de recepción, tipo, marca o modelo..."
                 value={searchTerm}
@@ -250,7 +280,7 @@ export default function DiagnosticoPage() {
                         <TableHead>Problema Manifestado</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead>Registrado por</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="w-[180px]">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -259,10 +289,10 @@ export default function DiagnosticoPage() {
                           <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
                           <TableCell className="max-w-[300px] truncate">{equipo.problema_manifestado}</TableCell>
                           <TableCell>
-                            {equipo.estado === 'Diagnosticado' ? (
+                            {equipo.diagnostico_tecnico ? (
                                 <Popover>
                                 <PopoverTrigger asChild>
-                                    <Badge variant="default" className="cursor-pointer">Diagnosticado</Badge>
+                                    <Badge variant={getStatusVariant(equipo.estado)} className="cursor-pointer">{equipo.estado}</Badge>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-96">
                                     <div className="grid gap-4">
@@ -289,15 +319,7 @@ export default function DiagnosticoPage() {
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">{equipo.usuario_id || 'N/A'}</TableCell>
                           <TableCell>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleOpenDiagnostico(equipo)}
-                                disabled={equiposYaPresupuestados.has(equipo.id)}
-                              >
-                                  <PenSquare className="mr-2 h-4 w-4"/>
-                                  {equiposYaPresupuestados.has(equipo.id) ? 'Presupuestado' : (equipo.estado === 'Diagnosticado' ? 'Editar' : 'Diagnosticar')}
-                              </Button>
+                            {renderActionButton(equipo)}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -307,7 +329,7 @@ export default function DiagnosticoPage() {
               </AccordionItem>
             ))}
           </Accordion>
-          {Object.keys(groupedAndFilteredEquipos).length === 0 && <p className="text-center text-muted-foreground mt-4">No hay equipos pendientes de diagnóstico.</p>}
+          {Object.keys(groupedAndFilteredEquipos).length === 0 && <p className="text-center text-muted-foreground mt-4">No hay equipos que coincidan con la búsqueda.</p>}
         </CardContent>
       </Card>
       
