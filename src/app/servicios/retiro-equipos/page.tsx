@@ -19,28 +19,31 @@ import {
 } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
 import { CheckCheck } from "lucide-react";
+import { addDays } from 'date-fns';
 
 // --- Types ---
-type EquipoReparado = {
+type EquipoParaRetiro = {
   id: string;
   cliente_nombre: string;
   recepcion_id: string;
   tipo_equipo_nombre: string;
   marca_nombre: string;
   modelo: string;
-  estado: "Reparado";
-  presupuesto_id?: string; // We need a link to the budget to get the total
+  estado: "Reparado" | "Diagnosticado" | "Presupuestado"; // Estado del equipo
+  motivo_retiro: 'Reparación Finalizada' | 'Presupuesto Rechazado';
+  presupuesto_id: string; 
 };
 
 type PresupuestoServicio = {
     id: string;
     total: number;
+    estado: 'Aprobado' | 'Rechazado';
 }
 
 type GroupedEquipos = {
   [key: string]: {
     cliente_nombre: string;
-    equipos: EquipoReparado[];
+    equipos: EquipoParaRetiro[];
   }
 }
 
@@ -55,49 +58,72 @@ const currencyFormatter = new Intl.NumberFormat('es-PY', {
 // --- Main Component ---
 export default function RetiroEquiposPage() {
   const { toast } = useToast();
-  const [equipos, setEquipos] = useState<EquipoReparado[]>([]);
-  const [presupuestos, setPresupuestos] = useState<Map<string, number>>(new Map());
+  const [equipos, setEquipos] = useState<EquipoParaRetiro[]>([]);
+  const [presupuestos, setPresupuestos] = useState<Map<string, PresupuestoServicio>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Dialog state
   const [openRetiro, setOpenRetiro] = useState(false);
-  const [selectedEquipo, setSelectedEquipo] = useState<EquipoReparado | null>(null);
+  const [selectedEquipo, setSelectedEquipo] = useState<EquipoParaRetiro | null>(null);
   const [nombreRetira, setNombreRetira] = useState("");
   const [ciRetira, setCiRetira] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Fetch all repaired equipment
-      const equiposQuery = query(
-        collection(db, 'equipos_en_servicio'),
-        where("estado", "==", "Reparado")
-      );
-      const equiposSnap = await getDocs(equiposQuery);
-      const equiposList: EquipoReparado[] = [];
+      // 1. Fetch all equipment that is either repaired or has a rejected budget
+      const equiposReparadosQuery = query(collection(db, 'equipos_en_servicio'), where("estado", "==", "Reparado"));
+      
+      // We need to fetch equipos whose budget is rejected. The equipment state remains 'Presupuestado'.
+      const presupuestosRechazadosQuery = query(collection(db, 'presupuestos_servicio'), where("estado", "==", "Rechazado"));
 
-      // 2. Create a Set of unique presupuesto_ids
+      const [equiposReparadosSnap, presupuestosRechazadosSnap] = await Promise.all([
+          getDocs(equiposReparadosQuery),
+          getDocs(presupuestosRechazadosQuery)
+      ]);
+
+      const equiposParaRetiro: EquipoParaRetiro[] = [];
       const presupuestoIds = new Set<string>();
-      for (const doc of equiposSnap.docs) {
-          const equipoData = { id: doc.id, ...doc.data()} as EquipoReparado;
+
+      // Add repaired equipment to the list
+      for (const equipoDoc of equiposReparadosSnap.docs) {
+          const equipoData = { id: equipoDoc.id, ...equipoDoc.data() } as any;
           const presupuestoId = await findPresupuestoId(equipoData.id);
           if (presupuestoId) {
             equipoData.presupuesto_id = presupuestoId;
+            equipoData.motivo_retiro = 'Reparación Finalizada';
             presupuestoIds.add(presupuestoId);
+            equiposParaRetiro.push(equipoData);
           }
-          equiposList.push(equipoData);
       }
-      setEquipos(equiposList);
+      
+      // Add equipment with rejected budgets to the list
+      const equiposRechazadosIds = presupuestosRechazadosSnap.docs.map(doc => doc.data().equipo_id);
+      if(equiposRechazadosIds.length > 0) {
+        const equiposRechazadosQuery = query(collection(db, 'equipos_en_servicio'), where('__name__', 'in', equiposRechazadosIds));
+        const equiposRechazadosSnap = await getDocs(equiposRechazadosQuery);
 
-      // 3. Fetch all required budgets in one query
+        for (const equipoDoc of equiposRechazadosSnap.docs) {
+           const presupuestoRechazado = presupuestosRechazadosSnap.docs.find(p => p.data().equipo_id === equipoDoc.id);
+           if(presupuestoRechazado) {
+             const equipoData = { id: equipoDoc.id, ...equipoDoc.data(), motivo_retiro: 'Presupuesto Rechazado', presupuesto_id: presupuestoRechazado.id } as any;
+             presupuestoIds.add(presupuestoRechazado.id);
+             equiposParaRetiro.push(equipoData);
+           }
+        }
+      }
+
+      setEquipos(equiposParaRetiro);
+
+      // Fetch all required budgets in one query
       if (presupuestoIds.size > 0) {
         const presupuestosQuery = query(collection(db, 'presupuestos_servicio'), where('__name__', 'in', [...presupuestoIds]));
         const presupuestosSnap = await getDocs(presupuestosQuery);
-        const presupuestosMap = new Map<string, number>();
+        const presupuestosMap = new Map<string, PresupuestoServicio>();
         presupuestosSnap.forEach(doc => {
             const data = doc.data() as PresupuestoServicio;
-            presupuestosMap.set(doc.id, data.total);
+            presupuestosMap.set(doc.id, {id: doc.id, total: data.total, estado: data.estado});
         });
         setPresupuestos(presupuestosMap);
       }
@@ -110,7 +136,6 @@ export default function RetiroEquiposPage() {
     }
   }, [toast]);
   
-  // Helper to find presupuestoId from equipo_id, as it's not directly stored
   const findPresupuestoId = async (equipoId: string): Promise<string | undefined> => {
     const q = query(collection(db, 'presupuestos_servicio'), where('equipo_id', '==', equipoId), where('estado', '==', 'Aprobado'));
     const snapshot = await getDocs(q);
@@ -151,7 +176,7 @@ export default function RetiroEquiposPage() {
     return grouped;
   }, [equipos, searchTerm]);
 
-  const handleOpenRetiro = (equipo: EquipoReparado) => {
+  const handleOpenRetiro = (equipo: EquipoParaRetiro) => {
     setSelectedEquipo(equipo);
     setNombreRetira("");
     setCiRetira("");
@@ -170,6 +195,9 @@ export default function RetiroEquiposPage() {
         // 1. Update equipo status to "Retirado"
         const equipoRef = doc(db, 'equipos_en_servicio', selectedEquipo.id);
         batch.update(equipoRef, { estado: "Retirado" });
+        
+        const presupuestoAsociado = presupuestos.get(selectedEquipo.presupuesto_id);
+        const montoCobrado = presupuestoAsociado?.estado === 'Aprobado' ? presupuestoAsociado.total : 0;
 
         // 2. Create a retiro record for audit purposes
         const retiroRef = doc(collection(db, 'retiros_equipo'));
@@ -181,10 +209,25 @@ export default function RetiroEquiposPage() {
             nombre_retira: nombreRetira.trim(),
             ci_retira: ciRetira.trim(),
             fecha_retiro: new Date().toISOString().split('T')[0],
-            monto_cobrado: presupuestos.get(selectedEquipo.presupuesto_id || '') || 0,
+            monto_cobrado: montoCobrado,
             usuario_id: "user-demo",
             fecha_creacion: serverTimestamp(),
         });
+
+        // 3. Create a warranty record if the service was completed
+        if (selectedEquipo.motivo_retiro === 'Reparación Finalizada') {
+            const garantiaRef = doc(collection(db, 'garantias_servicio'));
+            const hoy = new Date();
+            batch.set(garantiaRef, {
+                equipo_id: selectedEquipo.id,
+                recepcion_id: selectedEquipo.recepcion_id,
+                cliente_nombre: selectedEquipo.cliente_nombre,
+                equipo_info: `${selectedEquipo.tipo_equipo_nombre} ${selectedEquipo.marca_nombre} ${selectedEquipo.modelo}`,
+                fecha_inicio: new Date().toISOString().split('T')[0],
+                fecha_fin: addDays(hoy, 90).toISOString().split('T')[0], // 90-day warranty
+                estado: 'Activa',
+            });
+        }
 
         await batch.commit();
         
@@ -199,7 +242,7 @@ export default function RetiroEquiposPage() {
   };
 
 
-  if (loading) return <p>Cargando equipos reparados...</p>;
+  if (loading) return <p>Cargando equipos...</p>;
 
   return (
     <>
@@ -211,7 +254,7 @@ export default function RetiroEquiposPage() {
         <CardHeader>
           <CardTitle>Equipos Listos para Retiro</CardTitle>
           <CardDescription>
-            Listado de equipos con estado "Reparado", pendientes de ser retirados por el cliente.
+            Listado de equipos reparados o con presupuesto rechazado, pendientes de ser retirados por el cliente.
             <Input
               placeholder="Buscar por cliente, ID de recepción o equipo..."
               value={searchTerm}
@@ -236,23 +279,32 @@ export default function RetiroEquiposPage() {
                       <TableRow>
                         <TableHead>Equipo</TableHead>
                         <TableHead>Modelo</TableHead>
+                        <TableHead>Motivo de Retiro</TableHead>
                         <TableHead className="text-right">Monto a Pagar</TableHead>
                         <TableHead className="w-[180px] text-center">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.equipos.map((equipo) => (
+                      {data.equipos.map((equipo) => {
+                        const presupuesto = presupuestos.get(equipo.presupuesto_id);
+                        const montoAPagar = presupuesto?.estado === 'Aprobado' ? presupuesto.total : 0;
+                        return (
                         <TableRow key={equipo.id}>
                           <TableCell className="font-medium">{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre}`}</TableCell>
                           <TableCell>{equipo.modelo}</TableCell>
-                          <TableCell className="text-right font-medium">{currencyFormatter.format(presupuestos.get(equipo.presupuesto_id || '') || 0)}</TableCell>
+                          <TableCell>
+                            <Badge variant={equipo.motivo_retiro === 'Reparación Finalizada' ? 'default' : 'secondary'}>
+                              {equipo.motivo_retiro}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">{currencyFormatter.format(montoAPagar)}</TableCell>
                           <TableCell className="text-center">
                             <Button size="sm" onClick={() => handleOpenRetiro(equipo)}>
                                <CheckCheck className="mr-2 h-4 w-4"/> Registrar Retiro
                             </Button>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      )})}
                     </TableBody>
                   </Table>
                 </AccordionContent>
@@ -261,7 +313,7 @@ export default function RetiroEquiposPage() {
           </Accordion>
           {Object.keys(groupedAndFilteredEquipos).length === 0 && (
             <p className="text-center text-muted-foreground py-10">
-              No hay equipos reparados pendientes de retiro.
+              No hay equipos pendientes de retiro.
             </p>
           )}
         </CardContent>
@@ -282,7 +334,7 @@ export default function RetiroEquiposPage() {
               <div className="py-4 space-y-4">
                   <div className="p-4 rounded-lg bg-secondary">
                       <Label>Monto Final a Pagar</Label>
-                      <p className="text-2xl font-bold">{currencyFormatter.format(presupuestos.get(selectedEquipo?.presupuesto_id || '') || 0)}</p>
+                      <p className="text-2xl font-bold">{currencyFormatter.format(presupuestos.get(selectedEquipo?.presupuesto_id || '')?.estado === 'Aprobado' ? presupuestos.get(selectedEquipo?.presupuesto_id || '')?.total || 0 : 0)}</p>
                       <p className="text-xs text-muted-foreground">Verifique que el pago se haya realizado o se realice en este momento.</p>
                   </div>
                   <div className="space-y-2">
@@ -303,6 +355,3 @@ export default function RetiroEquiposPage() {
     </>
   );
 }
-
-
-    
