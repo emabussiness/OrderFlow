@@ -90,10 +90,7 @@ export default function DiagnosticoPage() {
     setLoading(true);
     try {
       const [equiposSnap, recepcionesSnap, presupuestosSnap, tecnicosSnap] = await Promise.all([
-        getDocs(query(
-            collection(db, 'equipos_en_servicio'),
-            where("estado", "in", ["Recibido", "Diagnosticado"])
-        )),
+        getDocs(query(collection(db, 'equipos_en_servicio'))),
         getDocs(query(collection(db, 'recepciones'), orderBy("fecha_creacion", "desc"))),
         getDocs(collection(db, 'presupuestos_servicio')),
         getDocs(query(collection(db, 'tecnicos'), orderBy("nombre_apellido")))
