@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { doc, getDoc, collection, getDocs, query, where, writeBatch, serverTimestamp, increment, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -173,7 +173,7 @@ export default function TrabajosRealizadosPage() {
       setItemsAdicionales(newItems);
   };
   
-  const calcularTotalCosto = () => {
+  const costoReal = useMemo(() => {
     let costoTotal = 0;
     const productosMap = new Map(productos.map(p => [p.id, p]));
 
@@ -184,7 +184,7 @@ export default function TrabajosRealizadosPage() {
                 const producto = productosMap.get(item.id);
                 costoTotal += item.cantidad * (producto?.costo_promedio || 0);
             } else { // Mano de Obra
-                costoTotal += item.cantidad * item.precio_unitario;
+                costoTotal += item.cantidad * item.precio_unitario; // Costo de MO es su precio
             }
         }
     });
@@ -202,7 +202,8 @@ export default function TrabajosRealizadosPage() {
     });
 
     return costoTotal;
-  };
+  }, [itemsUtilizados, itemsAdicionales, presupuesto, productos]);
+
 
   const handleSubmitTrabajo = async () => {
       if(!selectedTecnicoId) {
@@ -219,7 +220,7 @@ export default function TrabajosRealizadosPage() {
 
       try {
         const batch = writeBatch(db);
-        const costoTotal = calcularTotalCosto();
+        const costoTotal = costoReal;
 
         // 1. Create trabajo_realizado document
         const trabajoRef = doc(collection(db, 'trabajos_realizados'));
@@ -286,17 +287,19 @@ export default function TrabajosRealizadosPage() {
             </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-            <Card>
+        <div className="grid md:grid-cols-3 gap-6">
+            <Card className="md:col-span-2">
                 <CardHeader><CardTitle>Detalles de la Reparación</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="tecnico">Técnico a Cargo</Label>
-                        <Combobox options={tecnicos.map(t => ({value: t.id, label: t.nombre_apellido}))} value={selectedTecnicoId} onChange={setSelectedTecnicoId} placeholder="Seleccionar técnico..."/>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="horas">Horas de Mano de Obra</Label>
-                        <Input id="horas" type="number" value={horasTrabajadas} onChange={e => setHorasTrabajadas(Number(e.target.value) || 0)} min="0.5" step="0.5"/>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="tecnico">Técnico a Cargo</Label>
+                            <Combobox options={tecnicos.map(t => ({value: t.id, label: t.nombre_apellido}))} value={selectedTecnicoId} onChange={setSelectedTecnicoId} placeholder="Seleccionar técnico..."/>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="horas">Horas de Mano de Obra</Label>
+                            <Input id="horas" type="number" value={horasTrabajadas} onChange={e => setHorasTrabajadas(Number(e.target.value) || 0)} min="0.5" step="0.5"/>
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="obs-tecnicas">Observaciones Técnicas de la Reparación</Label>
@@ -304,15 +307,26 @@ export default function TrabajosRealizadosPage() {
                     </div>
                 </CardContent>
             </Card>
-             <Card>
-                <CardHeader><CardTitle>Resumen Presupuesto</CardTitle></CardHeader>
-                 <CardContent>
-                    <p className="text-sm text-muted-foreground">{presupuesto.observaciones || "Sin observaciones."}</p>
-                 </CardContent>
-                <CardFooter className="font-bold text-xl">
-                    Total Presupuestado: {currencyFormatter.format(presupuesto.total)}
-                </CardFooter>
-            </Card>
+             <div className="space-y-6">
+                <Card>
+                    <CardHeader><CardTitle>Resumen Presupuesto</CardTitle></CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground">{presupuesto.observaciones || "Sin observaciones."}</p>
+                    </CardContent>
+                    <CardFooter className="font-bold text-xl">
+                        Total Presupuestado: {currencyFormatter.format(presupuesto.total)}
+                    </CardFooter>
+                </Card>
+                 <Card>
+                    <CardHeader><CardTitle>Costo Real del Trabajo</CardTitle></CardHeader>
+                     <CardContent>
+                        <p className="text-sm text-muted-foreground">Este es el costo real calculado de los ítems y mano de obra utilizados.</p>
+                    </CardContent>
+                    <CardFooter className="font-bold text-xl text-primary">
+                        {currencyFormatter.format(costoReal)}
+                    </CardFooter>
+                </Card>
+            </div>
         </div>
 
         <Card>
