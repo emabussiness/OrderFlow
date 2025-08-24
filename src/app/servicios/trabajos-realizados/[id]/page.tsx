@@ -212,9 +212,8 @@ export default function TrabajosRealizadosPage() {
             if (item.tipo === 'Repuesto') {
                 const producto = productosMap.get(item.id);
                 costoTotal += item.cantidad * (producto?.costo_promedio || 0);
-            } else { 
-                costoTotal += item.cantidad * item.precio_unitario;
             }
+            // La mano de obra no suma al costo real
         }
     });
 
@@ -223,9 +222,8 @@ export default function TrabajosRealizadosPage() {
             if (item.tipo === 'Repuesto') {
                 const producto = productosMap.get(item.id);
                 costoTotal += item.cantidad * (producto?.costo_promedio || 0);
-            } else {
-                costoTotal += item.cantidad * item.precio_unitario;
             }
+            // La mano de obra no suma al costo real
         }
     });
 
@@ -432,3 +430,4 @@ export default function TrabajosRealizadosPage() {
     </div>
   );
 }
+
