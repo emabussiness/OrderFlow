@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { collection, getDocs, query, where, orderBy, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -36,6 +36,11 @@ type Equipo = {
   trabajos_a_realizar?: string;
 };
 
+type TrabajoRealizado = {
+    id: string;
+    orden_trabajo_id: string;
+}
+
 type OrdenTrabajo = {
   id: string; // Presupuesto ID
   fecha_aprobacion: string;
@@ -45,6 +50,7 @@ type OrdenTrabajo = {
   equipo_estado: string;
   diagnostico_tecnico?: string;
   trabajos_a_realizar?: string;
+  trabajo_realizado_id?: string;
   total: number;
 };
 
@@ -63,54 +69,61 @@ export default function OrdenDeTrabajoPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const presupuestosQuery = query(
-          collection(db, 'presupuestos_servicio'),
-          where("estado", "==", "Aprobado")
-        );
-        const presupuestosSnap = await getDocs(presupuestosQuery);
-        const presupuestosAprobados = presupuestosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PresupuestoAprobado));
-        
-        if (presupuestosAprobados.length === 0) {
-          setOrdenes([]);
-          setLoading(false);
-          return;
-        }
-        
-        const equipoIds = [...new Set(presupuestosAprobados.map(p => p.equipo_id))];
-        const equiposQuery = query(collection(db, 'equipos_en_servicio'), where('__name__', 'in', equipoIds));
-        const equiposSnap = await getDocs(equiposQuery);
-        const equiposMap = new Map(equiposSnap.docs.map(doc => [doc.id, doc.data() as Equipo]));
-
-        const ordenesDeTrabajo = presupuestosAprobados.map(presupuesto => {
-          const equipo = equiposMap.get(presupuesto.equipo_id);
-          return {
-            id: presupuesto.id,
-            fecha_aprobacion: presupuesto.fecha_presupuesto,
-            cliente_nombre: presupuesto.cliente_nombre,
-            recepcion_id: presupuesto.recepcion_id,
-            equipo_info: equipo ? `${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}` : "Info no disponible",
-            equipo_estado: equipo?.estado || 'Desconocido',
-            diagnostico_tecnico: equipo?.diagnostico_tecnico,
-            trabajos_a_realizar: equipo?.trabajos_a_realizar,
-            total: presupuesto.total,
-          };
-        }).sort((a,b) => new Date(b.fecha_aprobacion).getTime() - new Date(a.fecha_aprobacion).getTime());
-
-        setOrdenes(ordenesDeTrabajo);
-
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar las órdenes de trabajo." });
-      } finally {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const presupuestosQuery = query(
+        collection(db, 'presupuestos_servicio'),
+        where("estado", "==", "Aprobado")
+      );
+      const presupuestosSnap = await getDocs(presupuestosQuery);
+      const presupuestosAprobados = presupuestosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PresupuestoAprobado));
+      
+      if (presupuestosAprobados.length === 0) {
+        setOrdenes([]);
         setLoading(false);
+        return;
       }
-    };
-    fetchData();
+      
+      const equipoIds = [...new Set(presupuestosAprobados.map(p => p.equipo_id))];
+      const equiposQuery = query(collection(db, 'equipos_en_servicio'), where('__name__', 'in', equipoIds));
+      const equiposSnap = await getDocs(equiposQuery);
+      const equiposMap = new Map(equiposSnap.docs.map(doc => [doc.id, doc.data() as Equipo]));
+      
+      const otIds = presupuestosAprobados.map(p => p.id);
+      const trabajosQuery = query(collection(db, 'trabajos_realizados'), where('orden_trabajo_id', 'in', otIds));
+      const trabajosSnap = await getDocs(trabajosQuery);
+      const trabajosMap = new Map(trabajosSnap.docs.map(doc => [doc.data().orden_trabajo_id, doc.id]));
+
+      const ordenesDeTrabajo = presupuestosAprobados.map(presupuesto => {
+        const equipo = equiposMap.get(presupuesto.equipo_id);
+        return {
+          id: presupuesto.id,
+          fecha_aprobacion: presupuesto.fecha_presupuesto,
+          cliente_nombre: presupuesto.cliente_nombre,
+          recepcion_id: presupuesto.recepcion_id,
+          equipo_info: equipo ? `${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}` : "Info no disponible",
+          equipo_estado: equipo?.estado || 'Desconocido',
+          diagnostico_tecnico: equipo?.diagnostico_tecnico,
+          trabajos_a_realizar: equipo?.trabajos_a_realizar,
+          trabajo_realizado_id: trabajosMap.get(presupuesto.id),
+          total: presupuesto.total,
+        };
+      }).sort((a,b) => new Date(b.fecha_aprobacion).getTime() - new Date(a.fecha_aprobacion).getTime());
+
+      setOrdenes(ordenesDeTrabajo);
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar las órdenes de trabajo." });
+    } finally {
+      setLoading(false);
+    }
   }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
   
   const getStatusVariant = (status: string): "secondary" | "default" | "outline" => {
     if (status === 'Reparado') return 'default';
@@ -205,10 +218,16 @@ export default function OrdenDeTrabajoPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                           <Link href={`/servicios/trabajos-realizados/${ot.id}`}>Registrar Trabajo</Link>
-                        </DropdownMenuItem>
-                         <DropdownMenuItem asChild>
+                         {ot.trabajo_realizado_id ? (
+                            <DropdownMenuItem asChild>
+                               <Link href={`/servicios/trabajos-realizados?view=${ot.trabajo_realizado_id}`}>Ver Trabajo Realizado</Link>
+                            </DropdownMenuItem>
+                        ) : (
+                            <DropdownMenuItem asChild>
+                               <Link href={`/servicios/trabajos-realizados/${ot.id}`}>Registrar Trabajo</Link>
+                            </DropdownMenuItem>
+                        )}
+                         <DropdownMenuItem asChild disabled={ot.equipo_estado !== 'Reparado'}>
                            <Link href={`/servicios/retiro-equipos?ot_id=${ot.id}`}>Registrar Retiro</Link>
                         </DropdownMenuItem>
                       </DropdownMenuContent>

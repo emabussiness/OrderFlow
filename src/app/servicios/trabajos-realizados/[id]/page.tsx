@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Combobox } from "@/components/ui/command";
 import { PlusCircle, Trash2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Separator } from "@/components/ui/separator";
 
 // --- Types ---
@@ -67,6 +67,7 @@ const currencyFormatter = new Intl.NumberFormat('es-PY', {
 export default function TrabajosRealizadosPage() {
   const { toast } = useToast();
   const params = useParams();
+  const router = useRouter();
   const otId = params.id as string;
   const [loading, setLoading] = useState(true);
   const [presupuesto, setPresupuesto] = useState<PresupuestoServicio | null>(null);
@@ -213,8 +214,7 @@ export default function TrabajosRealizadosPage() {
         await batch.commit();
 
         toast({title: "Trabajo Registrado", description: "La reparación ha sido registrada y el equipo marcado como 'Reparado'."});
-        // Potentially redirect or update UI state
-        fetchData();
+        router.push('/servicios/orden-trabajo');
 
       } catch (error) {
          console.error("Error saving work:", error);
