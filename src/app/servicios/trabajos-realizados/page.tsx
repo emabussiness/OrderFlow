@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { collection, getDocs, query, orderBy, where, doc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, where, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,6 +13,13 @@ import { MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import { Input } from "@/components/ui/input";
 
 // --- Types ---
 type ItemPresupuesto = {
@@ -34,7 +41,23 @@ type TrabajoRealizado = {
   items_adicionales: ItemPresupuesto[];
   costo_total_trabajo: number;
   usuario_id: string;
+  recepcion_id?: string;
+  cliente_nombre?: string;
 };
+
+type Presupuesto = {
+    id: string;
+    recepcion_id: string;
+    cliente_nombre: string;
+}
+
+type GroupedTrabajos = {
+  [key: string]: {
+    cliente_nombre: string;
+    fecha: string; 
+    trabajos: TrabajoRealizado[];
+  }
+}
 
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
   style: 'currency',
@@ -49,6 +72,7 @@ export default function TrabajosRealizadosPage() {
   const { toast } = useToast();
   const [trabajos, setTrabajos] = useState<TrabajoRealizado[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedTrabajo, setSelectedTrabajo] = useState<TrabajoRealizado | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
 
@@ -56,7 +80,30 @@ export default function TrabajosRealizadosPage() {
     setLoading(true);
     try {
       const trabajosSnap = await getDocs(query(collection(db, 'trabajos_realizados'), orderBy("fecha_creacion", "desc")));
-      setTrabajos(trabajosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TrabajoRealizado)));
+      const trabajosData = trabajosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TrabajoRealizado));
+
+      if(trabajosData.length === 0){
+          setTrabajos([]);
+          setLoading(false);
+          return;
+      }
+      
+      const presupuestoIds = [...new Set(trabajosData.map(t => t.orden_trabajo_id))];
+      const presupuestosQuery = query(collection(db, 'presupuestos_servicio'), where('__name__', 'in', presupuestoIds));
+      const presupuestosSnap = await getDocs(presupuestosQuery);
+      const presupuestosMap = new Map(presupuestosSnap.docs.map(doc => [doc.id, doc.data() as Presupuesto]));
+      
+      const trabajosEnriquecidos = trabajosData.map(trabajo => {
+          const presupuesto = presupuestosMap.get(trabajo.orden_trabajo_id);
+          return {
+              ...trabajo,
+              recepcion_id: presupuesto?.recepcion_id || 'N/A',
+              cliente_nombre: presupuesto?.cliente_nombre || 'N/A'
+          }
+      });
+
+      setTrabajos(trabajosEnriquecidos);
+
     } catch (error) {
       console.error("Error fetching trabajos realizados:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los trabajos realizados." });
@@ -68,16 +115,41 @@ export default function TrabajosRealizadosPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  
+  const groupedAndFilteredTrabajos = useMemo(() => {
+    const grouped: GroupedTrabajos = {};
+
+    const filtered = trabajos.filter(t => 
+        !searchTerm ||
+        t.cliente_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.recepcion_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.tecnico_nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+     filtered.forEach(trabajo => {
+        const key = trabajo.recepcion_id || 'sin-recepcion';
+        if (!grouped[key]) {
+            grouped[key] = {
+                cliente_nombre: trabajo.cliente_nombre || 'Cliente Desconocido',
+                fecha: trabajo.fecha_finalizacion,
+                trabajos: []
+            };
+        }
+        grouped[key].trabajos.push(trabajo);
+    });
+
+    return Object.entries(grouped)
+        .sort(([, valA], [, valB]) => new Date(valB.fecha).getTime() - new Date(valA.fecha).getTime())
+        .reduce((acc, [key, val]) => ({ ...acc, [key]: val }), {});
+
+  }, [trabajos, searchTerm]);
+
 
   const handleOpenDetails = (trabajo: TrabajoRealizado) => {
     setSelectedTrabajo(trabajo);
     setOpenDetails(true);
   };
   
-  const calcularTotalItems = (items: ItemPresupuesto[]) => {
-      return items.reduce((acc, item) => acc + (item.cantidad * item.precio_unitario), 0);
-  }
-
   if (loading) return <p>Cargando historial de trabajos...</p>;
 
   return (
@@ -89,50 +161,72 @@ export default function TrabajosRealizadosPage() {
       <Card>
         <CardHeader>
           <CardTitle>Trabajos Completados</CardTitle>
-          <CardDescription>Registro de todas las reparaciones finalizadas por los técnicos.</CardDescription>
+          <CardDescription>
+            Registro de todas las reparaciones finalizadas, agrupadas por recepción.
+             <Input
+              placeholder="Buscar por cliente, ID de recepción o técnico..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha Finalización</TableHead>
-                <TableHead>OT Nº</TableHead>
-                <TableHead>Técnico</TableHead>
-                <TableHead>Registrado por</TableHead>
-                <TableHead className="text-right">Costo Real</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {trabajos.map((trabajo) => (
-                <TableRow key={trabajo.id}>
-                  <TableCell>{trabajo.fecha_finalizacion}</TableCell>
-                  <TableCell className="font-medium">{trabajo.orden_trabajo_id.substring(0, 7)}</TableCell>
-                  <TableCell>{trabajo.tecnico_nombre}</TableCell>
-                  <TableCell>{trabajo.usuario_id}</TableCell>
-                  <TableCell className="text-right font-medium">{currencyFormatter.format(trabajo.costo_total_trabajo || 0)}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Abrir menú</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenDetails(trabajo)}>
-                          Ver Detalles del Trabajo
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {trabajos.length === 0 && (
+           <Accordion type="single" collapsible className="w-full">
+            {Object.entries(groupedAndFilteredTrabajos).map(([recepcionId, data]) => (
+              <AccordionItem value={recepcionId} key={recepcionId}>
+                <AccordionTrigger>
+                   <div className="flex justify-between w-full pr-4">
+                    <span className="font-medium">Recepción ID: {recepcionId.substring(0, 7)}</span>
+                    <span className="text-muted-foreground">Cliente: {data.cliente_nombre}</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha Finalización</TableHead>
+                        <TableHead>OT Nº</TableHead>
+                        <TableHead>Técnico</TableHead>
+                        <TableHead>Registrado por</TableHead>
+                        <TableHead className="text-right">Costo Real</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.trabajos.map((trabajo) => (
+                        <TableRow key={trabajo.id}>
+                          <TableCell>{trabajo.fecha_finalizacion}</TableCell>
+                          <TableCell className="font-medium">{trabajo.orden_trabajo_id.substring(0, 7)}</TableCell>
+                          <TableCell>{trabajo.tecnico_nombre}</TableCell>
+                          <TableCell>{trabajo.usuario_id}</TableCell>
+                          <TableCell className="text-right font-medium">{currencyFormatter.format(trabajo.costo_total_trabajo || 0)}</TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Abrir menú</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenDetails(trabajo)}>
+                                  Ver Detalles del Trabajo
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+          {Object.keys(groupedAndFilteredTrabajos).length === 0 && (
             <p className="text-center text-muted-foreground py-10">
-              No hay trabajos realizados registrados.
+              No hay trabajos realizados que coincidan con la búsqueda.
             </p>
           )}
         </CardContent>

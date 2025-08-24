@@ -14,6 +14,12 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 // --- Types ---
 type PresupuestoAprobado = {
@@ -56,6 +62,15 @@ type OrdenTrabajo = {
   usuario_id?: string;
 };
 
+type GroupedOrdenes = {
+  [key: string]: {
+    cliente_nombre: string;
+    fecha_recepcion: string; // We'll need to fetch this
+    ordenes: OrdenTrabajo[];
+  }
+}
+
+
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
   style: 'currency',
   currency: 'PYG',
@@ -93,6 +108,11 @@ export default function OrdenDeTrabajoPage() {
       const equiposMap = new Map(equiposSnap.docs.map(doc => [doc.id, doc.data() as Equipo]));
       
       const otIds = presupuestosAprobados.map(p => p.id);
+      if (otIds.length === 0) {
+           setOrdenes([]);
+           setLoading(false);
+           return;
+      }
       const trabajosQuery = query(collection(db, 'trabajos_realizados'), where('orden_trabajo_id', 'in', otIds));
       const trabajosSnap = await getDocs(trabajosQuery);
       const trabajosMap = new Map(trabajosSnap.docs.map(doc => [doc.data().orden_trabajo_id, doc.id]));
@@ -134,14 +154,32 @@ export default function OrdenDeTrabajoPage() {
     return 'outline';
   }
 
-  const filteredOrdenes = useMemo(() => {
-    const term = searchTerm.toLowerCase();
-    if (!term) return ordenes;
-    return ordenes.filter(ot =>
-      ot.cliente_nombre.toLowerCase().includes(term) ||
-      ot.recepcion_id.toLowerCase().includes(term) ||
-      ot.equipo_info.toLowerCase().includes(term)
+  const groupedAndFilteredOrdenes = useMemo(() => {
+    const grouped: GroupedOrdenes = {};
+
+     const filteredOrdenes = ordenes.filter(ot =>
+      !searchTerm ||
+      ot.cliente_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ot.recepcion_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ot.equipo_info.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    filteredOrdenes.forEach(ot => {
+        const key = ot.recepcion_id;
+        if (!grouped[key]) {
+            grouped[key] = {
+                cliente_nombre: ot.cliente_nombre,
+                fecha_recepcion: ot.fecha_aprobacion, // Using approval date as reference
+                ordenes: []
+            };
+        }
+        grouped[key].ordenes.push(ot);
+    });
+
+    return Object.entries(grouped)
+        .sort(([, valA], [, valB]) => new Date(valB.fecha_recepcion).getTime() - new Date(valA.fecha_recepcion).getTime())
+        .reduce((acc, [key, val]) => ({ ...acc, [key]: val }), {});
+
   }, [ordenes, searchTerm]);
 
 
@@ -157,7 +195,7 @@ export default function OrdenDeTrabajoPage() {
         <CardHeader>
           <CardTitle>Órdenes de Trabajo Activas</CardTitle>
           <CardDescription>
-            Listado de todos los servicios aprobados por los clientes, pendientes de reparación o finalizados.
+            Listado de todos los servicios aprobados por los clientes, agrupados por recepción.
             <Input
               placeholder="Buscar por cliente, ID de recepción o equipo..."
               value={searchTerm}
@@ -167,84 +205,95 @@ export default function OrdenDeTrabajoPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>OT Nº (ID Presupuesto)</TableHead>
-                <TableHead>Fecha Aprobación</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Equipo</TableHead>
-                <TableHead>Estado del Equipo</TableHead>
-                <TableHead>Aprobado por</TableHead>
-                <TableHead className="text-right">Monto</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrdenes.map((ot) => (
-                <TableRow key={ot.id}>
-                  <TableCell className="font-medium">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                         <Button variant="link" className="p-0 h-auto">{ot.id.substring(0, 7)}</Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-96">
-                        <div className="grid gap-4">
-                          <div className="space-y-2">
-                            <h4 className="font-medium leading-none">Diagnóstico Técnico</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {ot.diagnostico_tecnico || "No especificado"}
-                            </p>
-                          </div>
-                          <div className="space-y-2">
-                            <h4 className="font-medium leading-none">Trabajos a Realizar</h4>
-                            <p className="text-sm text-muted-foreground">
-                               {ot.trabajos_a_realizar || "No especificado"}
-                            </p>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </TableCell>
-                  <TableCell>{ot.fecha_aprobacion}</TableCell>
-                  <TableCell>{ot.cliente_nombre}</TableCell>
-                  <TableCell>{ot.equipo_info}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(ot.equipo_estado)}>{ot.equipo_estado}</Badge>
-                  </TableCell>
-                   <TableCell className="text-muted-foreground">{ot.usuario_id || 'N/A'}</TableCell>
-                  <TableCell className="text-right font-medium">{currencyFormatter.format(ot.total)}</TableCell>
-                  <TableCell>
-                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Abrir menú</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                         {ot.trabajo_realizado_id ? (
-                            <DropdownMenuItem asChild>
-                               <Link href={`/servicios/trabajos-realizados?view=${ot.trabajo_realizado_id}`}>Ver Trabajo Realizado</Link>
-                            </DropdownMenuItem>
-                        ) : (
-                            <DropdownMenuItem asChild>
-                               <Link href={`/servicios/trabajos-realizados/${ot.id}`}>Registrar Trabajo</Link>
-                            </DropdownMenuItem>
-                        )}
-                         <DropdownMenuItem asChild disabled={ot.equipo_estado !== 'Reparado'}>
-                           <Link href={`/servicios/retiro-equipos?ot_id=${ot.id}`}>Registrar Retiro</Link>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredOrdenes.length === 0 && (
+          <Accordion type="single" collapsible className="w-full">
+             {Object.entries(groupedAndFilteredOrdenes).map(([recepcionId, data]) => (
+              <AccordionItem value={recepcionId} key={recepcionId}>
+                 <AccordionTrigger>
+                  <div className="flex justify-between w-full pr-4">
+                    <span className="font-medium">Recepción ID: {recepcionId.substring(0, 7)}</span>
+                    <span className="text-muted-foreground">Cliente: {data.cliente_nombre}</span>
+                    <span className="text-muted-foreground">Fecha Aprobación Reciente: {data.fecha_recepcion}</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>OT Nº</TableHead>
+                        <TableHead>Equipo</TableHead>
+                        <TableHead>Estado del Equipo</TableHead>
+                        <TableHead>Aprobado por</TableHead>
+                        <TableHead className="text-right">Monto</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.ordenes.map((ot) => (
+                        <TableRow key={ot.id}>
+                          <TableCell className="font-medium">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="link" className="p-0 h-auto">{ot.id.substring(0, 7)}</Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-96">
+                                <div className="grid gap-4">
+                                  <div className="space-y-2">
+                                    <h4 className="font-medium leading-none">Diagnóstico Técnico</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {ot.diagnostico_tecnico || "No especificado"}
+                                    </p>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <h4 className="font-medium leading-none">Trabajos a Realizar</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {ot.trabajos_a_realizar || "No especificado"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </TableCell>
+                          <TableCell>{ot.equipo_info}</TableCell>
+                          <TableCell>
+                            <Badge variant={getStatusVariant(ot.equipo_estado)}>{ot.equipo_estado}</Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{ot.usuario_id || 'N/A'}</TableCell>
+                          <TableCell className="text-right font-medium">{currencyFormatter.format(ot.total)}</TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Abrir menú</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {ot.trabajo_realizado_id ? (
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/servicios/trabajos-realizados?view=${ot.trabajo_realizado_id}`}>Ver Trabajo Realizado</Link>
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/servicios/trabajos-realizados/${ot.id}`}>Registrar Trabajo</Link>
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem asChild disabled={ot.equipo_estado !== 'Reparado'}>
+                                  <Link href={`/servicios/retiro-equipos?ot_id=${ot.id}`}>Registrar Retiro</Link>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+          {Object.keys(groupedAndFilteredOrdenes).length === 0 && (
             <p className="text-center text-muted-foreground py-10">
-              No hay órdenes de trabajo activas.
+              No hay órdenes de trabajo activas que coincidan con la búsqueda.
             </p>
           )}
         </CardContent>
