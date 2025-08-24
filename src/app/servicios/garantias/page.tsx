@@ -30,6 +30,7 @@ type Garantia = {
   fecha_inicio: string;
   fecha_fin: string;
   estado: 'Activa' | 'Vencida' | 'Utilizada';
+  usuario_id?: string;
   trabajo_realizado?: TrabajoRealizado; // Optional field to hold details
 };
 
@@ -153,7 +154,9 @@ export default function GarantiasPage() {
             <div className="space-y-4">
               <div className="space-y-1">
                 <h4 className="font-medium">Cobertura de Garantía</h4>
-                <p className="text-sm text-muted-foreground">Detalles de la reparación original.</p>
+                <p className="text-sm text-muted-foreground">
+                    Registrado por: {garantia.usuario_id || 'N/A'}
+                </p>
               </div>
               <Separator />
               <div className="space-y-2">
