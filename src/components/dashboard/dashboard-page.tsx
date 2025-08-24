@@ -234,7 +234,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                         <SidebarMenuItem><Link href="/servicios/trabajos-realizados"><SidebarMenuButton isActive={pathname.startsWith('/servicios/trabajos-realizados')}><Hammer />Trabajos Realizados</SidebarMenuButton></Link></SidebarMenuItem>
                         <SidebarMenuItem><Link href="/servicios/retiro-equipos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/retiro-equipos')}>Retiro de Equipos</SidebarMenuButton></Link></SidebarMenuItem>
                         <SidebarMenuItem><Link href="/servicios/garantias"><SidebarMenuButton isActive={pathname.startsWith('/servicios/garantias')}><ListChecks/>Garantías</SidebarMenuButton></Link></SidebarMenuItem>
-                        <SidebarMenuItem><Link href="/servicios/reclamos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/reclamos')}>Reclamos</SidebarMenuButton></Link></SidebarMenuItem>
+                        <SidebarMenuItem><Link href="/servicios/reclamos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/reclamos')}><FileDiff />Reclamos</SidebarMenuButton></Link></SidebarMenuItem>
                     </SidebarMenu>
                      <Collapsible>
                        <SidebarMenuItem>
