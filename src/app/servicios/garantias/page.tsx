@@ -103,7 +103,10 @@ export default function GarantiasPage() {
       <Card>
         <CardHeader>
           <CardTitle>Historial de Garantías</CardTitle>
-          <CardDescription className="flex flex-col md:flex-row gap-4 mt-2">
+          <CardDescription>
+            Consulte y filtre las garantías de servicio emitidas.
+          </CardDescription>
+          <div className="flex flex-col md:flex-row gap-4 mt-2">
             <Input
               placeholder="Buscar por cliente o equipo..."
               value={searchTerm}
@@ -127,7 +130,7 @@ export default function GarantiasPage() {
                     <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es}/>
                 </PopoverContent>
             </Popover>
-          </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
