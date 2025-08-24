@@ -18,10 +18,14 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
-import { CheckCheck, Eye } from "lucide-react";
+import { CheckCheck, Eye, Calendar as CalendarIcon } from "lucide-react";
 import { addDays, format } from 'date-fns';
+import { es } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 
@@ -74,6 +78,7 @@ export default function RetiroEquiposPage() {
   const [presupuestos, setPresupuestos] = useState<Map<string, PresupuestoServicio>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   // Dialog state
   const [openRetiro, setOpenRetiro] = useState(false);
@@ -186,12 +191,26 @@ export default function RetiroEquiposPage() {
 
     const filteredEquipos = equipos.filter(equipo => {
       const term = searchTerm.toLowerCase();
-      return !term ||
+      const matchTerm = !term ||
         equipo.cliente_nombre.toLowerCase().includes(term) ||
         equipo.recepcion_id?.toLowerCase().includes(term) ||
         equipo.tipo_equipo_nombre.toLowerCase().includes(term) ||
         equipo.marca_nombre.toLowerCase().includes(term) ||
         equipo.modelo.toLowerCase().includes(term);
+
+      let matchDate = true;
+      if (dateRange?.from && equipo.retiro_info) {
+          const fechaRetiro = new Date(equipo.retiro_info.fecha_retiro + "T00:00:00");
+          const from = dateRange.from;
+          const to = dateRange.to ?? from;
+          matchDate = fechaRetiro >= from && fechaRetiro <= to;
+      } else if (dateRange?.from && !equipo.retiro_info) {
+          // If a date range is selected, we only show retired items that match.
+          // Non-retired items won't match.
+          matchDate = false;
+      }
+
+      return matchTerm && matchDate;
     });
 
     filteredEquipos.forEach(equipo => {
@@ -206,7 +225,7 @@ export default function RetiroEquiposPage() {
     });
 
     return grouped;
-  }, [equipos, searchTerm]);
+  }, [equipos, searchTerm, dateRange]);
 
   const handleOpenRetiro = (equipo: EquipoParaRetiro) => {
     setSelectedEquipo(equipo);
@@ -297,14 +316,24 @@ export default function RetiroEquiposPage() {
       <Card>
         <CardHeader>
           <CardTitle>Equipos Listos para Retiro</CardTitle>
-          <CardDescription>
-            Listado de equipos reparados o con presupuesto rechazado, pendientes de ser retirados por el cliente.
+          <CardDescription className="flex flex-col md:flex-row gap-4 mt-2">
             <Input
               placeholder="Buscar por cliente, ID de recepción o equipo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="mt-2"
+              className="flex-grow"
             />
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button id="date" variant={"outline"} className={cn("w-full md:w-[300px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Filtrar por fecha de retiro</span>)}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es}/>
+                </PopoverContent>
+            </Popover>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -392,7 +421,7 @@ export default function RetiroEquiposPage() {
           </Accordion>
           {Object.keys(groupedAndFilteredEquipos).length === 0 && (
             <p className="text-center text-muted-foreground py-10">
-              No hay equipos pendientes de retiro.
+              No hay equipos pendientes de retiro que coincidan con los filtros.
             </p>
           )}
         </CardContent>
@@ -458,4 +487,3 @@ export default function RetiroEquiposPage() {
     </>
   );
 }
-

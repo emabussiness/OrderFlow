@@ -2,13 +2,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import type { DateRange } from "react-day-picker";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Button } from "@/components/ui/button";
+import { Calendar as CalendarIcon } from "lucide-react";
+
 
 // --- Types ---
 type Garantia = {
@@ -34,6 +43,9 @@ export default function GarantiasPage() {
   const [garantias, setGarantias] = useState<Garantia[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<Garantia['estado'] | ''>('');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,10 +73,24 @@ export default function GarantiasPage() {
     fetchData();
   }, [toast]);
   
-  const filteredGarantias = garantias.filter(g => 
-      g.cliente_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      g.equipo_info.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredGarantias = garantias.filter(g => {
+      const term = searchTerm.toLowerCase();
+      const matchTerm = !term ||
+          g.cliente_nombre.toLowerCase().includes(term) ||
+          g.equipo_info.toLowerCase().includes(term);
+      
+      const matchStatus = !statusFilter || g.estado === statusFilter;
+
+      let matchDate = true;
+      if (dateRange?.from) {
+          const fechaFin = new Date(g.fecha_fin + "T00:00:00");
+          const from = dateRange.from;
+          const to = dateRange.to ?? from;
+          matchDate = fechaFin >= from && fechaFin <= to;
+      }
+      
+      return matchTerm && matchStatus && matchDate;
+  });
 
   if (loading) return <p>Cargando garantías...</p>;
 
@@ -77,14 +103,30 @@ export default function GarantiasPage() {
       <Card>
         <CardHeader>
           <CardTitle>Historial de Garantías</CardTitle>
-          <CardDescription>
-            Listado de todas las garantías generadas por los servicios finalizados.
+          <CardDescription className="flex flex-col md:flex-row gap-4 mt-2">
             <Input
               placeholder="Buscar por cliente o equipo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="mt-2"
+              className="flex-grow"
             />
+            <div className="flex items-center gap-2">
+                <Button variant={statusFilter === '' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('')}>Todos</Button>
+                <Button variant={statusFilter === 'Activa' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Activa')}>Activas</Button>
+                <Button variant={statusFilter === 'Vencida' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Vencida')}>Vencidas</Button>
+                <Button variant={statusFilter === 'Utilizada' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Utilizada')}>Utilizadas</Button>
+            </div>
+             <Popover>
+                <PopoverTrigger asChild>
+                    <Button id="date" variant={"outline"} className={cn("w-full md:w-[300px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Filtrar por fecha de Vencimiento</span>)}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es}/>
+                </PopoverContent>
+            </Popover>
           </CardDescription>
         </CardHeader>
         <CardContent>
