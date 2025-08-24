@@ -18,11 +18,20 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
-import { CheckCheck } from "lucide-react";
-import { addDays } from 'date-fns';
+import { CheckCheck, Eye } from "lucide-react";
+import { addDays, format } from 'date-fns';
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 
 // --- Types ---
+type RetiroInfo = {
+    nombre_retira: string;
+    ci_retira: string;
+    fecha_retiro: string;
+    usuario_id: string;
+}
+
 type EquipoParaRetiro = {
   id: string;
   cliente_nombre: string;
@@ -30,9 +39,10 @@ type EquipoParaRetiro = {
   tipo_equipo_nombre: string;
   marca_nombre: string;
   modelo: string;
-  estado: "Reparado" | "Diagnosticado" | "Presupuestado"; // Estado del equipo
+  estado: "Reparado" | "Diagnosticado" | "Presupuestado" | "Retirado";
   motivo_retiro: 'Reparación Finalizada' | 'Presupuesto Rechazado';
   presupuesto_id: string; 
+  retiro_info?: RetiroInfo;
 };
 
 type PresupuestoServicio = {
@@ -76,9 +86,7 @@ export default function RetiroEquiposPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Fetch all equipment that is either repaired or has a rejected budget
-      const equiposReparadosQuery = query(collection(db, 'equipos_en_servicio'), where("estado", "==", "Reparado"));
-      
+      const equiposReparadosQuery = query(collection(db, 'equipos_en_servicio'), where("estado", "in", ["Reparado", "Retirado"]));
       const presupuestosRechazadosQuery = query(collection(db, 'presupuestos_servicio'), where("estado", "==", "Rechazado"));
 
       const [equiposReparadosSnap, presupuestosRechazadosSnap] = await Promise.all([
@@ -88,8 +96,8 @@ export default function RetiroEquiposPage() {
 
       const equiposParaRetiro: EquipoParaRetiro[] = [];
       const presupuestoIds = new Set<string>();
+      const equipoIds = new Set<string>();
 
-      // Find the associated budget for each repaired equipment
       for (const equipoDoc of equiposReparadosSnap.docs) {
           const equipoData = { id: equipoDoc.id, ...equipoDoc.data() } as any;
           const presupuestoId = await findPresupuestoId(equipoData.id);
@@ -98,6 +106,7 @@ export default function RetiroEquiposPage() {
             equipoData.motivo_retiro = 'Reparación Finalizada';
             presupuestoIds.add(presupuestoId);
             equiposParaRetiro.push(equipoData);
+            equipoIds.add(equipoData.id);
           }
       }
       
@@ -112,11 +121,10 @@ export default function RetiroEquiposPage() {
              const equipoData = { id: equipoDoc.id, ...equipoDoc.data(), motivo_retiro: 'Presupuesto Rechazado', presupuesto_id: presupuestoRechazado.id } as any;
              presupuestoIds.add(presupuestoRechazado.id);
              equiposParaRetiro.push(equipoData);
+             equipoIds.add(equipoData.id);
            }
         }
       }
-
-      setEquipos(equiposParaRetiro);
 
       if (presupuestoIds.size > 0) {
         const presupuestosQuery = query(collection(db, 'presupuestos_servicio'), where('__name__', 'in', [...presupuestoIds]));
@@ -128,6 +136,28 @@ export default function RetiroEquiposPage() {
         });
         setPresupuestos(presupuestosMap);
       }
+      
+      const retirosMap = new Map<string, RetiroInfo>();
+      if (equipoIds.size > 0) {
+        const retirosQuery = query(collection(db, 'retiros_equipo'), where('equipo_id', 'in', [...equipoIds]));
+        const retirosSnap = await getDocs(retirosQuery);
+        retirosSnap.forEach(doc => {
+            const retiroData = doc.data();
+            retirosMap.set(retiroData.equipo_id, {
+                nombre_retira: retiroData.nombre_retira,
+                ci_retira: retiroData.ci_retira,
+                fecha_retiro: retiroData.fecha_retiro,
+                usuario_id: retiroData.usuario_id,
+            });
+        });
+      }
+      
+      const finalEquiposList = equiposParaRetiro.map(equipo => ({
+          ...equipo,
+          retiro_info: retirosMap.get(equipo.id)
+      }));
+
+      setEquipos(finalEquiposList);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -201,14 +231,12 @@ export default function RetiroEquiposPage() {
         return;
     }
 
-
     try {
         const batch = writeBatch(db);
 
         const equipoRef = doc(db, 'equipos_en_servicio', selectedEquipo.id);
         batch.update(equipoRef, { 
             estado: "Retirado",
-            retiro_id: doc(collection(db, 'retiros_equipo')).id,
             pago_id: pagoId || null
         });
         
@@ -240,6 +268,7 @@ export default function RetiroEquiposPage() {
                 dias_validez: diasGarantia,
                 notas: notasGarantia,
                 estado: 'Activa',
+                usuario_id: "user-demo",
             });
         }
 
@@ -295,7 +324,7 @@ export default function RetiroEquiposPage() {
                         <TableHead>Modelo</TableHead>
                         <TableHead>Motivo de Retiro</TableHead>
                         <TableHead className="text-right">Monto a Pagar</TableHead>
-                        <TableHead className="w-[180px] text-center">Acción</TableHead>
+                        <TableHead className="w-[200px] text-center">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -313,9 +342,44 @@ export default function RetiroEquiposPage() {
                           </TableCell>
                           <TableCell className="text-right font-medium">{currencyFormatter.format(montoAPagar)}</TableCell>
                           <TableCell className="text-center">
-                            <Button size="sm" onClick={() => handleOpenRetiro(equipo)}>
-                               <CheckCheck className="mr-2 h-4 w-4"/> Registrar Retiro
-                            </Button>
+                            {equipo.retiro_info ? (
+                               <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" size="sm" className="cursor-help">
+                                            <CheckCheck className="mr-2 h-4 w-4 text-green-500" />
+                                            Retirado
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80">
+                                        <div className="grid gap-4">
+                                            <div className="space-y-2">
+                                                <h4 className="font-medium leading-none">Información de Retiro</h4>
+                                                <p className="text-sm text-muted-foreground">
+                                                Este equipo ya fue retirado.
+                                                </p>
+                                            </div>
+                                            <div className="grid gap-2 text-sm">
+                                                <div className="grid grid-cols-3 items-center gap-4">
+                                                    <span className="font-semibold">Fecha:</span>
+                                                    <span className="col-span-2">{equipo.retiro_info.fecha_retiro}</span>
+                                                </div>
+                                                <div className="grid grid-cols-3 items-center gap-4">
+                                                    <span className="font-semibold">Retirado por:</span>
+                                                    <span className="col-span-2">{equipo.retiro_info.nombre_retira}</span>
+                                                </div>
+                                                 <div className="grid grid-cols-3 items-center gap-4">
+                                                    <span className="font-semibold">Entregado por:</span>
+                                                    <span className="col-span-2">{equipo.retiro_info.usuario_id}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                            ) : (
+                                <Button size="sm" onClick={() => handleOpenRetiro(equipo)}>
+                                   <CheckCheck className="mr-2 h-4 w-4"/> Registrar Retiro
+                                </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       )})}
