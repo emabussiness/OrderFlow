@@ -24,6 +24,7 @@ type PresupuestoAprobado = {
   fecha_presupuesto: string;
   estado: 'Aprobado';
   total: number;
+  usuario_id?: string;
 };
 
 type Equipo = {
@@ -52,6 +53,7 @@ type OrdenTrabajo = {
   trabajos_a_realizar?: string;
   trabajo_realizado_id?: string;
   total: number;
+  usuario_id?: string;
 };
 
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
@@ -108,6 +110,7 @@ export default function OrdenDeTrabajoPage() {
           trabajos_a_realizar: equipo?.trabajos_a_realizar,
           trabajo_realizado_id: trabajosMap.get(presupuesto.id),
           total: presupuesto.total,
+          usuario_id: presupuesto.usuario_id,
         };
       }).sort((a,b) => new Date(b.fecha_aprobacion).getTime() - new Date(a.fecha_aprobacion).getTime());
 
@@ -172,6 +175,7 @@ export default function OrdenDeTrabajoPage() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Equipo</TableHead>
                 <TableHead>Estado del Equipo</TableHead>
+                <TableHead>Aprobado por</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -208,6 +212,7 @@ export default function OrdenDeTrabajoPage() {
                   <TableCell>
                     <Badge variant={getStatusVariant(ot.equipo_estado)}>{ot.equipo_estado}</Badge>
                   </TableCell>
+                   <TableCell className="text-muted-foreground">{ot.usuario_id || 'N/A'}</TableCell>
                   <TableCell className="text-right font-medium">{currencyFormatter.format(ot.total)}</TableCell>
                   <TableCell>
                      <DropdownMenu>
