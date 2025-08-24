@@ -35,7 +35,7 @@ type RetiroInfo = {
     ci_retira: string;
     fecha_retiro: string;
     usuario_id: string;
-}
+};
 
 type ItemPresupuesto = {
   id: string;
@@ -393,9 +393,8 @@ export default function RetiroEquiposPage() {
                     </TableHeader>
                     <TableBody>
                       {data.equipos.map((equipo) => {
-                        const presupuesto = presupuestos.get(equipo.presupuesto_id);
                         const trabajo = trabajos.get(equipo.presupuesto_id);
-                        const montoAPagar = trabajo?.costo_total_trabajo ?? (presupuesto?.estado === 'Aprobado' ? presupuesto.total : 0);
+                        const montoAPagar = trabajo?.costo_total_trabajo ?? 0;
                         
                         return (
                         <TableRow key={equipo.id}>
@@ -479,7 +478,7 @@ export default function RetiroEquiposPage() {
                 <div className="py-4 space-y-6 px-1">
                     <div className="p-4 rounded-lg bg-secondary">
                         <Label>Monto Final a Pagar</Label>
-                        <p className="text-2xl font-bold">{currencyFormatter.format(trabajos.get(selectedEquipo?.presupuesto_id || '')?.costo_total_trabajo ?? (presupuestos.get(selectedEquipo?.presupuesto_id || '')?.estado === 'Aprobado' ? presupuestos.get(selectedEquipo?.presupuesto_id || '')?.total || 0 : 0))}</p>
+                        <p className="text-2xl font-bold">{currencyFormatter.format(trabajos.get(selectedEquipo?.presupuesto_id || '')?.costo_total_trabajo ?? 0)}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -509,8 +508,8 @@ export default function RetiroEquiposPage() {
                                   <Label>Ítems Cubiertos por la Garantía</Label>
                                   <div className="p-2 border rounded-md max-h-32 overflow-y-auto">
                                     <ul className="text-sm text-muted-foreground list-disc list-inside">
-                                      {selectedEquipo?.trabajo_realizado?.items_cubiertos_garantia?.map(item => (
-                                        <li key={item.id}>{item.nombre} (x{item.cantidad})</li>
+                                      {selectedEquipo?.trabajo_realizado?.items_cubiertos_garantia?.map((item, index) => (
+                                        <li key={`${item.id}-${index}`}>{item.nombre} (x{item.cantidad})</li>
                                       ))}
                                       {(selectedEquipo?.trabajo_realizado?.items_cubiertos_garantia?.length || 0) === 0 && (
                                           <li>No se marcaron ítems específicos para garantía.</li>
