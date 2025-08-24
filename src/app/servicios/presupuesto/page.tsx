@@ -98,7 +98,7 @@ export default function PresupuestoServicioPage() {
     setLoading(true);
     try {
       const [equiposSnap, productosSnap, serviciosSnap, presupuestosSnap] = await Promise.all([
-        getDocs(query(collection(db, 'equipos_en_servicio'), where("estado", "in", ["Diagnosticado", "Presupuestado", "En Reparación", "Reparado"]))),
+        getDocs(query(collection(db, 'equipos_en_servicio'), where("diagnostico_tecnico", "!=", null))),
         getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
         getDocs(query(collection(db, 'servicios'), orderBy("nombre"))),
         getDocs(query(collection(db, 'presupuestos_servicio')))
@@ -445,6 +445,7 @@ export default function PresupuestoServicioPage() {
                                   variant="default" 
                                   size="sm" 
                                   onClick={() => handleOpenPresupuesto(equipo)}
+                                  disabled={equipo.estado !== 'Diagnosticado'}
                                 >
                                    <FilePlus2 className="mr-2 h-4 w-4"/>Presupuestar
                                </Button>
