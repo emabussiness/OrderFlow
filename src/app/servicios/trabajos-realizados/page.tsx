@@ -33,6 +33,7 @@ type TrabajoRealizado = {
   items_utilizados: ItemPresupuesto[];
   items_adicionales: ItemPresupuesto[];
   costo_total_trabajo: number;
+  usuario_id: string;
 };
 
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
@@ -97,7 +98,7 @@ export default function TrabajosRealizadosPage() {
                 <TableHead>Fecha Finalización</TableHead>
                 <TableHead>OT Nº</TableHead>
                 <TableHead>Técnico</TableHead>
-                <TableHead>Horas</TableHead>
+                <TableHead>Registrado por</TableHead>
                 <TableHead className="text-right">Costo Real</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -108,7 +109,7 @@ export default function TrabajosRealizadosPage() {
                   <TableCell>{trabajo.fecha_finalizacion}</TableCell>
                   <TableCell className="font-medium">{trabajo.orden_trabajo_id.substring(0, 7)}</TableCell>
                   <TableCell>{trabajo.tecnico_nombre}</TableCell>
-                  <TableCell>{trabajo.horas_trabajadas} hs</TableCell>
+                  <TableCell>{trabajo.usuario_id}</TableCell>
                   <TableCell className="text-right font-medium">{currencyFormatter.format(trabajo.costo_total_trabajo || 0)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -149,6 +150,7 @@ export default function TrabajosRealizadosPage() {
                           <div><Label>Técnico a Cargo</Label><p>{selectedTrabajo.tecnico_nombre}</p></div>
                            <div><Label>Horas de Trabajo</Label><p>{selectedTrabajo.horas_trabajadas} hs</p></div>
                           <div><Label>Observaciones Técnicas</Label><p className="text-muted-foreground">{selectedTrabajo.observaciones_tecnicas || "Sin observaciones."}</p></div>
+                           <div><Label>Registrado por</Label><p>{selectedTrabajo.usuario_id}</p></div>
                       </div>
 
                       <div>
@@ -178,7 +180,7 @@ export default function TrabajosRealizadosPage() {
                                   ))}
                               </TableBody>
                           </Table>
-                           {selectedTrabajo.items_utilizados.length === 0 && selectedTrabajo.items_adicionales.length === 0 && (
+                           {(selectedTrabajo.items_utilizados.length === 0 && selectedTrabajo.items_adicionales.length === 0) && (
                                 <p className="text-center text-sm text-muted-foreground py-4">No se registraron ítems utilizados.</p>
                            )}
                       </div>

@@ -181,8 +181,8 @@ export default function TrabajosRealizadosPage() {
                 const producto = productos.find(p => p.id === item.id);
                 return acc + (item.cantidad * (producto?.costo_promedio || item.precio_unitario));
             }
-            // Asumimos que el costo de la mano de obra es un % del precio. Aquí 70% por ejemplo.
-            return acc + (item.cantidad * item.precio_unitario * 0.7); 
+            // El costo de la mano de obra es su precio
+            return acc + (item.cantidad * item.precio_unitario);
         }, 0) || 0;
         
     const costoItemsAdicionales = itemsAdicionales.reduce((acc, item) => {
@@ -190,7 +190,7 @@ export default function TrabajosRealizadosPage() {
             const producto = productos.find(p => p.id === item.id);
             return acc + (item.cantidad * (producto?.costo_promedio || item.precio_unitario));
         }
-        return acc + (item.cantidad * item.precio_unitario * 0.7);
+        return acc + (item.cantidad * item.precio_unitario);
     }, 0)
 
     return costoItemsPresupuestados + costoItemsAdicionales;
