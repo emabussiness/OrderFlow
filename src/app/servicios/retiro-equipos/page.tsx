@@ -22,6 +22,7 @@ import { CheckCheck, Eye } from "lucide-react";
 import { addDays, format } from 'date-fns';
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 
 // --- Types ---
@@ -81,7 +82,7 @@ export default function RetiroEquiposPage() {
   const [ciRetira, setCiRetira] = useState("");
   const [pagoId, setPagoId] = useState("");
   const [diasGarantia, setDiasGarantia] = useState(90);
-  const [notasGarantia, setNotasGarantia] = useState("");
+  const [notasGarantia, setNotasGarantia] = useState("La garantía cubre defectos de la reparación realizada y los repuestos instalados. No cubre daños por mal uso, sobretensión o problemas de software no relacionados.");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -398,7 +399,7 @@ export default function RetiroEquiposPage() {
       </Card>
 
       <Dialog open={openRetiro} onOpenChange={setOpenRetiro}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
               <DialogHeader>
                   <DialogTitle>Confirmar Retiro de Equipo</DialogTitle>
                   {selectedEquipo && (
@@ -409,45 +410,46 @@ export default function RetiroEquiposPage() {
                       </DialogDescription>
                   )}
               </DialogHeader>
-              <div className="py-4 space-y-6">
-                  <div className="p-4 rounded-lg bg-secondary">
-                      <Label>Monto Final a Pagar</Label>
-                      <p className="text-2xl font-bold">{currencyFormatter.format(presupuestos.get(selectedEquipo?.presupuesto_id || '')?.estado === 'Aprobado' ? presupuestos.get(selectedEquipo?.presupuesto_id || '')?.total || 0 : 0)}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                        <Label htmlFor="nombre_retira">Nombre de quien retira</Label>
-                        <Input id="nombre_retira" value={nombreRetira} onChange={e => setNombreRetira(e.target.value)} />
+              <ScrollArea className="flex-grow overflow-y-auto -mr-6 pr-6">
+                <div className="py-4 space-y-6 px-1">
+                    <div className="p-4 rounded-lg bg-secondary">
+                        <Label>Monto Final a Pagar</Label>
+                        <p className="text-2xl font-bold">{currencyFormatter.format(presupuestos.get(selectedEquipo?.presupuesto_id || '')?.estado === 'Aprobado' ? presupuestos.get(selectedEquipo?.presupuesto_id || '')?.total || 0 : 0)}</p>
                     </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="ci_retira">Nº de Cédula de Identidad</Label>
-                        <Input id="ci_retira" value={ciRetira} onChange={e => setCiRetira(e.target.value)} />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="nombre_retira">Nombre de quien retira</Label>
+                          <Input id="nombre_retira" value={nombreRetira} onChange={e => setNombreRetira(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="ci_retira">Nº de Cédula de Identidad</Label>
+                          <Input id="ci_retira" value={ciRetira} onChange={e => setCiRetira(e.target.value)} />
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="pago_id">ID de Pago (Opcional si no hay monto a pagar)</Label>
-                    <Input id="pago_id" value={pagoId} onChange={e => setPagoId(e.target.value)} placeholder="Ej: ID de la transacción, Nro. de factura..."/>
-                  </div>
-                  
-                  {selectedEquipo?.motivo_retiro === 'Reparación Finalizada' && (
-                     <Card>
-                        <CardHeader><CardTitle className="text-base">Configuración de Garantía</CardTitle></CardHeader>
-                        <CardContent className="space-y-4">
-                             <div className="space-y-2">
-                                <Label htmlFor="dias_garantia">Días de Garantía</Label>
-                                <Input id="dias_garantia" type="number" value={diasGarantia} onChange={e => setDiasGarantia(Number(e.target.value) || 0)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="notas_garantia">Notas y Cobertura de la Garantía</Label>
-                                <Textarea id="notas_garantia" rows={4} value={notasGarantia} onChange={e => setNotasGarantia(e.target.value)} />
-                            </div>
-                        </CardContent>
-                    </Card>
-                  )}
-
-              </div>
-              <DialogFooter>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="pago_id">ID de Pago (Opcional si no hay monto a pagar)</Label>
+                      <Input id="pago_id" value={pagoId} onChange={e => setPagoId(e.target.value)} placeholder="Ej: ID de la transacción, Nro. de factura..."/>
+                    </div>
+                    
+                    {selectedEquipo?.motivo_retiro === 'Reparación Finalizada' && (
+                      <Card>
+                          <CardHeader><CardTitle className="text-base">Configuración de Garantía</CardTitle></CardHeader>
+                          <CardContent className="space-y-4">
+                              <div className="space-y-2">
+                                  <Label htmlFor="dias_garantia">Días de Garantía</Label>
+                                  <Input id="dias_garantia" type="number" value={diasGarantia} onChange={e => setDiasGarantia(Number(e.target.value) || 0)} />
+                              </div>
+                              <div className="space-y-2">
+                                  <Label htmlFor="notas_garantia">Notas y Cobertura de la Garantía</Label>
+                                  <Textarea id="notas_garantia" rows={4} value={notasGarantia} onChange={e => setNotasGarantia(e.target.value)} />
+                              </div>
+                          </CardContent>
+                      </Card>
+                    )}
+                </div>
+              </ScrollArea>
+              <DialogFooter className="border-t pt-4 flex-shrink-0">
                   <Button variant="outline" onClick={() => setOpenRetiro(false)}>Cancelar</Button>
                   <Button onClick={handleRegistrarRetiro}>Confirmar Entrega y Registrar</Button>
               </DialogFooter>
@@ -456,3 +458,4 @@ export default function RetiroEquiposPage() {
     </>
   );
 }
+
