@@ -38,6 +38,13 @@ type ItemPresupuesto = {
   precio_unitario: number;
 };
 
+type Equipo = {
+  id: string;
+  tipo_equipo_nombre: string;
+  marca_nombre: string;
+  modelo: string;
+};
+
 type TrabajoRealizado = {
   id: string;
   orden_trabajo_id: string;
@@ -51,10 +58,12 @@ type TrabajoRealizado = {
   usuario_id: string;
   recepcion_id?: string;
   cliente_nombre?: string;
+  equipo_info?: string;
 };
 
 type Presupuesto = {
     id: string;
+    equipo_id: string;
     recepcion_id: string;
     cliente_nombre: string;
 }
@@ -91,24 +100,41 @@ export default function TrabajosRealizadosPage() {
       const trabajosSnap = await getDocs(query(collection(db, 'trabajos_realizados'), orderBy("fecha_creacion", "desc")));
       const trabajosData = trabajosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TrabajoRealizado));
 
-      if(trabajosData.length === 0){
-          setTrabajos([]);
-          setLoading(false);
-          return;
+      if (trabajosData.length === 0) {
+        setTrabajos([]);
+        setLoading(false);
+        return;
       }
-      
+
       const presupuestoIds = [...new Set(trabajosData.map(t => t.orden_trabajo_id))];
       const presupuestosQuery = query(collection(db, 'presupuestos_servicio'), where('__name__', 'in', presupuestoIds));
       const presupuestosSnap = await getDocs(presupuestosQuery);
-      const presupuestosMap = new Map(presupuestosSnap.docs.map(doc => [doc.id, doc.data() as Presupuesto]));
-      
+      const presupuestosMap = new Map<string, Presupuesto>();
+       presupuestosSnap.forEach(doc => {
+            presupuestosMap.set(doc.id, { id: doc.id, ...doc.data() } as Presupuesto);
+        });
+
+      const equipoIds = [...new Set(Array.from(presupuestosMap.values()).map(p => p.equipo_id))];
+      let equiposMap = new Map<string, Equipo>();
+
+      if (equipoIds.length > 0) {
+        const equiposQuery = query(collection(db, 'equipos_en_servicio'), where('__name__', 'in', equipoIds));
+        const equiposSnap = await getDocs(equiposQuery);
+        equiposSnap.forEach(doc => {
+            equiposMap.set(doc.id, { id: doc.id, ...doc.data() } as Equipo);
+        });
+      }
+
+
       const trabajosEnriquecidos = trabajosData.map(trabajo => {
-          const presupuesto = presupuestosMap.get(trabajo.orden_trabajo_id);
-          return {
-              ...trabajo,
-              recepcion_id: presupuesto?.recepcion_id || 'N/A',
-              cliente_nombre: presupuesto?.cliente_nombre || 'N/A'
-          }
+        const presupuesto = presupuestosMap.get(trabajo.orden_trabajo_id);
+        const equipo = presupuesto ? equiposMap.get(presupuesto.equipo_id) : undefined;
+        return {
+          ...trabajo,
+          recepcion_id: presupuesto?.recepcion_id || 'N/A',
+          cliente_nombre: presupuesto?.cliente_nombre || 'N/A',
+          equipo_info: equipo ? `${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}` : "Info no disponible",
+        };
       });
 
       setTrabajos(trabajosEnriquecidos);
@@ -267,15 +293,16 @@ export default function TrabajosRealizadosPage() {
               <DialogHeader>
                   <DialogTitle>Detalles del Trabajo Realizado (OT: {selectedTrabajo?.orden_trabajo_id.substring(0, 7)})</DialogTitle>
               </DialogHeader>
-              <div className="flex-grow overflow-y-auto -mr-6 pr-6">
+              <ScrollArea className="flex-grow overflow-y-auto -mr-6 pr-6">
               {selectedTrabajo && (
                   <div className="py-4 space-y-6">
                       <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
                           <div><Label>Fecha de Finalización</Label><p>{selectedTrabajo.fecha_finalizacion}</p></div>
                           <div><Label>Técnico a Cargo</Label><p>{selectedTrabajo.tecnico_nombre}</p></div>
                            <div><Label>Horas de Trabajo</Label><p>{selectedTrabajo.horas_trabajadas} hs</p></div>
-                          <div><Label>Observaciones Técnicas</Label><p className="text-muted-foreground">{selectedTrabajo.observaciones_tecnicas || "Sin observaciones."}</p></div>
-                           <div><Label>Registrado por</Label><p>{selectedTrabajo.usuario_id}</p></div>
+                          <div><Label>Registrado por</Label><p>{selectedTrabajo.usuario_id}</p></div>
+                           <div className="col-span-2"><Label>Observaciones Técnicas</Label><p className="text-muted-foreground">{selectedTrabajo.observaciones_tecnicas || "Sin observaciones."}</p></div>
+                           <div className="col-span-2 border-t pt-4 mt-2"><Label>Equipo</Label><p className="font-semibold text-base">{selectedTrabajo.equipo_info}</p></div>
                       </div>
 
                       <div>
@@ -312,7 +339,7 @@ export default function TrabajosRealizadosPage() {
 
                   </div>
               )}
-              </div>
+              </ScrollArea>
               <DialogFooter className="border-t pt-4 flex justify-between items-center w-full">
                   <div className="font-bold text-lg">Costo Total del Trabajo: {currencyFormatter.format(selectedTrabajo?.costo_total_trabajo || 0)}</div>
                   <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
@@ -322,3 +349,4 @@ export default function TrabajosRealizadosPage() {
     </>
   );
 }
+
