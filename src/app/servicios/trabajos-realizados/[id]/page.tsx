@@ -203,32 +203,23 @@ export default function TrabajosRealizadosPage() {
       setItemsAdicionales(newItems);
   };
   
-  const costoReal = useMemo(() => {
+  const costoTotalTrabajo = useMemo(() => {
     let costoTotal = 0;
-    const productosMap = new Map(productos.map(p => [p.id, p]));
 
     presupuesto?.items.forEach(item => {
         if (itemsUtilizados[item.id]) {
-            if (item.tipo === 'Repuesto') {
-                const producto = productosMap.get(item.id);
-                costoTotal += item.cantidad * (producto?.costo_promedio || 0);
-            }
-            // La mano de obra no suma al costo real
+            costoTotal += item.cantidad * item.precio_unitario;
         }
     });
 
     itemsAdicionales.forEach(item => {
         if (item.id && item.cantidad > 0) {
-            if (item.tipo === 'Repuesto') {
-                const producto = productosMap.get(item.id);
-                costoTotal += item.cantidad * (producto?.costo_promedio || 0);
-            }
-            // La mano de obra no suma al costo real
+            costoTotal += item.cantidad * item.precio_unitario;
         }
     });
 
     return costoTotal;
-  }, [itemsUtilizados, itemsAdicionales, presupuesto, productos]);
+  }, [itemsUtilizados, itemsAdicionales, presupuesto]);
 
 
   const handleSubmitTrabajo = async () => {
@@ -258,7 +249,7 @@ export default function TrabajosRealizadosPage() {
             items_utilizados: itemsPresupuestoUtilizados,
             items_adicionales: itemsAdicionales.filter(item => item.id && item.cantidad > 0),
             items_cubiertos_garantia: itemsCubiertosPorGarantia, // Your great idea!
-            costo_total_trabajo: costoReal,
+            costo_total_trabajo: costoTotalTrabajo,
             usuario_id: "user-demo",
             fecha_creacion: serverTimestamp(),
         });
@@ -338,12 +329,12 @@ export default function TrabajosRealizadosPage() {
                     </CardFooter>
                 </Card>
                  <Card>
-                    <CardHeader><CardTitle>Costo Real del Trabajo</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>Costo Total del Trabajo</CardTitle></CardHeader>
                      <CardContent>
-                        <p className="text-sm text-muted-foreground">Este es el costo real calculado de los ítems y mano de obra utilizados.</p>
+                        <p className="text-sm text-muted-foreground">Este es el valor total de los ítems y mano de obra utilizados.</p>
                     </CardContent>
                     <CardFooter className="font-bold text-xl text-primary">
-                        {currencyFormatter.format(costoReal)}
+                        {currencyFormatter.format(costoTotalTrabajo)}
                     </CardFooter>
                 </Card>
             </div>
@@ -430,4 +421,3 @@ export default function TrabajosRealizadosPage() {
     </div>
   );
 }
-
