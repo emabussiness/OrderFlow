@@ -111,7 +111,7 @@ export default function RetiroEquiposPage() {
 
       const [equiposReparadosSnap, presupuestosRechazadosSnap] = await Promise.all([
           getDocs(equiposReparadosQuery),
-          getDocs(presupuestosRechazadosSnap)
+          getDocs(presupuestosRechazadosQuery)
       ]);
 
       const equiposParaRetiro: EquipoParaRetiro[] = [];
