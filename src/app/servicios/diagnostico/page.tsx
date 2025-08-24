@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Combobox } from "@/components/ui/command";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // --- Types ---
 type EquipoEnServicio = {
@@ -334,7 +335,7 @@ export default function DiagnosticoPage() {
       </Card>
       
       <Dialog open={openDiagnostico} onOpenChange={setOpenDiagnostico}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
               <DialogHeader>
                   <DialogTitle>Registrar Diagnóstico Técnico</DialogTitle>
                   {selectedEquipo && (
@@ -343,46 +344,48 @@ export default function DiagnosticoPage() {
                     </DialogDescription>
                   )}
               </DialogHeader>
-              <div className="py-4 space-y-4">
-                  <Card>
-                      <CardHeader className="pb-2">
-                          <CardTitle className="text-base">Problema Manifestado por el Cliente</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                          <p className="text-sm text-muted-foreground">{selectedEquipo?.problema_manifestado}</p>
-                      </CardContent>
-                  </Card>
-                  <div className="space-y-2">
-                      <Label htmlFor="tecnico">Técnico Responsable</Label>
-                      <Combobox
-                        options={tecnicos.map(t => ({value: t.id, label: t.nombre_apellido}))}
-                        value={selectedTecnicoId}
-                        onChange={setSelectedTecnicoId}
-                        placeholder="Seleccione un técnico"
-                      />
-                  </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="diagnostico-tecnico">Diagnóstico Técnico</Label>
-                      <Textarea 
-                          id="diagnostico-tecnico" 
-                          rows={5}
-                          value={diagnosticoTecnico} 
-                          onChange={e => setDiagnosticoTecnico(e.target.value)}
-                          placeholder="Describa la falla encontrada, los componentes afectados y la causa raíz del problema."
-                      />
-                  </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="trabajos-realizar">Trabajos a Realizar</Label>
-                       <Textarea 
-                          id="trabajos-realizar" 
-                          rows={5}
-                          value={trabajosARealizar} 
-                          onChange={e => setTrabajosARealizar(e.target.value)}
-                          placeholder="Describa los pasos y reparaciones recomendadas para solucionar el problema."
-                      />
-                  </div>
-              </div>
-              <DialogFooterComponent>
+              <ScrollArea className="flex-grow overflow-y-auto -mr-6 pr-6">
+                <div className="py-4 space-y-4 px-1">
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Problema Manifestado por el Cliente</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-muted-foreground">{selectedEquipo?.problema_manifestado}</p>
+                        </CardContent>
+                    </Card>
+                    <div className="space-y-2">
+                        <Label htmlFor="tecnico">Técnico Responsable</Label>
+                        <Combobox
+                          options={tecnicos.map(t => ({value: t.id, label: t.nombre_apellido}))}
+                          value={selectedTecnicoId}
+                          onChange={setSelectedTecnicoId}
+                          placeholder="Seleccione un técnico"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="diagnostico-tecnico">Diagnóstico Técnico</Label>
+                        <Textarea 
+                            id="diagnostico-tecnico" 
+                            rows={5}
+                            value={diagnosticoTecnico} 
+                            onChange={e => setDiagnosticoTecnico(e.target.value)}
+                            placeholder="Describa la falla encontrada, los componentes afectados y la causa raíz del problema."
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="trabajos-realizar">Trabajos a Realizar</Label>
+                        <Textarea 
+                            id="trabajos-realizar" 
+                            rows={5}
+                            value={trabajosARealizar} 
+                            onChange={e => setTrabajosARealizar(e.target.value)}
+                            placeholder="Describa los pasos y reparaciones recomendadas para solucionar el problema."
+                        />
+                    </div>
+                </div>
+              </ScrollArea>
+              <DialogFooterComponent className="border-t pt-4 flex-shrink-0">
                   <Button variant="outline" onClick={() => setOpenDiagnostico(false)}>Cancelar</Button>
                   <Button onClick={handleSaveDiagnostico}>Guardar Diagnóstico</Button>
               </DialogFooterComponent>
@@ -391,3 +394,4 @@ export default function DiagnosticoPage() {
     </>
   );
 }
+
