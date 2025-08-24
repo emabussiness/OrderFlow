@@ -37,11 +37,14 @@ export default function ReclamosServicioPage() {
             try {
                 const q = query(
                     collection(db, 'garantias_servicio'), 
-                    where("estado", "==", "Activa"),
-                    orderBy("fecha_fin", "asc") // Prioritize warranties ending soon
+                    where("estado", "==", "Activa")
                 );
                 const snapshot = await getDocs(q);
                 const dataList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GarantiaActiva));
+                
+                // Sort data on the client side
+                dataList.sort((a, b) => new Date(a.fecha_fin).getTime() - new Date(b.fecha_fin).getTime());
+                
                 setGarantias(dataList);
             } catch (error) {
                 console.error("Error fetching active warranties:", error);
