@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MoreHorizontal, Eye } from "lucide-react";
+import { MoreHorizontal, Eye, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
@@ -20,6 +20,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import type { DateRange } from "react-day-picker";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 // --- Types ---
 type PresupuestoAprobado = {
@@ -85,6 +90,7 @@ export default function OrdenDeTrabajoPage() {
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -157,12 +163,23 @@ export default function OrdenDeTrabajoPage() {
   const groupedAndFilteredOrdenes = useMemo(() => {
     const grouped: GroupedOrdenes = {};
 
-     const filteredOrdenes = ordenes.filter(ot =>
-      !searchTerm ||
-      ot.cliente_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ot.recepcion_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ot.equipo_info.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+     const filteredOrdenes = ordenes.filter(ot => {
+        const term = searchTerm.toLowerCase();
+        const matchTerm = !term ||
+            ot.cliente_nombre.toLowerCase().includes(term) ||
+            ot.recepcion_id.toLowerCase().includes(term) ||
+            ot.equipo_info.toLowerCase().includes(term);
+
+        let matchDate = true;
+        if (dateRange?.from) {
+            const fechaAprobacion = new Date(ot.fecha_aprobacion + "T00:00:00");
+            const from = dateRange.from;
+            const to = dateRange.to ?? from;
+            matchDate = fechaAprobacion >= from && fechaAprobacion <= to;
+        }
+        
+        return matchTerm && matchDate;
+    });
 
     filteredOrdenes.forEach(ot => {
         const key = ot.recepcion_id;
@@ -180,7 +197,7 @@ export default function OrdenDeTrabajoPage() {
         .sort(([, valA], [, valB]) => new Date(valB.fecha_recepcion).getTime() - new Date(valA.fecha_recepcion).getTime())
         .reduce((acc, [key, val]) => ({ ...acc, [key]: val }), {});
 
-  }, [ordenes, searchTerm]);
+  }, [ordenes, searchTerm, dateRange]);
 
 
   if (loading) return <p>Cargando órdenes de trabajo...</p>;
@@ -194,14 +211,24 @@ export default function OrdenDeTrabajoPage() {
       <Card>
         <CardHeader>
           <CardTitle>Órdenes de Trabajo Activas</CardTitle>
-          <CardDescription>
-            Listado de todos los servicios aprobados por los clientes, agrupados por recepción.
+          <CardDescription className="flex flex-col md:flex-row gap-4 mt-2">
             <Input
               placeholder="Buscar por cliente, ID de recepción o equipo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="mt-2"
+              className="flex-grow"
             />
+             <Popover>
+                <PopoverTrigger asChild>
+                    <Button id="date" variant={"outline"} className={cn("w-full md:w-[300px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Filtrar por fecha aprobación</span>)}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es}/>
+                </PopoverContent>
+            </Popover>
           </CardDescription>
         </CardHeader>
         <CardContent>

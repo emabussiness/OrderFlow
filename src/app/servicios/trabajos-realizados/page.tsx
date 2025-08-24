@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Calendar as CalendarIcon } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,13 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import type { DateRange } from "react-day-picker";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+
 
 // --- Types ---
 type ItemPresupuesto = {
@@ -75,6 +82,7 @@ export default function TrabajosRealizadosPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTrabajo, setSelectedTrabajo] = useState<TrabajoRealizado | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -119,12 +127,23 @@ export default function TrabajosRealizadosPage() {
   const groupedAndFilteredTrabajos = useMemo(() => {
     const grouped: GroupedTrabajos = {};
 
-    const filtered = trabajos.filter(t => 
-        !searchTerm ||
-        t.cliente_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.recepcion_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.tecnico_nombre.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = trabajos.filter(t => {
+        const term = searchTerm.toLowerCase();
+        const matchTerm = !term ||
+            t.cliente_nombre?.toLowerCase().includes(term) ||
+            t.recepcion_id?.toLowerCase().includes(term) ||
+            t.tecnico_nombre.toLowerCase().includes(term);
+
+        let matchDate = true;
+        if (dateRange?.from) {
+            const fechaFinalizacion = new Date(t.fecha_finalizacion + "T00:00:00");
+            const from = dateRange.from;
+            const to = dateRange.to ?? from;
+            matchDate = fechaFinalizacion >= from && fechaFinalizacion <= to;
+        }
+
+        return matchTerm && matchDate;
+    });
 
      filtered.forEach(trabajo => {
         const key = trabajo.recepcion_id || 'sin-recepcion';
@@ -142,7 +161,7 @@ export default function TrabajosRealizadosPage() {
         .sort(([, valA], [, valB]) => new Date(valB.fecha).getTime() - new Date(valA.fecha).getTime())
         .reduce((acc, [key, val]) => ({ ...acc, [key]: val }), {});
 
-  }, [trabajos, searchTerm]);
+  }, [trabajos, searchTerm, dateRange]);
 
 
   const handleOpenDetails = (trabajo: TrabajoRealizado) => {
@@ -161,14 +180,24 @@ export default function TrabajosRealizadosPage() {
       <Card>
         <CardHeader>
           <CardTitle>Trabajos Completados</CardTitle>
-          <CardDescription>
-            Registro de todas las reparaciones finalizadas, agrupadas por recepción.
+          <CardDescription className="flex flex-col md:flex-row gap-4 mt-2">
              <Input
               placeholder="Buscar por cliente, ID de recepción o técnico..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="mt-2"
+              className="flex-grow"
             />
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button id="date" variant={"outline"} className={cn("w-full md:w-[300px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Filtrar por fecha finalización</span>)}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es}/>
+                </PopoverContent>
+            </Popover>
           </CardDescription>
         </CardHeader>
         <CardContent>

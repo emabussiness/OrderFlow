@@ -4,13 +4,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
 import { collection, getDocs, addDoc, doc, serverTimestamp, query, orderBy, where, writeBatch, getDoc, runTransaction } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Calendar as CalendarIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +26,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 // --- Types ---
 type Cliente = { id: string; nombre: string; };
@@ -54,7 +58,7 @@ type Recepcion = {
   id: string;
   cliente_id: string;
   cliente_nombre: string;
-  fecha_recepcion: string;
+  fecha_recepcion: string; // "yyyy-MM-dd"
   equipos: { id: string; problema_manifestado: string; }[];
   usuario_id: string;
   fecha_creacion: any;
@@ -81,6 +85,7 @@ export default function RecepcionEquiposPage() {
   
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
 
   const fetchData = async () => {
@@ -109,13 +114,23 @@ export default function RecepcionEquiposPage() {
   }, [toast]);
   
   const filteredRecepciones = useMemo(() => {
-      const term = searchTerm.toLowerCase();
-      if (!term) return recepciones;
-      return recepciones.filter(r => 
-        r.cliente_nombre.toLowerCase().includes(term) ||
-        r.id.toLowerCase().includes(term)
-      );
-  }, [recepciones, searchTerm]);
+      return recepciones.filter(r => {
+        const term = searchTerm.toLowerCase();
+        const matchTerm = !term || 
+            r.cliente_nombre.toLowerCase().includes(term) ||
+            r.id.toLowerCase().includes(term);
+
+        let matchDate = true;
+        if (dateRange?.from) {
+            const fechaRecepcion = new Date(r.fecha_recepcion + "T00:00:00");
+            const from = dateRange.from;
+            const to = dateRange.to ?? from;
+            matchDate = fechaRecepcion >= from && fechaRecepcion <= to;
+        }
+
+        return matchTerm && matchDate;
+      });
+  }, [recepciones, searchTerm, dateRange]);
 
   const handleAddEquipo = () => {
     setEquipos(prev => [...prev, { problema_manifestado: '' }]);
@@ -334,14 +349,24 @@ export default function RecepcionEquiposPage() {
       <Card>
         <CardHeader>
           <CardTitle>Historial de Recepciones</CardTitle>
-          <CardDescription>
-            Registro de todas las recepciones de equipos.
-            <Input 
+          <CardDescription className="flex flex-col md:flex-row gap-4 mt-2">
+             <Input 
                 placeholder="Buscar por cliente o ID de recepción..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="mt-2"
+                className="flex-grow"
             />
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button id="date" variant={"outline"} className={cn("w-full md:w-[300px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Filtrar por fecha</span>)}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es}/>
+                </PopoverContent>
+            </Popover>
           </CardDescription>
         </CardHeader>
         <CardContent>
