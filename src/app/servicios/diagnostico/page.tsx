@@ -54,6 +54,7 @@ type Recepcion = {
 type PresupuestoServicio = {
     id: string;
     equipo_id: string;
+    estado: 'Pendiente de Aprobación' | 'Aprobado' | 'Rechazado';
 }
 
 type Tecnico = {
@@ -121,8 +122,8 @@ export default function DiagnosticoPage() {
     fetchData();
   }, [toast]);
   
-  const equiposYaPresupuestados = useMemo(() => {
-    return new Set(presupuestos.map(p => p.equipo_id));
+  const presupuestosMap = useMemo(() => {
+    return new Map(presupuestos.map(p => [p.equipo_id, p]));
   }, [presupuestos]);
 
   const groupedAndFilteredEquipos = useMemo(() => {
@@ -210,33 +211,32 @@ export default function DiagnosticoPage() {
       }
   };
 
-  const getStatusVariant = (status: string): "secondary" | "default" | "destructive" | "outline" => {
-    switch (status) {
-      case "Diagnosticado": return "default";
-      case "Presupuestado": return "secondary";
-      case "En Reparación": return "outline";
-      case "Reparado": return "default";
-      case "Retirado": return "secondary";
-      default: return "destructive";
-    }
-  };
-
   const renderActionButton = (equipo: EquipoEnServicio) => {
-    const isPresupuestado = equiposYaPresupuestados.has(equipo.id);
+    const presupuestoAsociado = presupuestosMap.get(equipo.id);
 
-    if (isPresupuestado) {
-        return <Button variant="outline" size="sm" disabled><PenSquare className="mr-2 h-4 w-4"/>Presupuestado</Button>;
-    }
-    
     if (equipo.estado === 'Recibido') {
-        return <Button variant="default" size="sm" onClick={() => handleOpenDiagnostico(equipo)}><PenSquare className="mr-2 h-4 w-4"/>Diagnosticar</Button>;
+      return <Button variant="default" size="sm" onClick={() => handleOpenDiagnostico(equipo)}><PenSquare className="mr-2 h-4 w-4"/>Diagnosticar</Button>;
     }
     
-    if (equipo.estado === 'Diagnosticado') {
-        return <Button variant="secondary" size="sm" onClick={() => handleOpenDiagnostico(equipo)}><PenSquare className="mr-2 h-4 w-4"/>Editar Diagnóstico</Button>;
+    if (equipo.estado === 'Diagnosticado' && !presupuestoAsociado) {
+      return <Button variant="secondary" size="sm" onClick={() => handleOpenDiagnostico(equipo)}><PenSquare className="mr-2 h-4 w-4"/>Editar Diagnóstico</Button>;
     }
 
-    // For states like "En Reparacion", "Reparado", etc.
+    if (presupuestoAsociado) {
+       switch (presupuestoAsociado.estado) {
+         case 'Pendiente de Aprobación':
+            return <Button variant="outline" size="sm" disabled>Presupuestado</Button>;
+         case 'Rechazado':
+             return <Button variant="destructive" size="sm" disabled>Presupuestado (Rechazado)</Button>;
+         case 'Aprobado':
+             if (equipo.estado === 'Reparado') {
+                return <Button variant="default" size="sm" disabled>Reparado</Button>;
+             }
+             return <Button variant="outline" size="sm" disabled>En Reparación</Button>;
+       }
+    }
+
+    // Fallback for any other states
     return <Button variant="outline" size="sm" disabled>{equipo.estado}</Button>;
   };
 
@@ -292,7 +292,7 @@ export default function DiagnosticoPage() {
                             {equipo.diagnostico_tecnico ? (
                                 <Popover>
                                 <PopoverTrigger asChild>
-                                    <Badge variant={getStatusVariant(equipo.estado)} className="cursor-pointer">{equipo.estado}</Badge>
+                                    <Badge variant='default' className="cursor-pointer">Diagnosticado</Badge>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-96">
                                     <div className="grid gap-4">
@@ -300,7 +300,7 @@ export default function DiagnosticoPage() {
                                             <h4 className="font-medium leading-none">Diagnóstico Técnico</h4>
                                             <p className="text-sm text-muted-foreground">{equipo.diagnostico_tecnico}</p>
                                         </div>
-                                         <div className="space-y-2">
+                                        <div className="space-y-2">
                                             <h4 className="font-medium leading-none">Técnico</h4>
                                             <p className="text-sm text-muted-foreground">{equipo.tecnico_nombre || "No asignado"}</p>
                                         </div>
