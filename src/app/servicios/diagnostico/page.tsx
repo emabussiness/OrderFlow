@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Combobox } from "@/components/ui/command";
 
 // --- Types ---
 type EquipoEnServicio = {
@@ -39,6 +40,8 @@ type EquipoEnServicio = {
   trabajos_a_realizar?: string;
   fecha_diagnostico?: string;
   tecnico_id?: string;
+  tecnico_nombre?: string;
+  usuario_id?: string;
   fecha_creacion?: any;
 };
 
@@ -51,6 +54,11 @@ type Recepcion = {
 type PresupuestoServicio = {
     id: string;
     equipo_id: string;
+}
+
+type Tecnico = {
+    id: string;
+    nombre_apellido: string;
 }
 
 type GroupedEquipos = {
@@ -67,6 +75,7 @@ export default function DiagnosticoPage() {
   const [equipos, setEquipos] = useState<EquipoEnServicio[]>([]);
   const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
   const [presupuestos, setPresupuestos] = useState<PresupuestoServicio[]>([]);
+  const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -75,17 +84,19 @@ export default function DiagnosticoPage() {
   const [selectedEquipo, setSelectedEquipo] = useState<EquipoEnServicio | null>(null);
   const [diagnosticoTecnico, setDiagnosticoTecnico] = useState("");
   const [trabajosARealizar, setTrabajosARealizar] = useState("");
+  const [selectedTecnicoId, setSelectedTecnicoId] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [equiposSnap, recepcionesSnap, presupuestosSnap] = await Promise.all([
+      const [equiposSnap, recepcionesSnap, presupuestosSnap, tecnicosSnap] = await Promise.all([
         getDocs(query(
             collection(db, 'equipos_en_servicio'),
             where("estado", "in", ["Recibido", "Diagnosticado"])
         )),
         getDocs(query(collection(db, 'recepciones'), orderBy("fecha_creacion", "desc"))),
-        getDocs(collection(db, 'presupuestos_servicio'))
+        getDocs(collection(db, 'presupuestos_servicio')),
+        getDocs(query(collection(db, 'tecnicos'), orderBy("nombre_apellido")))
       ]);
 
       const equiposList = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoEnServicio));
@@ -96,6 +107,9 @@ export default function DiagnosticoPage() {
       
       const presupuestosList = presupuestosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PresupuestoServicio));
       setPresupuestos(presupuestosList);
+      
+      const tecnicosList = tecnicosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tecnico));
+      setTecnicos(tecnicosList);
 
 
     } catch (error) {
@@ -153,6 +167,7 @@ export default function DiagnosticoPage() {
       setSelectedEquipo(equipo);
       setDiagnosticoTecnico(equipo.diagnostico_tecnico || '');
       setTrabajosARealizar(equipo.trabajos_a_realizar || '');
+      setSelectedTecnicoId(equipo.tecnico_id || '');
       setOpenDiagnostico(true);
   };
   
@@ -160,6 +175,7 @@ export default function DiagnosticoPage() {
       setSelectedEquipo(null);
       setDiagnosticoTecnico('');
       setTrabajosARealizar('');
+      setSelectedTecnicoId('');
   }
 
   useEffect(() => {
@@ -167,21 +183,24 @@ export default function DiagnosticoPage() {
   }, [openDiagnostico]);
 
   const handleSaveDiagnostico = async () => {
-      if (!selectedEquipo || !diagnosticoTecnico.trim() || !trabajosARealizar.trim()) {
-          toast({ variant: 'destructive', title: 'Error de Validación', description: 'El diagnóstico y los trabajos a realizar son obligatorios.' });
+      if (!selectedEquipo || !diagnosticoTecnico.trim() || !trabajosARealizar.trim() || !selectedTecnicoId) {
+          toast({ variant: 'destructive', title: 'Error de Validación', description: 'El diagnóstico, los trabajos a realizar y el técnico son obligatorios.' });
           return;
       }
       
       try {
           const equipoRef = doc(db, 'equipos_en_servicio', selectedEquipo.id);
           const isNewDiagnosis = selectedEquipo.estado === 'Recibido';
+          const tecnicoSeleccionado = tecnicos.find(t => t.id === selectedTecnicoId);
 
           await updateDoc(equipoRef, {
               estado: "Diagnosticado",
               diagnostico_tecnico: diagnosticoTecnico.trim(),
               trabajos_a_realizar: trabajosARealizar.trim(),
               fecha_diagnostico: selectedEquipo.fecha_diagnostico || format(new Date(), "yyyy-MM-dd"),
-              // tecnico_id: "hardcoded_technician" // TODO: Add technician selection
+              tecnico_id: selectedTecnicoId,
+              tecnico_nombre: tecnicoSeleccionado?.nombre_apellido || 'N/A',
+              usuario_id: 'user-demo' // Hardcoded user
           });
           
           toast({ title: "Diagnóstico Guardado", description: `El diagnóstico ha sido ${isNewDiagnosis ? 'registrado' : 'actualizado'} exitosamente.`});
@@ -253,6 +272,10 @@ export default function DiagnosticoPage() {
                                             <h4 className="font-medium leading-none">Diagnóstico Técnico</h4>
                                             <p className="text-sm text-muted-foreground">{equipo.diagnostico_tecnico}</p>
                                         </div>
+                                         <div className="space-y-2">
+                                            <h4 className="font-medium leading-none">Técnico</h4>
+                                            <p className="text-sm text-muted-foreground">{equipo.tecnico_nombre || "No asignado"}</p>
+                                        </div>
                                         <div className="space-y-2">
                                             <h4 className="font-medium leading-none">Trabajos a Realizar</h4>
                                             <p className="text-sm text-muted-foreground">{equipo.trabajos_a_realizar}</p>
@@ -308,6 +331,15 @@ export default function DiagnosticoPage() {
                           <p className="text-sm text-muted-foreground">{selectedEquipo?.problema_manifestado}</p>
                       </CardContent>
                   </Card>
+                  <div className="space-y-2">
+                      <Label htmlFor="tecnico">Técnico Responsable</Label>
+                      <Combobox
+                        options={tecnicos.map(t => ({value: t.id, label: t.nombre_apellido}))}
+                        value={selectedTecnicoId}
+                        onChange={setSelectedTecnicoId}
+                        placeholder="Seleccione un técnico"
+                      />
+                  </div>
                   <div className="space-y-2">
                       <Label htmlFor="diagnostico-tecnico">Diagnóstico Técnico</Label>
                       <Textarea 

@@ -48,6 +48,7 @@ type PresupuestoServicio = {
     observaciones?: string;
     cliente_nombre: string;
     recepcion_id: string;
+    usuario_id?: string;
 }
 
 type GroupedEquipos = {
@@ -265,7 +266,7 @@ export default function PresupuestoServicioPage() {
       const batch = writeBatch(db);
 
       const presupuestoRef = doc(db, "presupuestos_servicio", presupuesto.id);
-      batch.update(presupuestoRef, { estado: newStatus });
+      batch.update(presupuestoRef, { estado: newStatus, usuario_id: 'user-demo' });
 
       if (newStatus === "Aprobado") {
         const equipoRef = doc(db, "equipos_en_servicio", presupuesto.equipo_id);
