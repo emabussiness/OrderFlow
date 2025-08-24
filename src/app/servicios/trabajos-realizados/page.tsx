@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { collection, getDocs, query, orderBy, where, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useToast } from "@/hooks/use-toast";
