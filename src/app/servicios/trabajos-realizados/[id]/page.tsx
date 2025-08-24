@@ -174,27 +174,35 @@ export default function TrabajosRealizadosPage() {
   };
   
   const calcularTotalCosto = () => {
-    const costoItemsPresupuestados = presupuesto?.items
-        .filter(item => itemsUtilizados[item.id])
-        .reduce((acc, item) => {
-            if(item.tipo === 'Repuesto') {
-                const producto = productos.find(p => p.id === item.id);
-                return acc + (item.cantidad * (producto?.costo_promedio || item.precio_unitario));
-            }
-            // El costo de la mano de obra es su precio
-            return acc + (item.cantidad * item.precio_unitario);
-        }, 0) || 0;
-        
-    const costoItemsAdicionales = itemsAdicionales.reduce((acc, item) => {
-         if(item.tipo === 'Repuesto') {
-            const producto = productos.find(p => p.id === item.id);
-            return acc + (item.cantidad * (producto?.costo_promedio || item.precio_unitario));
-        }
-        return acc + (item.cantidad * item.precio_unitario);
-    }, 0)
+    let costoTotal = 0;
+    const productosMap = new Map(productos.map(p => [p.id, p]));
 
-    return costoItemsPresupuestados + costoItemsAdicionales;
-  }
+    // Costo de ítems del presupuesto que fueron utilizados
+    presupuesto?.items.forEach(item => {
+        if (itemsUtilizados[item.id]) {
+            if (item.tipo === 'Repuesto') {
+                const producto = productosMap.get(item.id);
+                costoTotal += item.cantidad * (producto?.costo_promedio || 0);
+            } else { // Mano de Obra
+                costoTotal += item.cantidad * item.precio_unitario;
+            }
+        }
+    });
+
+    // Costo de ítems adicionales
+    itemsAdicionales.forEach(item => {
+        if (item.id && item.cantidad > 0) {
+            if (item.tipo === 'Repuesto') {
+                const producto = productosMap.get(item.id);
+                costoTotal += item.cantidad * (producto?.costo_promedio || 0);
+            } else { // Mano de Obra
+                costoTotal += item.cantidad * item.precio_unitario;
+            }
+        }
+    });
+
+    return costoTotal;
+  };
 
   const handleSubmitTrabajo = async () => {
       if(!selectedTecnicoId) {
