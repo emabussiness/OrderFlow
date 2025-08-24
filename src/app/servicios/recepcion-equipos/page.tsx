@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { collection, getDocs, addDoc, doc, serverTimestamp, query, orderBy, where, writeBatch, getDoc, runTransaction } from "firebase/firestore";
@@ -78,6 +78,9 @@ export default function RecepcionEquiposPage() {
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedRecepcion, setSelectedRecepcion] = useState<Recepcion | null>(null);
   const [detailedEquipos, setDetailedEquipos] = useState<EquipoEnServicio[]>([]);
+  
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
 
 
   const fetchData = async () => {
@@ -104,6 +107,15 @@ export default function RecepcionEquiposPage() {
   useEffect(() => {
     fetchData();
   }, [toast]);
+  
+  const filteredRecepciones = useMemo(() => {
+      const term = searchTerm.toLowerCase();
+      if (!term) return recepciones;
+      return recepciones.filter(r => 
+        r.cliente_nombre.toLowerCase().includes(term) ||
+        r.id.toLowerCase().includes(term)
+      );
+  }, [recepciones, searchTerm]);
 
   const handleAddEquipo = () => {
     setEquipos(prev => [...prev, { problema_manifestado: '' }]);
@@ -322,7 +334,15 @@ export default function RecepcionEquiposPage() {
       <Card>
         <CardHeader>
           <CardTitle>Historial de Recepciones</CardTitle>
-          <CardDescription>Registro de todas las recepciones de equipos.</CardDescription>
+          <CardDescription>
+            Registro de todas las recepciones de equipos.
+            <Input 
+                placeholder="Buscar por cliente o ID de recepción..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="mt-2"
+            />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -337,7 +357,7 @@ export default function RecepcionEquiposPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recepciones.map((r) => (
+              {filteredRecepciones.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.id.substring(0, 7)}</TableCell>
                   <TableCell>{r.fecha_recepcion}</TableCell>
@@ -363,7 +383,7 @@ export default function RecepcionEquiposPage() {
               ))}
             </TableBody>
           </Table>
-          {recepciones.length === 0 && <p className="text-center text-muted-foreground mt-4">No hay recepciones registradas.</p>}
+          {filteredRecepciones.length === 0 && <p className="text-center text-muted-foreground mt-4">No se encontraron recepciones.</p>}
         </CardContent>
       </Card>
 
@@ -423,5 +443,3 @@ export default function RecepcionEquiposPage() {
     </>
   );
 }
-
-    
