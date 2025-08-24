@@ -437,6 +437,7 @@ export default function NotasDebitoPage() {
                                     <div><p className="font-semibold">Factura de Compra:</p><p>{selectedNota.numero_factura_compra}</p></div>
                                     <div><p className="font-semibold">Fecha de Emisión:</p><p>{selectedNota.fecha_emision}</p></div>
                                     <div><p className="font-semibold">RUC Proveedor:</p><p>{selectedNota.proveedor_ruc}</p></div>
+                                    <div><p className="font-semibold">Registrado por:</p><p>{selectedNota.usuario_id}</p></div>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="font-semibold">Motivo:</p>

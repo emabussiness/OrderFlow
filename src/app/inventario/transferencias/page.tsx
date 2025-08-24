@@ -305,8 +305,9 @@ export default function TransferenciasStockPage() {
               <TableRow>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Producto</TableHead>
-                <TableHead>Depósito Origen</TableHead>
-                <TableHead>Depósito Destino</TableHead>
+                <TableHead>Origen</TableHead>
+                <TableHead>Destino</TableHead>
+                <TableHead>Usuario</TableHead>
                 <TableHead className="text-right">Cantidad</TableHead>
                 <TableHead>Motivo</TableHead>
               </TableRow>
@@ -318,6 +319,7 @@ export default function TransferenciasStockPage() {
                   <TableCell className="font-medium">{t.producto_nombre}</TableCell>
                   <TableCell>{t.deposito_origen_nombre}</TableCell>
                   <TableCell>{t.deposito_destino_nombre}</TableCell>
+                  <TableCell>{t.usuario_id}</TableCell>
                   <TableCell className="text-right font-bold">{t.cantidad}</TableCell>
                   <TableCell>{t.motivo}</TableCell>
                 </TableRow>
