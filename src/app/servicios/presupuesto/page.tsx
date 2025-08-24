@@ -103,7 +103,7 @@ export default function PresupuestoServicioPage() {
         getDocs(query(collection(db, 'equipos_en_servicio'), where("diagnostico_tecnico", "!=", null))),
         getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
         getDocs(query(collection(db, 'servicios'), orderBy("nombre"))),
-        getDocs(collection(db, 'presupuestos_servicio'))
+        getDocs(query(collection(db, 'presupuestos_servicio')))
       ]);
       
       const equiposList = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
@@ -323,21 +323,21 @@ export default function PresupuestoServicioPage() {
           <CardTitle>Equipos Pendientes de Presupuesto o Aprobación</CardTitle>
           <CardDescription>
             Equipos diagnosticados listos para generar un presupuesto de reparación o esperando la aprobación del cliente.
-             <div className="flex flex-col md:flex-row gap-4 mt-2">
-                 <Input
-                  placeholder="Buscar por cliente, ID de recepción, tipo, marca o modelo..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="flex-grow"
-                />
-                <div className="flex items-center gap-2">
-                    <Button variant={statusFilter === '' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('')}>Todos</Button>
-                    <Button variant={statusFilter === 'Pendiente de Aprobación' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Pendiente de Aprobación')}>Pendientes</Button>
-                    <Button variant={statusFilter === 'Aprobado' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Aprobado')}>Aprobados</Button>
-                    <Button variant={statusFilter === 'Rechazado' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Rechazado')}>Rechazados</Button>
-                </div>
-            </div>
           </CardDescription>
+          <div className="flex flex-col md:flex-row gap-4 pt-2">
+            <Input
+              placeholder="Buscar por cliente, ID de recepción, tipo, marca o modelo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-grow"
+            />
+            <div className="flex items-center gap-2">
+              <Button variant={statusFilter === '' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('')}>Todos</Button>
+              <Button variant={statusFilter === 'Pendiente de Aprobación' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Pendiente de Aprobación')}>Pendientes</Button>
+              <Button variant={statusFilter === 'Aprobado' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Aprobado')}>Aprobados</Button>
+              <Button variant={statusFilter === 'Rechazado' ? 'secondary' : 'ghost'} size="sm" onClick={() => setStatusFilter('Rechazado')}>Rechazados</Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
            <Accordion type="single" collapsible className="w-full">
