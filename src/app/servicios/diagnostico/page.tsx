@@ -252,6 +252,7 @@ export default function DiagnosticoPage() {
                         <TableHead>Equipo</TableHead>
                         <TableHead>Problema Manifestado</TableHead>
                         <TableHead>Estado</TableHead>
+                        <TableHead>Registrado por</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -289,6 +290,7 @@ export default function DiagnosticoPage() {
                                 </Badge>
                             )}
                           </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{equipo.usuario_id || 'N/A'}</TableCell>
                           <TableCell>
                               <Button 
                                 variant="outline" 
@@ -370,5 +372,3 @@ export default function DiagnosticoPage() {
     </>
   );
 }
-
-    
