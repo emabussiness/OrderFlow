@@ -26,6 +26,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 
 // --- Types ---
@@ -262,10 +263,11 @@ export default function TrabajosRealizadosPage() {
       </Card>
       
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
               <DialogHeader>
                   <DialogTitle>Detalles del Trabajo Realizado (OT: {selectedTrabajo?.orden_trabajo_id.substring(0, 7)})</DialogTitle>
               </DialogHeader>
+              <div className="flex-grow overflow-y-auto -mr-6 pr-6">
               {selectedTrabajo && (
                   <div className="py-4 space-y-6">
                       <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
@@ -310,6 +312,7 @@ export default function TrabajosRealizadosPage() {
 
                   </div>
               )}
+              </div>
               <DialogFooter className="border-t pt-4 flex justify-between items-center w-full">
                   <div className="font-bold text-lg">Costo Total del Trabajo: {currencyFormatter.format(selectedTrabajo?.costo_total_trabajo || 0)}</div>
                   <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
