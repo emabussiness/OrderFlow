@@ -37,6 +37,19 @@ type RetiroInfo = {
     usuario_id: string;
 }
 
+type ItemPresupuesto = {
+  id: string;
+  nombre: string;
+  tipo: 'Repuesto' | 'Mano de Obra';
+  cantidad: number;
+  precio_unitario: number;
+};
+
+type TrabajoRealizado = {
+    id: string;
+    items_cubiertos_garantia?: ItemPresupuesto[];
+}
+
 type EquipoParaRetiro = {
   id: string;
   cliente_nombre: string;
@@ -48,6 +61,7 @@ type EquipoParaRetiro = {
   motivo_retiro: 'Reparación Finalizada' | 'Presupuesto Rechazado';
   presupuesto_id: string; 
   retiro_info?: RetiroInfo;
+  trabajo_realizado?: TrabajoRealizado;
 };
 
 type PresupuestoServicio = {
@@ -97,12 +111,13 @@ export default function RetiroEquiposPage() {
 
       const [equiposReparadosSnap, presupuestosRechazadosSnap] = await Promise.all([
           getDocs(equiposReparadosQuery),
-          getDocs(presupuestosRechazadosQuery)
+          getDocs(presupuestosRechazadosSnap)
       ]);
 
       const equiposParaRetiro: EquipoParaRetiro[] = [];
       const presupuestoIds = new Set<string>();
       const equipoIds = new Set<string>();
+      const otIds = new Set<string>();
 
       for (const equipoDoc of equiposReparadosSnap.docs) {
           const equipoData = { id: equipoDoc.id, ...equipoDoc.data() } as any;
@@ -113,6 +128,7 @@ export default function RetiroEquiposPage() {
             presupuestoIds.add(presupuestoId);
             equiposParaRetiro.push(equipoData);
             equipoIds.add(equipoData.id);
+            otIds.add(presupuestoId);
           }
       }
       
@@ -143,6 +159,20 @@ export default function RetiroEquiposPage() {
         setPresupuestos(presupuestosMap);
       }
       
+      // Fetch trabajos realizados to get warranty items
+      const trabajosMap = new Map<string, TrabajoRealizado>();
+      if (otIds.size > 0) {
+          const trabajosQuery = query(collection(db, 'trabajos_realizados'), where('orden_trabajo_id', 'in', [...otIds]));
+          const trabajosSnap = await getDocs(trabajosQuery);
+          trabajosSnap.forEach(doc => {
+              const trabajoData = { id: doc.id, ...doc.data() } as TrabajoRealizado;
+              const otId = doc.data().orden_trabajo_id;
+              if (otId) {
+                  trabajosMap.set(otId, trabajoData);
+              }
+          });
+      }
+
       const retirosMap = new Map<string, RetiroInfo>();
       if (equipoIds.size > 0) {
         const retirosQuery = query(collection(db, 'retiros_equipo'), where('equipo_id', 'in', [...equipoIds]));
@@ -160,7 +190,8 @@ export default function RetiroEquiposPage() {
       
       const finalEquiposList = equiposParaRetiro.map(equipo => ({
           ...equipo,
-          retiro_info: retirosMap.get(equipo.id)
+          retiro_info: retirosMap.get(equipo.id),
+          trabajo_realizado: trabajosMap.get(equipo.presupuesto_id)
       }));
 
       setEquipos(finalEquiposList);
@@ -205,8 +236,6 @@ export default function RetiroEquiposPage() {
           const to = dateRange.to ?? from;
           matchDate = fechaRetiro >= from && fechaRetiro <= to;
       } else if (dateRange?.from && !equipo.retiro_info) {
-          // If a date range is selected, we only show retired items that match.
-          // Non-retired items won't match.
           matchDate = false;
       }
 
@@ -287,6 +316,7 @@ export default function RetiroEquiposPage() {
                 fecha_fin: addDays(hoy, diasGarantia).toISOString().split('T')[0],
                 dias_validez: diasGarantia,
                 notas: notasGarantia,
+                items_cubiertos: selectedEquipo.trabajo_realizado?.items_cubiertos_garantia || [],
                 estado: 'Activa',
                 usuario_id: "user-demo",
             });
@@ -468,6 +498,19 @@ export default function RetiroEquiposPage() {
                               <div className="space-y-2">
                                   <Label htmlFor="dias_garantia">Días de Garantía</Label>
                                   <Input id="dias_garantia" type="number" value={diasGarantia} onChange={e => setDiasGarantia(Number(e.target.value) || 0)} />
+                              </div>
+                              <div className="space-y-2">
+                                  <Label>Ítems Cubiertos por la Garantía</Label>
+                                  <div className="p-2 border rounded-md max-h-32 overflow-y-auto">
+                                    <ul className="text-sm text-muted-foreground list-disc list-inside">
+                                      {selectedEquipo?.trabajo_realizado?.items_cubiertos_garantia?.map(item => (
+                                        <li key={item.id}>{item.nombre} (x{item.cantidad})</li>
+                                      ))}
+                                      {(selectedEquipo?.trabajo_realizado?.items_cubiertos_garantia?.length || 0) === 0 && (
+                                          <li>No se marcaron ítems específicos para garantía.</li>
+                                      )}
+                                    </ul>
+                                  </div>
                               </div>
                               <div className="space-y-2">
                                   <Label htmlFor="notas_garantia">Notas y Cobertura de la Garantía</Label>

@@ -16,12 +16,20 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Package, Wrench, Info } from "lucide-react";
+import { Calendar as CalendarIcon, Info } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
 
 // --- Types ---
+type ItemPresupuesto = {
+  id: string;
+  nombre: string;
+  tipo: 'Repuesto' | 'Mano de Obra';
+  cantidad: number;
+  precio_unitario: number;
+};
+
 type Garantia = {
   id: string;
   equipo_id: string;
@@ -31,24 +39,8 @@ type Garantia = {
   fecha_fin: string;
   estado: 'Activa' | 'Vencida' | 'Utilizada';
   usuario_id?: string;
-  trabajo_realizado?: TrabajoRealizado; // Optional field to hold details
+  items_cubiertos?: ItemPresupuesto[]; // Defensive coding: field might not exist
 };
-
-type ItemPresupuesto = {
-  id: string;
-  nombre: string;
-  tipo: 'Repuesto' | 'Mano de Obra';
-  cantidad: number;
-  precio_unitario: number;
-};
-
-type TrabajoRealizado = {
-  id: string;
-  items_utilizados: ItemPresupuesto[];
-  items_adicionales: ItemPresupuesto[];
-  observaciones_tecnicas: string;
-};
-
 
 const getStatusVariant = (status: Garantia['estado']): "default" | "secondary" | "destructive" => {
     const hoy = new Date().toISOString().split('T')[0];
@@ -74,7 +66,7 @@ export default function GarantiasPage() {
         const snapshot = await getDocs(q);
         
         const garantiasList = snapshot.docs.map(doc => {
-            const data = doc.data() as Omit<Garantia, 'id'| 'trabajo_realizado'>;
+            const data = doc.data() as Omit<Garantia, 'id'>;
             const hoy = new Date().toISOString().split('T')[0];
             let estado = data.estado;
             if (estado === 'Activa' && data.fecha_fin < hoy) {
@@ -82,25 +74,6 @@ export default function GarantiasPage() {
             }
             return { id: doc.id, ...data, estado };
         });
-
-        // Fetch related trabajos realizados
-        const equipoIds = garantiasList.map(g => g.equipo_id);
-        if(equipoIds.length > 0) {
-            const trabajosQuery = query(collection(db, 'trabajos_realizados'), where('equipo_id', 'in', equipoIds));
-            const trabajosSnap = await getDocs(trabajosQuery);
-            const trabajosMap = new Map<string, TrabajoRealizado>();
-            trabajosSnap.forEach(doc => {
-                const trabajoData = { id: doc.id, ...doc.data() } as TrabajoRealizado;
-                const equipoId = doc.data().equipo_id;
-                if(equipoId) {
-                    trabajosMap.set(equipoId, trabajoData);
-                }
-            });
-            
-            garantiasList.forEach(g => {
-                g.trabajo_realizado = trabajosMap.get(g.equipo_id);
-            });
-        }
         
         setGarantias(garantiasList);
 
@@ -139,13 +112,12 @@ export default function GarantiasPage() {
 
   const renderStatusBadge = (garantia: Garantia) => {
     const badge = <Badge variant={getStatusVariant(garantia.estado)}>{garantia.estado}</Badge>;
-    const trabajo = garantia.trabajo_realizado;
-
-    if (garantia.estado === 'Activa' && trabajo) {
+    
+    if (garantia.estado === 'Activa' && garantia.items_cubiertos) {
       return (
         <Popover>
           <PopoverTrigger asChild>
-            <span className="relative">
+            <span className="relative cursor-pointer">
               {badge}
               <Info className="h-3 w-3 absolute -top-1 -right-1 text-primary-foreground bg-primary rounded-full" />
             </span>
@@ -171,14 +143,7 @@ export default function GarantiasPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {trabajo.items_utilizados.map(item => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.nombre}</TableCell>
-                          <TableCell><Badge variant={item.tipo === 'Repuesto' ? 'outline' : 'secondary'} className="text-xs">{item.tipo}</Badge></TableCell>
-                          <TableCell className="text-right">{item.cantidad}</TableCell>
-                        </TableRow>
-                      ))}
-                       {trabajo.items_adicionales.map(item => (
+                      {garantia.items_cubiertos.map(item => (
                         <TableRow key={item.id}>
                           <TableCell>{item.nombre}</TableCell>
                           <TableCell><Badge variant={item.tipo === 'Repuesto' ? 'outline' : 'secondary'} className="text-xs">{item.tipo}</Badge></TableCell>
@@ -187,6 +152,7 @@ export default function GarantiasPage() {
                       ))}
                     </TableBody>
                   </Table>
+                   {garantia.items_cubiertos.length === 0 && <p className="text-xs text-center py-4 text-muted-foreground">No hay items específicos cubiertos.</p>}
                 </ScrollArea>
               </div>
             </div>

@@ -37,7 +37,7 @@ type Equipo = {
 };
 
 type ItemPresupuesto = {
-  id: string;
+  id: string; // Puede ser producto_id o servicio_id
   nombre: string;
   tipo: 'Repuesto' | 'Mano de Obra';
   cantidad: number;
@@ -92,6 +92,8 @@ export default function TrabajosRealizadosPage() {
   const [observacionesTecnicas, setObservacionesTecnicas] = useState('');
   const [itemsUtilizados, setItemsUtilizados] = useState<Record<string, boolean>>({});
   const [itemsAdicionales, setItemsAdicionales] = useState<ItemPresupuesto[]>([]);
+  const [itemsGarantia, setItemsGarantia] = useState<Record<string, boolean>>({});
+
   
   const fetchData = useCallback(async () => {
     if (!otId) return;
@@ -113,12 +115,14 @@ export default function TrabajosRealizadosPage() {
             setEquipo({ id: equipoSnap.id, ...equipoSnap.data() } as Equipo);
         }
         
-        // Set initial checked items
         const initialChecked: Record<string, boolean> = {};
+        const initialGarantia: Record<string, boolean> = {};
         presupuestoData.items.forEach(item => {
-            initialChecked[item.id] = true;
+            initialChecked[item.id] = true; // All items are used by default
+            initialGarantia[item.id] = true; // All items are covered by warranty by default
         });
         setItemsUtilizados(initialChecked);
+        setItemsGarantia(initialGarantia);
 
         // Fetch referenciales
         const [tecnicosSnap, productosSnap, serviciosSnap] = await Promise.all([
@@ -144,11 +148,26 @@ export default function TrabajosRealizadosPage() {
   }, [fetchData]);
 
   const handleAddItem = (tipo: 'Repuesto' | 'Mano de Obra') => {
-    setItemsAdicionales(prev => [...prev, { id: '', nombre: '', tipo: tipo, cantidad: 1, precio_unitario: 0 }]);
+    const newItemId = `adicional-${Date.now()}`;
+    const newItem: ItemPresupuesto = {
+      id: newItemId, // Temporary ID
+      nombre: '',
+      tipo: tipo,
+      cantidad: 1,
+      precio_unitario: 0,
+    };
+    setItemsAdicionales(prev => [...prev, newItem]);
+    setItemsGarantia(prev => ({...prev, [newItemId]: true})); // Include new item in warranty by default
   };
 
   const handleRemoveItemAdicional = (index: number) => {
+    const itemToRemove = itemsAdicionales[index];
     setItemsAdicionales(prev => prev.filter((_, i) => i !== index));
+    setItemsGarantia(prev => {
+        const newGarantia = {...prev};
+        delete newGarantia[itemToRemove.id];
+        return newGarantia;
+    });
   };
   
    const handleItemAdicionalChange = (index: number, field: keyof ItemPresupuesto, value: any) => {
@@ -158,14 +177,25 @@ export default function TrabajosRealizadosPage() {
       if (field === 'id') {
           const list = currentItem.tipo === 'Repuesto' ? productos : servicios;
           const selectedItem = list.find(p => p.id === value);
+          
           if (newItems.some(item => item.id === value && item.tipo === currentItem.tipo)) {
               toast({ variant: 'destructive', description: `El ítem "${selectedItem?.nombre}" ya está en la lista.` });
               return;
            }
+
           if (selectedItem) {
+              const oldId = currentItem.id;
               currentItem.id = selectedItem.id;
               currentItem.nombre = selectedItem.nombre;
               currentItem.precio_unitario = (selectedItem as any).precio_referencia || (selectedItem as any).precio || 0;
+              
+              setItemsGarantia(prev => {
+                  const newGarantia = {...prev};
+                  const isCovered = newGarantia[oldId];
+                  delete newGarantia[oldId];
+                  newGarantia[selectedItem.id] = isCovered;
+                  return newGarantia;
+              });
           }
       } else {
           (currentItem as any)[field] = Number(value) < 0 ? 0 : Number(value);
@@ -177,25 +207,23 @@ export default function TrabajosRealizadosPage() {
     let costoTotal = 0;
     const productosMap = new Map(productos.map(p => [p.id, p]));
 
-    // Costo de ítems del presupuesto que fueron utilizados
     presupuesto?.items.forEach(item => {
         if (itemsUtilizados[item.id]) {
             if (item.tipo === 'Repuesto') {
                 const producto = productosMap.get(item.id);
                 costoTotal += item.cantidad * (producto?.costo_promedio || 0);
-            } else { // Mano de Obra
-                costoTotal += item.cantidad * item.precio_unitario; // Costo de MO es su precio
+            } else { 
+                costoTotal += item.cantidad * item.precio_unitario;
             }
         }
     });
 
-    // Costo de ítems adicionales
     itemsAdicionales.forEach(item => {
         if (item.id && item.cantidad > 0) {
             if (item.tipo === 'Repuesto') {
                 const producto = productosMap.get(item.id);
                 costoTotal += item.cantidad * (producto?.costo_promedio || 0);
-            } else { // Mano de Obra
+            } else {
                 costoTotal += item.cantidad * item.precio_unitario;
             }
         }
@@ -211,17 +239,14 @@ export default function TrabajosRealizadosPage() {
           return;
       }
       
-      const repuestosUtilizados = presupuesto?.items
-        .filter(item => item.tipo === 'Repuesto' && itemsUtilizados[item.id])
-        .map(item => ({...item})) || [];
-        
-      const repuestosAdicionales = itemsAdicionales.filter(item => item.id && item.cantidad > 0 && item.tipo === 'Repuesto');
-      const todosLosRepuestos = [...repuestosUtilizados, ...repuestosAdicionales];
+      const itemsPresupuestoUtilizados = presupuesto?.items.filter(item => itemsUtilizados[item.id]) || [];
+      const todosLosItems = [...itemsPresupuestoUtilizados, ...itemsAdicionales.filter(i => i.id)];
+
+      const itemsCubiertosPorGarantia = todosLosItems.filter(item => itemsGarantia[item.id]);
 
       try {
         const batch = writeBatch(db);
-        const costoTotal = costoReal;
-
+        
         // 1. Create trabajo_realizado document
         const trabajoRef = doc(collection(db, 'trabajos_realizados'));
         batch.set(trabajoRef, {
@@ -232,9 +257,10 @@ export default function TrabajosRealizadosPage() {
             fecha_finalizacion: new Date().toISOString().split('T')[0],
             horas_trabajadas: horasTrabajadas,
             observaciones_tecnicas: observacionesTecnicas,
-            items_utilizados: presupuesto?.items.filter(i => itemsUtilizados[i.id]),
+            items_utilizados: itemsPresupuestoUtilizados,
             items_adicionales: itemsAdicionales.filter(item => item.id && item.cantidad > 0),
-            costo_total_trabajo: costoTotal,
+            items_cubiertos_garantia: itemsCubiertosPorGarantia, // Your great idea!
+            costo_total_trabajo: costoReal,
             usuario_id: "user-demo",
             fecha_creacion: serverTimestamp(),
         });
@@ -244,13 +270,9 @@ export default function TrabajosRealizadosPage() {
         batch.update(equipoRef, { estado: "Reparado" });
 
         // 3. Decrement stock for all used parts
-        for (const repuesto of todosLosRepuestos) {
-             const stockQuery = query(
-                collection(db, 'stock'),
-                where('producto_id', '==', repuesto.id)
-                // We assume stock is not per-depot for service parts for now
-                // Add where('deposito_id', '==', idDelDepositoDeServicios) if needed
-            );
+        const repuestosADescontar = todosLosItems.filter(item => item.tipo === 'Repuesto');
+        for (const repuesto of repuestosADescontar) {
+             const stockQuery = query(collection(db, 'stock'), where('producto_id', '==', repuesto.id));
             const stockSnap = await getDocs(stockQuery);
             if(!stockSnap.empty) {
                 const stockDocRef = stockSnap.docs[0].ref;
@@ -333,15 +355,22 @@ export default function TrabajosRealizadosPage() {
             <CardHeader><CardTitle>Checklist de Ítems Presupuestados</CardTitle></CardHeader>
             <CardContent>
                 <Table>
-                    <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>Ítem</TableHead><TableHead>Tipo</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">Precio Unit.</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>Ítem</TableHead><TableHead>Tipo</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">Precio Unit.</TableHead><TableHead className="w-[100px] text-center">Garantía</TableHead></TableRow></TableHeader>
                     <TableBody>
                         {presupuesto.items.map(item => (
-                            <TableRow key={item.id}>
+                            <TableRow key={item.id} className={!itemsUtilizados[item.id] ? "text-muted-foreground" : ""}>
                                 <TableCell><Checkbox checked={itemsUtilizados[item.id] || false} onCheckedChange={(checked) => setItemsUtilizados(prev => ({...prev, [item.id]: !!checked}))}/></TableCell>
                                 <TableCell>{item.nombre}</TableCell>
                                 <TableCell>{item.tipo}</TableCell>
                                 <TableCell>{item.cantidad}</TableCell>
                                 <TableCell className="text-right">{currencyFormatter.format(item.precio_unitario)}</TableCell>
+                                <TableCell className="text-center">
+                                    <Checkbox 
+                                        checked={itemsGarantia[item.id] || false} 
+                                        onCheckedChange={(checked) => setItemsGarantia(prev => ({...prev, [item.id]: !!checked}))}
+                                        disabled={!itemsUtilizados[item.id]}
+                                    />
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -362,12 +391,12 @@ export default function TrabajosRealizadosPage() {
             </CardHeader>
             <CardContent>
                 {itemsAdicionales.map((item, index) => (
-                    <div key={index} className="grid grid-cols-6 gap-4 items-end border-b pb-4 mb-4">
+                    <div key={item.id} className="grid grid-cols-7 gap-4 items-end border-b pb-4 mb-4">
                          <div className="col-span-3 space-y-1">
                             <Label>{item.tipo} Adicional</Label>
                             <Combobox 
                                 options={item.tipo === 'Repuesto' ? productos.map(p => ({value: p.id, label: p.nombre})) : servicios.map(s => ({value: s.id, label: s.nombre}))} 
-                                value={item.id} 
+                                value={item.id.startsWith('adicional-') ? '' : item.id} 
                                 onChange={val => handleItemAdicionalChange(index, 'id', val)} 
                                 placeholder={`Seleccionar ${item.tipo}`}/>
                          </div>
@@ -378,6 +407,14 @@ export default function TrabajosRealizadosPage() {
                           <div className="space-y-1">
                             <Label>Precio Unit.</Label>
                             <Input type="number" value={item.precio_unitario} onChange={e => handleItemAdicionalChange(index, 'precio_unitario', e.target.value)} />
+                         </div>
+                         <div className="flex flex-col items-center space-y-1">
+                             <Label>Garantía</Label>
+                             <Checkbox 
+                                checked={itemsGarantia[item.id] || false} 
+                                onCheckedChange={(checked) => setItemsGarantia(prev => ({...prev, [item.id]: !!checked}))}
+                                disabled={!item.id || item.id.startsWith('adicional-')}
+                             />
                          </div>
                           <div>
                             <Button variant="destructive" size="icon" onClick={() => handleRemoveItemAdicional(index)}><Trash2 className="h-4 w-4"/></Button>
