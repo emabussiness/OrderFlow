@@ -53,7 +53,14 @@ type Producto = {
     id: string;
     nombre: string;
     precio_referencia: number;
+    costo_promedio?: number;
 };
+
+type Servicio = {
+    id: string;
+    nombre: string;
+    precio: number;
+}
 
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
   style: 'currency',
@@ -76,6 +83,8 @@ export default function TrabajosRealizadosPage() {
   // Referenciales
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [servicios, setServicios] = useState<Servicio[]>([]);
+
 
   // Form State
   const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
@@ -112,12 +121,15 @@ export default function TrabajosRealizadosPage() {
         setItemsUtilizados(initialChecked);
 
         // Fetch referenciales
-        const [tecnicosSnap, productosSnap] = await Promise.all([
+        const [tecnicosSnap, productosSnap, serviciosSnap] = await Promise.all([
             getDocs(query(collection(db, 'tecnicos'), orderBy("nombre_apellido"))),
-            getDocs(query(collection(db, 'productos'), orderBy("nombre")))
+            getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
+            getDocs(query(collection(db, 'servicios'), orderBy("nombre"))),
         ]);
         setTecnicos(tecnicosSnap.docs.map(d => ({id: d.id, ...d.data()} as Tecnico)));
         setProductos(productosSnap.docs.map(d => ({id: d.id, ...d.data()} as Producto)));
+        setServicios(serviciosSnap.docs.map(d => ({id: d.id, ...d.data()} as Servicio)));
+
 
     } catch (error) {
       console.error("Error fetching OT data:", error);
@@ -131,8 +143,8 @@ export default function TrabajosRealizadosPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleAddItem = () => {
-    setItemsAdicionales(prev => [...prev, { id: '', nombre: '', tipo: 'Repuesto', cantidad: 1, precio_unitario: 0 }]);
+  const handleAddItem = (tipo: 'Repuesto' | 'Mano de Obra') => {
+    setItemsAdicionales(prev => [...prev, { id: '', nombre: '', tipo: tipo, cantidad: 1, precio_unitario: 0 }]);
   };
 
   const handleRemoveItemAdicional = (index: number) => {
@@ -144,21 +156,45 @@ export default function TrabajosRealizadosPage() {
       const currentItem = newItems[index];
 
       if (field === 'id') {
-          const selectedItem = productos.find(p => p.id === value);
-          if (newItems.some(item => item.id === value)) {
-              toast({ variant: 'destructive', description: `El repuesto "${selectedItem?.nombre}" ya está en la lista.` });
+          const list = currentItem.tipo === 'Repuesto' ? productos : servicios;
+          const selectedItem = list.find(p => p.id === value);
+          if (newItems.some(item => item.id === value && item.tipo === currentItem.tipo)) {
+              toast({ variant: 'destructive', description: `El ítem "${selectedItem?.nombre}" ya está en la lista.` });
               return;
            }
           if (selectedItem) {
               currentItem.id = selectedItem.id;
               currentItem.nombre = selectedItem.nombre;
-              currentItem.precio_unitario = selectedItem.precio_referencia || 0;
+              currentItem.precio_unitario = (selectedItem as any).precio_referencia || (selectedItem as any).precio || 0;
           }
       } else {
           (currentItem as any)[field] = Number(value) < 0 ? 0 : Number(value);
       }
       setItemsAdicionales(newItems);
   };
+  
+  const calcularTotalCosto = () => {
+    const costoItemsPresupuestados = presupuesto?.items
+        .filter(item => itemsUtilizados[item.id])
+        .reduce((acc, item) => {
+            if(item.tipo === 'Repuesto') {
+                const producto = productos.find(p => p.id === item.id);
+                return acc + (item.cantidad * (producto?.costo_promedio || item.precio_unitario));
+            }
+            // Asumimos que el costo de la mano de obra es un % del precio. Aquí 70% por ejemplo.
+            return acc + (item.cantidad * item.precio_unitario * 0.7); 
+        }, 0) || 0;
+        
+    const costoItemsAdicionales = itemsAdicionales.reduce((acc, item) => {
+         if(item.tipo === 'Repuesto') {
+            const producto = productos.find(p => p.id === item.id);
+            return acc + (item.cantidad * (producto?.costo_promedio || item.precio_unitario));
+        }
+        return acc + (item.cantidad * item.precio_unitario * 0.7);
+    }, 0)
+
+    return costoItemsPresupuestados + costoItemsAdicionales;
+  }
 
   const handleSubmitTrabajo = async () => {
       if(!selectedTecnicoId) {
@@ -170,11 +206,12 @@ export default function TrabajosRealizadosPage() {
         .filter(item => item.tipo === 'Repuesto' && itemsUtilizados[item.id])
         .map(item => ({...item})) || [];
         
-      const repuestosAdicionales = itemsAdicionales.filter(item => item.id && item.cantidad > 0);
+      const repuestosAdicionales = itemsAdicionales.filter(item => item.id && item.cantidad > 0 && item.tipo === 'Repuesto');
       const todosLosRepuestos = [...repuestosUtilizados, ...repuestosAdicionales];
 
       try {
         const batch = writeBatch(db);
+        const costoTotal = calcularTotalCosto();
 
         // 1. Create trabajo_realizado document
         const trabajoRef = doc(collection(db, 'trabajos_realizados'));
@@ -187,7 +224,8 @@ export default function TrabajosRealizadosPage() {
             horas_trabajadas: horasTrabajadas,
             observaciones_tecnicas: observacionesTecnicas,
             items_utilizados: presupuesto?.items.filter(i => itemsUtilizados[i.id]),
-            items_adicionales: repuestosAdicionales,
+            items_adicionales: itemsAdicionales.filter(item => item.id && item.cantidad > 0),
+            costo_total_trabajo: costoTotal,
             usuario_id: "user-demo",
             fecha_creacion: serverTimestamp(),
         });
@@ -292,17 +330,24 @@ export default function TrabajosRealizadosPage() {
         <Card>
              <CardHeader>
                  <div className="flex justify-between items-center">
-                    <CardTitle>Repuestos Adicionales Utilizados</CardTitle>
-                    <Button variant="outline" size="sm" onClick={handleAddItem}><PlusCircle className="mr-2 h-4"/>Añadir Repuesto</Button>
+                    <CardTitle>Repuestos y Servicios Adicionales</CardTitle>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleAddItem('Mano de Obra')}><PlusCircle className="mr-2 h-4"/>Añadir Servicio</Button>
+                        <Button variant="outline" size="sm" onClick={() => handleAddItem('Repuesto')}><PlusCircle className="mr-2 h-4"/>Añadir Repuesto</Button>
+                    </div>
                  </div>
-                 <CardDescription>Añada aquí cualquier repuesto utilizado que no estuviera en el presupuesto original.</CardDescription>
+                 <CardDescription>Añada aquí cualquier ítem utilizado que no estuviera en el presupuesto original.</CardDescription>
             </CardHeader>
             <CardContent>
                 {itemsAdicionales.map((item, index) => (
-                    <div key={index} className="grid grid-cols-5 gap-4 items-end border-b pb-4 mb-4">
-                         <div className="col-span-2 space-y-1">
-                            <Label>Repuesto</Label>
-                            <Combobox options={productos.map(p => ({value: p.id, label: p.nombre}))} value={item.id} onChange={val => handleItemAdicionalChange(index, 'id', val)} placeholder="Seleccionar repuesto"/>
+                    <div key={index} className="grid grid-cols-6 gap-4 items-end border-b pb-4 mb-4">
+                         <div className="col-span-3 space-y-1">
+                            <Label>{item.tipo} Adicional</Label>
+                            <Combobox 
+                                options={item.tipo === 'Repuesto' ? productos.map(p => ({value: p.id, label: p.nombre})) : servicios.map(s => ({value: s.id, label: s.nombre}))} 
+                                value={item.id} 
+                                onChange={val => handleItemAdicionalChange(index, 'id', val)} 
+                                placeholder={`Seleccionar ${item.tipo}`}/>
                          </div>
                           <div className="space-y-1">
                             <Label>Cantidad</Label>
@@ -317,7 +362,7 @@ export default function TrabajosRealizadosPage() {
                          </div>
                     </div>
                 ))}
-                {itemsAdicionales.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">No se han añadido repuestos adicionales.</p>}
+                {itemsAdicionales.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">No se han añadido ítems adicionales.</p>}
             </CardContent>
         </Card>
         

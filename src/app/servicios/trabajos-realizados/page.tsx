@@ -32,6 +32,7 @@ type TrabajoRealizado = {
   observaciones_tecnicas: string;
   items_utilizados: ItemPresupuesto[];
   items_adicionales: ItemPresupuesto[];
+  costo_total_trabajo: number;
 };
 
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
@@ -97,6 +98,7 @@ export default function TrabajosRealizadosPage() {
                 <TableHead>OT Nº</TableHead>
                 <TableHead>Técnico</TableHead>
                 <TableHead>Horas</TableHead>
+                <TableHead className="text-right">Costo Real</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -107,6 +109,7 @@ export default function TrabajosRealizadosPage() {
                   <TableCell className="font-medium">{trabajo.orden_trabajo_id.substring(0, 7)}</TableCell>
                   <TableCell>{trabajo.tecnico_nombre}</TableCell>
                   <TableCell>{trabajo.horas_trabajadas} hs</TableCell>
+                  <TableCell className="text-right font-medium">{currencyFormatter.format(trabajo.costo_total_trabajo || 0)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -182,7 +185,8 @@ export default function TrabajosRealizadosPage() {
 
                   </div>
               )}
-              <DialogFooter>
+              <DialogFooter className="border-t pt-4 flex justify-between items-center w-full">
+                  <div className="font-bold text-lg">Costo Total del Trabajo: {currencyFormatter.format(selectedTrabajo?.costo_total_trabajo || 0)}</div>
                   <Button variant="outline" onClick={() => setOpenDetails(false)}>Cerrar</Button>
               </DialogFooter>
           </DialogContent>
