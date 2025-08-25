@@ -10,8 +10,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Eye } from "lucide-react";
+import { Eye, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/command";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
+import { cn } from "@/lib/utils";
+
 
 // --- Types ---
 type Equipo = {
@@ -38,12 +45,24 @@ const getStatusVariant = (status: string): "secondary" | "default" | "destructiv
     }
   };
 
+const ESTADOS_EQUIPO = [
+    { value: "Diagnosticado", label: "Diagnosticado" },
+    { value: "Presupuestado", label: "Presupuestado" },
+    { value: "En Reparación", label: "En Reparación" },
+    { value: "Reparado", label: "Reparado" },
+    { value: "Retirado", label: "Retirado" },
+];
+
 // --- Main Component ---
 export default function HistorialDiagnosticosPage() {
   const { toast } = useToast();
   const [equipos, setEquipos] = useState<Equipo[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filters
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,17 +91,33 @@ export default function HistorialDiagnosticosPage() {
   }, [toast]);
 
   const filteredEquipos = useMemo(() => {
-    const term = searchTerm.toLowerCase();
-    if (!term) return equipos;
-    return equipos.filter(equipo =>
-      equipo.cliente_nombre.toLowerCase().includes(term) ||
-      equipo.recepcion_id?.toLowerCase().includes(term) ||
-      equipo.tipo_equipo_nombre.toLowerCase().includes(term) ||
-      equipo.marca_nombre.toLowerCase().includes(term) ||
-      equipo.modelo.toLowerCase().includes(term) ||
-      (equipo.diagnostico_tecnico && equipo.diagnostico_tecnico.toLowerCase().includes(term))
-    );
-  }, [equipos, searchTerm]);
+    return equipos.filter(equipo => {
+        const term = searchTerm.toLowerCase();
+        
+        const matchTerm = !term ||
+            equipo.cliente_nombre.toLowerCase().includes(term) ||
+            equipo.recepcion_id?.toLowerCase().includes(term) ||
+            equipo.tipo_equipo_nombre.toLowerCase().includes(term) ||
+            equipo.marca_nombre.toLowerCase().includes(term) ||
+            equipo.modelo.toLowerCase().includes(term) ||
+            (equipo.diagnostico_tecnico && equipo.diagnostico_tecnico.toLowerCase().includes(term));
+
+        const matchStatus = !statusFilter || equipo.estado === statusFilter;
+
+        let matchDate = true;
+        if (dateRange?.from && equipo.fecha_diagnostico) {
+          const fechaDiagnostico = new Date(equipo.fecha_diagnostico + "T00:00:00");
+          const from = dateRange.from;
+          const to = dateRange.to ?? from;
+          matchDate = fechaDiagnostico >= from && fechaDiagnostico <= to;
+        } else if(dateRange?.from && !equipo.fecha_diagnostico) {
+            matchDate = false;
+        }
+
+        return matchTerm && matchStatus && matchDate;
+    });
+
+  }, [equipos, searchTerm, statusFilter, dateRange]);
 
   if (loading) return <p>Cargando historial...</p>;
 
@@ -96,14 +131,33 @@ export default function HistorialDiagnosticosPage() {
         <CardHeader>
           <CardTitle>Todos los Diagnósticos Registrados</CardTitle>
           <CardDescription>
-            Consulte el historial completo de diagnósticos técnicos realizados.
-            <Input
-              placeholder="Buscar por cliente, ID de recepción, equipo, modelo o diagnóstico..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="mt-2"
-            />
+            Consulte el historial completo de diagnósticos técnicos realizados, aplicando filtros para refinar su búsqueda.
           </CardDescription>
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                <Input
+                    placeholder="Buscar por cliente, ID, equipo o diagnóstico..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="md:col-span-1"
+                />
+                <Combobox
+                    options={[{value: '', label: 'Todos los estados'}, ...ESTADOS_EQUIPO]}
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    placeholder="Filtrar por estado"
+                />
+                 <Popover>
+                    <PopoverTrigger asChild>
+                        <Button id="date" variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Filtrar por fecha de diagnóstico</span>)}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                        <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es}/>
+                    </PopoverContent>
+                </Popover>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
