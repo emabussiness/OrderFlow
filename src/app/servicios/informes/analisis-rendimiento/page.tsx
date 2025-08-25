@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/command";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { where } from "firebase/firestore";
-import { ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 // --- Types ---
 type Equipo = {
@@ -191,6 +191,18 @@ export default function AnalisisRendimientoPage() {
     return data;
 
   }, [loading, ciclos, dateRange, tecnicoFilter, tipoEquipoFilter]);
+  
+  const chartConfig = {
+    total: {
+      label: "Total",
+      color: "hsl(var(--chart-1))",
+    },
+    tiempo: {
+        label: "Tiempo (días)",
+        color: "hsl(var(--chart-2))",
+    }
+  } satisfies ChartConfig;
+
 
   if (loading) return <p>Generando estadísticas...</p>;
 
@@ -240,14 +252,14 @@ export default function AnalisisRendimientoPage() {
               </CardHeader>
               <CardContent className="h-[300px]">
                 {reportData.reparacionesPorTecnico.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                         <BarChart data={reportData.reparacionesPorTecnico} layout="vertical" margin={{left: 100}}>
+                    <ChartContainer config={chartConfig} className="w-full h-full">
+                        <BarChart data={reportData.reparacionesPorTecnico} layout="vertical" margin={{left: 100}}>
                             <XAxis type="number" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                             <YAxis type="category" dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} width={100} />
-                            <Tooltip content={<ChartTooltipContent />} cursor={{ fill: 'hsl(var(--secondary))' }}/>
+                            <ChartTooltip content={<ChartTooltipContent />} cursor={{ fill: 'hsl(var(--secondary))' }}/>
                             <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                         </BarChart>
-                    </ResponsiveContainer>
+                    </ChartContainer>
                 ): (<div className="h-full flex items-center justify-center text-muted-foreground"><p>No hay datos para mostrar.</p></div>)}
               </CardContent>
           </Card>
@@ -257,14 +269,14 @@ export default function AnalisisRendimientoPage() {
               </CardHeader>
               <CardContent className="h-[300px]">
                 {reportData.tiempoPorTipoEquipo.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                     <ChartContainer config={chartConfig} className="w-full h-full">
                          <BarChart data={reportData.tiempoPorTipoEquipo}>
                             <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false}/>
                             <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}d`}/>
-                            <Tooltip content={<ChartTooltipContent formatter={(val) => `${(val as number).toFixed(1)} días`} />} cursor={{ fill: 'hsl(var(--secondary))' }}/>
+                            <ChartTooltip content={<ChartTooltipContent formatter={(val) => `${(val as number).toFixed(1)} días`} />} cursor={{ fill: 'hsl(var(--secondary))' }}/>
                             <Bar dataKey="tiempo" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                         </BarChart>
-                    </ResponsiveContainer>
+                    </ChartContainer>
                 ): (<div className="h-full flex items-center justify-center text-muted-foreground"><p>No hay datos para mostrar.</p></div>)}
               </CardContent>
           </Card>
