@@ -284,7 +284,7 @@ export default function AnalisisRendimientoPage() {
                     </TableHeader>
                     <TableBody>
                         {reportData.detalleCiclos.map((d) => (
-                            <TableRow key={d.equipo_id}>
+                            <TableRow key={`${d.equipo_id}-${d.reparacion?.toISOString()}`}>
                                 <TableCell>{d.tipo_equipo}</TableCell>
                                 <TableCell>{d.tecnico_nombre}</TableCell>
                                 <TableCell className="text-right">{d.dias_diagnostico}</TableCell>
