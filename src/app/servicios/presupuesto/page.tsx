@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FilePlus2, PlusCircle, Trash2, CheckCircle, XCircle, Eye, FileWarning } from "lucide-react";
+import { FilePlus2, PlusCircle, Trash2, CheckCircle, XCircle, Eye, FileWarning, ShieldCheck } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -37,7 +37,13 @@ type EquipoDiagnosticado = {
   estado: "Recibido" | "Diagnosticado" | "Presupuestado" | "En Reparación" | "Reparado" | "Retirado";
   recepcion_id: string;
   origen_garantia_id?: string;
+  items_cubiertos_garantia?: ItemPresupuesto[];
 };
+
+type Garantia = {
+    id: string;
+    items_cubiertos?: ItemPresupuesto[];
+}
 
 type PresupuestoServicio = {
     id: string;
@@ -100,14 +106,28 @@ export default function PresupuestoServicioPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [equiposSnap, productosSnap, serviciosSnap, presupuestosSnap] = await Promise.all([
+      const [equiposSnap, productosSnap, serviciosSnap, presupuestosSnap, garantiasSnap] = await Promise.all([
         getDocs(query(collection(db, 'equipos_en_servicio'), where("diagnostico_tecnico", "!=", null))),
         getDocs(query(collection(db, 'productos'), orderBy("nombre"))),
         getDocs(query(collection(db, 'servicios'), orderBy("nombre"))),
-        getDocs(query(collection(db, 'presupuestos_servicio')))
+        getDocs(query(collection(db, 'presupuestos_servicio'))),
+        getDocs(query(collection(db, 'garantias_servicio'))) // Fetch all warranties
       ]);
       
-      const equiposList = equiposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EquipoDiagnosticado));
+      const garantiasMap = new Map(garantiasSnap.docs.map(doc => [doc.id, doc.data() as Garantia]));
+
+      const equiposList = equiposSnap.docs.map(doc => {
+          const data = doc.data() as Omit<EquipoDiagnosticado, 'id'>;
+          const equipo: EquipoDiagnosticado = { id: doc.id, ...data };
+          if(equipo.origen_garantia_id) {
+              const garantiaAsociada = garantiasMap.get(equipo.origen_garantia_id);
+              if (garantiaAsociada) {
+                  equipo.items_cubiertos_garantia = garantiaAsociada.items_cubiertos;
+              }
+          }
+          return equipo;
+      });
+
       setEquipos(equiposList);
       setProductos(productosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto)));
       setServicios(serviciosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Servicio)));
@@ -518,9 +538,23 @@ export default function PresupuestoServicioPage() {
                           <CardHeader className="pb-2"><CardTitle className="text-base">Trabajos Sugeridos</CardTitle></CardHeader>
                           <CardContent><p className="text-sm text-muted-foreground">{selectedEquipo?.trabajos_a_realizar}</p></CardContent>
                       </Card>
+                      {selectedEquipo?.items_cubiertos_garantia && selectedEquipo.items_cubiertos_garantia.length > 0 && (
+                        <Card className="border-primary">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="text-primary"/>Ítems Cubiertos por Garantía Original</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                    {selectedEquipo.items_cubiertos_garantia.map(item => (
+                                        <li key={item.id}>{item.nombre} (x{item.cantidad})</li>
+                                    ))}
+                                </ul>
+                            </CardContent>
+                        </Card>
+                      )}
                        <div className="space-y-2">
                             <Label htmlFor="observaciones">Observaciones Adicionales</Label>
-                            <Textarea id="observaciones" value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={4} />
+                            <Textarea id="observaciones" value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={2} />
                         </div>
                   </div>
                   <div className="space-y-4">
