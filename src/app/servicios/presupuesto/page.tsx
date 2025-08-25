@@ -75,6 +75,7 @@ type ItemPresupuesto = {
   tipo: 'Repuesto' | 'Mano de Obra';
   cantidad: number;
   precio_unitario: number;
+  cubierto_por_garantia?: boolean;
 };
 
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
@@ -226,28 +227,50 @@ export default function PresupuestoServicioPage() {
 };
   
   const handleItemChange = (index: number, field: keyof ItemPresupuesto, value: any) => {
-      const newItems = [...itemsPresupuesto];
-      const currentItem = newItems[index];
+    const newItems = [...itemsPresupuesto];
+    const currentItem = newItems[index];
 
-      if (field === 'id') {
-          const list = currentItem.tipo === 'Repuesto' ? productos : servicios;
-          const selectedItem = list.find(p => p.id === value);
+    if (field === 'id') {
+        const list = currentItem.tipo === 'Repuesto' ? productos : servicios;
+        const selectedItem = list.find(p => p.id === value);
+        
+        if (newItems.some(item => item.id === value && item.tipo === currentItem.tipo)) {
+           toast({ variant: 'destructive', description: `El ítem "${selectedItem?.nombre}" ya está en la lista.` });
+           return;
+        }
 
-           if (newItems.some(item => item.id === value && item.tipo === currentItem.tipo)) {
-              toast({ variant: 'destructive', description: `El ítem "${selectedItem?.nombre}" ya está en la lista.` });
-              return;
-           }
+        if (selectedItem) {
+            currentItem.id = selectedItem.id;
+            currentItem.nombre = selectedItem.nombre;
+            
+            const itemGarantia = selectedEquipo?.items_cubiertos_garantia?.find(i => i.id === selectedItem.id);
+            if (itemGarantia && itemGarantia.cantidad >= currentItem.cantidad) {
+                currentItem.precio_unitario = 0;
+                currentItem.cubierto_por_garantia = true;
+            } else {
+                 currentItem.precio_unitario = (selectedItem as any).precio_referencia || (selectedItem as any).precio || 0;
+                 currentItem.cubierto_por_garantia = false;
+            }
+        }
+    } else if (field === 'cantidad') {
+        const nuevaCantidad = Number(value) < 0 ? 0 : Number(value);
+        currentItem.cantidad = nuevaCantidad;
 
-          if (selectedItem) {
-              currentItem.id = selectedItem.id;
-              currentItem.nombre = selectedItem.nombre;
-              currentItem.precio_unitario = (selectedItem as any).precio_referencia || (selectedItem as any).precio || 0;
-          }
-      } else if (field === 'cantidad' || field === 'precio_unitario') {
-          (currentItem as any)[field] = Number(value) < 0 ? 0 : Number(value);
-      }
-      
-      setItemsPresupuesto(newItems);
+        const itemGarantia = selectedEquipo?.items_cubiertos_garantia?.find(i => i.id === currentItem.id);
+        if (itemGarantia && nuevaCantidad <= itemGarantia.cantidad) {
+            currentItem.precio_unitario = 0;
+            currentItem.cubierto_por_garantia = true;
+        } else if (currentItem.id) { // Repopulate price if not under warranty
+            const list = currentItem.tipo === 'Repuesto' ? productos : servicios;
+            const originalItem = list.find(p => p.id === currentItem.id);
+            currentItem.precio_unitario = (originalItem as any)?.precio_referencia || (originalItem as any)?.precio || 0;
+            currentItem.cubierto_por_garantia = false;
+        }
+    } else if (field === 'precio_unitario') {
+        (currentItem as any)[field] = Number(value) < 0 ? 0 : Number(value);
+    }
+    
+    setItemsPresupuesto(newItems);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -255,8 +278,30 @@ export default function PresupuestoServicioPage() {
   }
 
   const totalPresupuesto = useMemo(() => {
-      return itemsPresupuesto.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
-  }, [itemsPresupuesto]);
+      let total = 0;
+      const itemsCubiertos = new Map(selectedEquipo?.items_cubiertos_garantia?.map(i => [i.id, i.cantidad]));
+
+      const itemsAgrupados = new Map<string, ItemPresupuesto>();
+      itemsPresupuesto.forEach(item => {
+          if (itemsAgrupados.has(item.id)) {
+              itemsAgrupados.get(item.id)!.cantidad += item.cantidad;
+          } else {
+              itemsAgrupados.set(item.id, { ...item });
+          }
+      });
+      
+      itemsAgrupados.forEach(item => {
+          const cantidadCubierta = itemsCubiertos.get(item.id) || 0;
+          if (cantidadCubierta > 0) {
+              const cantidadACobrar = Math.max(0, item.cantidad - cantidadCubierta);
+              total += cantidadACobrar * item.precio_unitario;
+          } else {
+              total += item.cantidad * item.precio_unitario;
+          }
+      });
+
+      return total;
+  }, [itemsPresupuesto, selectedEquipo]);
   
   const handleSavePresupuesto = async () => {
     if (!selectedEquipo || itemsPresupuesto.length === 0 || itemsPresupuesto.some(i => !i.id)) {
@@ -521,7 +566,12 @@ export default function PresupuestoServicioPage() {
       <Dialog open={openPresupuesto} onOpenChange={setOpenPresupuesto}>
           <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
               <DialogHeader>
-                  <DialogTitle>Crear Presupuesto de Servicio</DialogTitle>
+                  <DialogTitle className="flex items-center gap-4">
+                    Crear Presupuesto de Servicio
+                    {selectedEquipo?.origen_garantia_id && (
+                        <Badge variant="destructive"><FileWarning className="h-4 w-4 mr-2"/>Presupuesto por Reclamo de Garantía</Badge>
+                    )}
+                  </DialogTitle>
                   {selectedEquipo && (
                       <DialogDescription>
                         {`${selectedEquipo.tipo_equipo_nombre} ${selectedEquipo.marca_nombre} ${selectedEquipo.modelo} | Cliente: ${selectedEquipo.cliente_nombre}`}
@@ -591,12 +641,13 @@ export default function PresupuestoServicioPage() {
                                             </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor={`price-${index}`} className="text-xs">P. Unitario</Label>
-                                                <Input id={`price-${index}`} type="number" value={item.precio_unitario} onChange={e => handleItemChange(index, 'precio_unitario', e.target.value)} />
+                                                <Input id={`price-${index}`} type="number" value={item.precio_unitario} disabled={item.cubierto_por_garantia} onChange={e => handleItemChange(index, 'precio_unitario', e.target.value)} />
                                             </div>
                                         </div>
                                          <Separator />
-                                         <div className="text-right font-medium">
-                                            Subtotal: {currencyFormatter.format(item.cantidad * item.precio_unitario)}
+                                         <div className="text-right font-medium flex justify-between items-center">
+                                            {item.cubierto_por_garantia && <Badge variant="default" className="text-xs"><ShieldCheck className="h-3 w-3 mr-1"/>Cubierto por Garantía</Badge>}
+                                            <span>Subtotal: {currencyFormatter.format(item.cantidad * item.precio_unitario)}</span>
                                          </div>
                                     </div>
                                 ))}
