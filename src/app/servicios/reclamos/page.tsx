@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 type GarantiaActiva = {
   id: string;
   equipo_id: string;
+  cliente_id: string;
   cliente_nombre: string;
   equipo_info: string;
   fecha_inicio: string;
@@ -30,6 +31,7 @@ type GarantiaActiva = {
 
 type EquipoOriginal = {
     id: string;
+    cliente_id: string;
     tipo_equipo_id: string;
     tipo_equipo_nombre: string;
     marca_id: string;
@@ -87,12 +89,22 @@ export default function ReclamosServicioPage() {
     
     const handleOpenReclamo = async (garantia: GarantiaActiva) => {
         setSelectedGarantia(garantia);
-        // Fetch original equipment data to pre-fill info
         const equipoRef = doc(db, "equipos_en_servicio", garantia.equipo_id);
         const equipoSnap = await getDoc(equipoRef);
         if (equipoSnap.exists()) {
-            setEquipoOriginal({id: equipoSnap.id, ...equipoSnap.data()} as EquipoOriginal);
-            setAccesoriosReclamo(equipoSnap.data().accesorios || "");
+            const equipoData = equipoSnap.data();
+            setEquipoOriginal({
+                id: equipoSnap.id, 
+                cliente_id: garantia.cliente_id,
+                tipo_equipo_id: equipoData.tipo_equipo_id,
+                tipo_equipo_nombre: equipoData.tipo_equipo_nombre,
+                marca_id: equipoData.marca_id,
+                marca_nombre: equipoData.marca_nombre,
+                modelo: equipoData.modelo,
+                numero_serie: equipoData.numero_serie,
+                accesorios: equipoData.accesorios
+            } as EquipoOriginal);
+            setAccesoriosReclamo(equipoData.accesorios || "");
         }
         setOpenReclamo(true);
     };
@@ -120,34 +132,51 @@ export default function ReclamosServicioPage() {
 
             // 2. Create a new reception record for the claim
             const nuevaRecepcionRef = doc(collection(db, "recepciones"));
+            
+            // 3. Create new equipment_en_servicio record for the claim
+            const nuevoEquipoRef = doc(collection(db, "equipos_en_servicio"));
+            batch.set(nuevoEquipoRef, {
+                // Copy only essential, non-status fields from the original equipment
+                tipo_equipo_id: equipoOriginal.tipo_equipo_id,
+                tipo_equipo_nombre: equipoOriginal.tipo_equipo_nombre,
+                marca_id: equipoOriginal.marca_id,
+                marca_nombre: equipoOriginal.marca_nombre,
+                modelo: equipoOriginal.modelo,
+                numero_serie: equipoOriginal.numero_serie || null,
+                
+                // Add new claim information
+                recepcion_id: nuevaRecepcionRef.id,
+                cliente_id: selectedGarantia.cliente_id,
+                cliente_nombre: selectedGarantia.cliente_nombre,
+                problema_manifestado: problemaReclamo,
+                accesorios: accesoriosReclamo,
+                origen_garantia_id: selectedGarantia.id, // Link to the warranty
+                
+                // Set initial status for the new service cycle
+                estado: "Recibido",
+                fecha_recepcion: new Date().toISOString().split('T')[0],
+                fecha_creacion: serverTimestamp(),
+                usuario_id: "user-demo",
+                
+                // Ensure diagnostic fields are null/undefined
+                diagnostico_tecnico: null,
+                trabajos_a_realizar: null,
+                tecnico_id: null,
+                tecnico_nombre: null,
+                fecha_diagnostico: null
+            });
+            
+            // 4. Set the reception data, now that we have the new equipment ID
             batch.set(nuevaRecepcionRef, {
-                cliente_id: doc(db, 'clientes', selectedGarantia.cliente_nombre).id, // This is a simplification, assumes client name is unique ID
+                cliente_id: selectedGarantia.cliente_id,
                 cliente_nombre: selectedGarantia.cliente_nombre,
                 fecha_recepcion: new Date().toISOString().split('T')[0],
                 usuario_id: 'user-demo',
                 fecha_creacion: serverTimestamp(),
-                origen_reclamo_id: selectedGarantia.id, // Link to original warranty claim
-                equipos: [], // Will be populated by the equipment record
-            });
-
-            // 3. Create new equipment_en_servicio record for the claim
-            const nuevoEquipoRef = doc(collection(db, "equipos_en_servicio"));
-            batch.set(nuevoEquipoRef, {
-                ...equipoOriginal, // Spread original equipment data
-                recepcion_id: nuevaRecepcionRef.id,
-                origen_garantia_id: selectedGarantia.id, // Link to the warranty
-                estado: "Recibido",
-                problema_manifestado: problemaReclamo,
-                accesorios: accesoriosReclamo,
-                fecha_recepcion: new Date().toISOString().split('T')[0],
-                fecha_creacion: serverTimestamp(),
-                usuario_id: "user-demo",
-            });
-            
-            // 4. Update the reception with the new equipment ID (circular reference solved)
-            batch.update(nuevaRecepcionRef, {
+                origen_reclamo_id: selectedGarantia.id,
                 equipos: [{ id: nuevoEquipoRef.id, problema_manifestado: problemaReclamo }]
             });
+
 
             await batch.commit();
 
