@@ -49,9 +49,9 @@ type ReportData = {
 };
 
 const COLORS = {
-    'Pendiente de Aprobación': 'hsl(var(--secondary-foreground))',
     'Aprobado': 'hsl(var(--primary))',
     'Rechazado': 'hsl(var(--destructive))',
+    'Pendiente de Aprobación': 'hsl(var(--chart-3))', // Naranja/Ámbar para "en espera"
 };
 
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
@@ -337,4 +337,3 @@ export default function AnalisisPresupuestosPage() {
     </div>
   );
 }
-
