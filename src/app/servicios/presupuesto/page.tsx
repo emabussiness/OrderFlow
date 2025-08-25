@@ -545,8 +545,8 @@ export default function PresupuestoServicioPage() {
                             </CardHeader>
                             <CardContent>
                                 <ul className="list-disc list-inside text-sm text-muted-foreground">
-                                    {selectedEquipo.items_cubiertos_garantia.map(item => (
-                                        <li key={item.id}>{item.nombre} (x{item.cantidad})</li>
+                                    {selectedEquipo.items_cubiertos_garantia.map((item, index) => (
+                                        <li key={`${item.id}-${index}`}>{item.nombre} (x{item.cantidad})</li>
                                     ))}
                                 </ul>
                             </CardContent>
