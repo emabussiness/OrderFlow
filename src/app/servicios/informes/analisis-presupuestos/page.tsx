@@ -249,7 +249,6 @@ export default function AnalisisPresupuestosPage() {
                                 fill="#8884d8"
                                 dataKey="value"
                                 nameKey="name"
-                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                             >
                                 {reportData.distribucionEstados.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS]} />
