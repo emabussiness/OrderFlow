@@ -8,8 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { MoreHorizontal, Calendar as CalendarIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { MoreHorizontal, Calendar as CalendarIcon, FileWarning } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +43,7 @@ type Equipo = {
   tipo_equipo_nombre: string;
   marca_nombre: string;
   modelo: string;
+  origen_garantia_id?: string;
 };
 
 type TrabajoRealizado = {
@@ -59,6 +60,7 @@ type TrabajoRealizado = {
   recepcion_id?: string;
   cliente_nombre?: string;
   equipo_info?: string;
+  origen_garantia_id?: string;
 };
 
 type Presupuesto = {
@@ -134,6 +136,7 @@ export default function TrabajosRealizadosPage() {
           recepcion_id: presupuesto?.recepcion_id || 'N/A',
           cliente_nombre: presupuesto?.cliente_nombre || 'N/A',
           equipo_info: equipo ? `${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}` : "Info no disponible",
+          origen_garantia_id: equipo?.origen_garantia_id,
         };
       });
 
@@ -253,7 +256,12 @@ export default function TrabajosRealizadosPage() {
                       {data.trabajos.map((trabajo) => (
                         <TableRow key={trabajo.id}>
                           <TableCell>{trabajo.fecha_finalizacion}</TableCell>
-                          <TableCell className="font-medium">{trabajo.orden_trabajo_id.substring(0, 7)}</TableCell>
+                          <TableCell className="font-medium">
+                            <span className="flex items-center gap-2">
+                                {trabajo.orden_trabajo_id.substring(0, 7)}
+                                {trabajo.origen_garantia_id && <Badge variant="destructive"><FileWarning className="h-3 w-3 mr-1"/>Reclamo</Badge>}
+                            </span>
+                          </TableCell>
                           <TableCell>{trabajo.tecnico_nombre}</TableCell>
                           <TableCell>{trabajo.usuario_id}</TableCell>
                           <TableCell className="text-right font-medium">{currencyFormatter.format(trabajo.costo_total_trabajo || 0)}</TableCell>
@@ -291,7 +299,10 @@ export default function TrabajosRealizadosPage() {
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
               <DialogHeader>
-                  <DialogTitle>Detalles del Trabajo Realizado (OT: {selectedTrabajo?.orden_trabajo_id.substring(0, 7)})</DialogTitle>
+                  <DialogTitle className="flex items-center gap-2">
+                    Detalles del Trabajo Realizado (OT: {selectedTrabajo?.orden_trabajo_id.substring(0, 7)})
+                    {selectedTrabajo?.origen_garantia_id && <Badge variant="destructive"><FileWarning className="h-4 w-4 mr-2"/>Reclamo de Garantía</Badge>}
+                  </DialogTitle>
               </DialogHeader>
               <ScrollArea className="flex-grow overflow-y-auto -mr-6 pr-6">
               {selectedTrabajo && (
@@ -349,4 +360,3 @@ export default function TrabajosRealizadosPage() {
     </>
   );
 }
-
