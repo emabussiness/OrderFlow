@@ -346,10 +346,10 @@ export default function DiagnosticoPage() {
                   <DialogTitle>Registrar Diagnóstico Técnico</DialogTitle>
                   {selectedEquipo && (
                     <DialogDescription>
-                        <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-2">
                             <span>{`${selectedEquipo.tipo_equipo_nombre} ${selectedEquipo.marca_nombre} ${selectedEquipo.modelo} - Cliente: ${selectedEquipo.cliente_nombre}`}</span>
                             {selectedEquipo.origen_garantia_id && <Badge variant="destructive"><FileWarning className="h-3 w-3 mr-1"/>Reclamo de Garantía</Badge>}
-                        </div>
+                        </span>
                     </DialogDescription>
                   )}
               </DialogHeader>
@@ -403,3 +403,5 @@ export default function DiagnosticoPage() {
     </>
   );
 }
+
+    
