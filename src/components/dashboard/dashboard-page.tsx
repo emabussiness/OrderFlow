@@ -252,6 +252,7 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                          <SidebarMenu>
                             <SidebarMenuItem><Link href="/servicios/informes/historial-diagnosticos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/informes/historial-diagnosticos')}>Historial de Diagnósticos</SidebarMenuButton></Link></SidebarMenuItem>
                             <SidebarMenuItem><Link href="/servicios/informes/estadisticas-recepcion"><SidebarMenuButton isActive={pathname.startsWith('/servicios/informes/estadisticas-recepcion')}>Estadísticas de Recepción</SidebarMenuButton></Link></SidebarMenuItem>
+                             <SidebarMenuItem><Link href="/servicios/informes/analisis-presupuestos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/informes/analisis-presupuestos')}>Análisis de Presupuestos</SidebarMenuButton></Link></SidebarMenuItem>
                         </SidebarMenu>
                       </CollapsibleContent>
                     </Collapsible>
