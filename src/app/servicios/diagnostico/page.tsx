@@ -9,7 +9,7 @@ import { db } from "@/lib/firebase/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PenSquare } from "lucide-react";
+import { PenSquare, FileWarning } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -44,6 +44,7 @@ type EquipoEnServicio = {
   tecnico_nombre?: string;
   usuario_id?: string;
   fecha_creacion?: any;
+  origen_garantia_id?: string;
 };
 
 type Recepcion = {
@@ -287,7 +288,12 @@ export default function DiagnosticoPage() {
                     <TableBody>
                       {data.equipos.map((equipo) => (
                         <TableRow key={equipo.id}>
-                          <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                                <span>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</span>
+                                {equipo.origen_garantia_id && <Badge variant="destructive"><FileWarning className="h-3 w-3 mr-1"/>Reclamo</Badge>}
+                            </div>
+                          </TableCell>
                           <TableCell className="max-w-[300px] truncate">{equipo.problema_manifestado}</TableCell>
                           <TableCell>
                             {equipo.diagnostico_tecnico ? (
@@ -340,7 +346,10 @@ export default function DiagnosticoPage() {
                   <DialogTitle>Registrar Diagnóstico Técnico</DialogTitle>
                   {selectedEquipo && (
                     <DialogDescription>
-                        {`${selectedEquipo.tipo_equipo_nombre} ${selectedEquipo.marca_nombre} ${selectedEquipo.modelo} - Cliente: ${selectedEquipo.cliente_nombre}`}
+                        <div className="flex items-center gap-2">
+                            <span>{`${selectedEquipo.tipo_equipo_nombre} ${selectedEquipo.marca_nombre} ${selectedEquipo.modelo} - Cliente: ${selectedEquipo.cliente_nombre}`}</span>
+                            {selectedEquipo.origen_garantia_id && <Badge variant="destructive"><FileWarning className="h-3 w-3 mr-1"/>Reclamo de Garantía</Badge>}
+                        </div>
                     </DialogDescription>
                   )}
               </DialogHeader>
@@ -394,4 +403,3 @@ export default function DiagnosticoPage() {
     </>
   );
 }
-

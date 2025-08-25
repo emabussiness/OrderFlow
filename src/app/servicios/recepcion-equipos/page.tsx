@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, Trash2, Calendar as CalendarIcon } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Calendar as CalendarIcon, FileWarning } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +52,7 @@ type EquipoEnServicio = EquipoParaAgregar & {
     recepcion_id: string;
     cliente_nombre: string;
     fecha_recepcion: string;
+    origen_garantia_id?: string;
 };
 
 type Recepcion = {
@@ -62,6 +63,7 @@ type Recepcion = {
   equipos: { id: string; problema_manifestado: string; }[];
   usuario_id: string;
   fecha_creacion: any;
+  origen_reclamo_id?: string;
 };
 
 // --- Main Component ---
@@ -384,7 +386,12 @@ export default function RecepcionEquiposPage() {
             <TableBody>
               {filteredRecepciones.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.id.substring(0, 7)}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                        <span>{r.id.substring(0, 7)}</span>
+                        {r.origen_reclamo_id && <Badge variant="destructive"><FileWarning className="h-3 w-3 mr-1"/>Reclamo</Badge>}
+                    </div>
+                  </TableCell>
                   <TableCell>{r.fecha_recepcion}</TableCell>
                   <TableCell>{r.cliente_nombre}</TableCell>
                   <TableCell>
@@ -418,6 +425,9 @@ export default function RecepcionEquiposPage() {
                 <DialogTitle>Detalles de la Recepción: {selectedRecepcion?.id.substring(0, 7)}</DialogTitle>
                 <DialogDescription>
                     Información detallada de la recepción y los equipos asociados.
+                     {selectedRecepcion?.origen_reclamo_id && (
+                        <Badge variant="destructive" className="ml-2"><FileWarning className="h-3 w-3 mr-1"/>Reclamo de Garantía</Badge>
+                     )}
                 </DialogDescription>
             </DialogHeader>
             <div className="flex-grow overflow-y-auto pr-6 -mr-6">
@@ -437,19 +447,17 @@ export default function RecepcionEquiposPage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Tipo</TableHead>
-                                            <TableHead>Marca</TableHead>
-                                            <TableHead>Modelo</TableHead>
+                                            <TableHead>Equipo</TableHead>
                                             <TableHead>Problema Manifestado</TableHead>
+                                            <TableHead>Estado</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {detailedEquipos.map((item, index) => (
                                             <TableRow key={item.id || index}>
-                                                <TableCell>{item.tipo_equipo_nombre}</TableCell>
-                                                <TableCell>{item.marca_nombre}</TableCell>
-                                                <TableCell>{item.modelo}</TableCell>
+                                                <TableCell>{`${item.tipo_equipo_nombre} ${item.marca_nombre} ${item.modelo}`}</TableCell>
                                                 <TableCell className="max-w-[200px] whitespace-pre-wrap">{item.problema_manifestado}</TableCell>
+                                                <TableCell><Badge variant="secondary">{item.estado}</Badge></TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

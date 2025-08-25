@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FilePlus2, PlusCircle, Trash2, CheckCircle, XCircle, Eye } from "lucide-react";
+import { FilePlus2, PlusCircle, Trash2, CheckCircle, XCircle, Eye, FileWarning } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -36,6 +36,7 @@ type EquipoDiagnosticado = {
   trabajos_a_realizar?: string;
   estado: "Recibido" | "Diagnosticado" | "Presupuestado" | "En Reparación" | "Reparado" | "Retirado";
   recepcion_id: string;
+  origen_garantia_id?: string;
 };
 
 type PresupuestoServicio = {
@@ -365,7 +366,12 @@ export default function PresupuestoServicioPage() {
                         const presupuestoExistente = presupuestosMap.get(equipo.id);
                         return (
                         <TableRow key={equipo.id}>
-                           <TableCell>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</TableCell>
+                           <TableCell>
+                            <div className="flex items-center gap-2">
+                                <span>{`${equipo.tipo_equipo_nombre} ${equipo.marca_nombre} ${equipo.modelo}`}</span>
+                                {equipo.origen_garantia_id && <Badge variant="destructive"><FileWarning className="h-3 w-3 mr-1"/>Reclamo</Badge>}
+                            </div>
+                           </TableCell>
                            <TableCell>{equipo.fecha_diagnostico}</TableCell>
                            <TableCell>
                                 <Popover>
@@ -587,4 +593,3 @@ export default function PresupuestoServicioPage() {
     </>
   );
 }
-

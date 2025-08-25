@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MoreHorizontal, Eye, Calendar as CalendarIcon } from "lucide-react";
+import { MoreHorizontal, Eye, Calendar as CalendarIcon, FileWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
@@ -46,6 +46,7 @@ type Equipo = {
   estado: "En Reparación" | "Reparado" | "Retirado";
   diagnostico_tecnico?: string;
   trabajos_a_realizar?: string;
+  origen_garantia_id?: string;
 };
 
 type TrabajoRealizado = {
@@ -65,6 +66,7 @@ type OrdenTrabajo = {
   trabajo_realizado_id?: string;
   total: number;
   usuario_id?: string;
+  origen_garantia_id?: string;
 };
 
 type GroupedOrdenes = {
@@ -137,6 +139,7 @@ export default function OrdenDeTrabajoPage() {
           trabajo_realizado_id: trabajosMap.get(presupuesto.id),
           total: presupuesto.total,
           usuario_id: presupuesto.usuario_id,
+          origen_garantia_id: equipo?.origen_garantia_id,
         };
       }).sort((a,b) => new Date(b.fecha_aprobacion).getTime() - new Date(a.fecha_aprobacion).getTime());
 
@@ -280,7 +283,12 @@ export default function OrdenDeTrabajoPage() {
                               </PopoverContent>
                             </Popover>
                           </TableCell>
-                          <TableCell>{ot.equipo_info}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                                <span>{ot.equipo_info}</span>
+                                {ot.origen_garantia_id && <Badge variant="destructive"><FileWarning className="h-3 w-3 mr-1"/>Reclamo</Badge>}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge variant={getStatusVariant(ot.equipo_estado)}>{ot.equipo_estado}</Badge>
                           </TableCell>
