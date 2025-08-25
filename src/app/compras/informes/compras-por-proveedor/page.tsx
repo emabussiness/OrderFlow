@@ -15,7 +15,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
-import { ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
 
 
 type Compra = {
@@ -49,6 +49,13 @@ const formatYAxis = (tick: number) => {
     }
     return currencyFormatter.format(tick);
 };
+
+const chartConfig = {
+  total: {
+    label: "Total",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig;
 
 
 export default function ComprasPorProveedorPage() {
@@ -169,7 +176,7 @@ export default function ComprasPorProveedorPage() {
           </CardHeader>
           <CardContent className="h-[400px]">
             {reportData.length > 0 ? (
-                 <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer config={chartConfig} className="w-full h-full">
                     <BarChart data={reportData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                         <XAxis
                             dataKey="proveedor"
@@ -193,33 +200,28 @@ export default function ComprasPorProveedorPage() {
                         />
                         <Tooltip
                             cursor={{ fill: "hsl(var(--secondary))" }}
-                            content={({ active, payload, label }) => {
-                                if (active && payload && payload.length) {
-                                    return (
-                                        <ChartTooltipContent
-                                            formatter={(value, name, item, index) => (
-                                                <div className="rounded-lg border bg-background p-2 shadow-sm">
-                                                    <div className="grid grid-cols-1 gap-2">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[0.70rem] uppercase text-muted-foreground">Proveedor</span>
-                                                            <span className="font-bold text-foreground">{label}</span>
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[0.70rem] uppercase text-muted-foreground">Total Compras</span>
-                                                            <span className="font-bold text-primary">{currencyFormatter.format(value as number)}</span>
-                                                        </div>
-                                                    </div>
+                            content={
+                                <ChartTooltipContent
+                                    formatter={(value, name, item, index) => (
+                                        <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                            <div className="grid grid-cols-1 gap-2">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[0.70rem] uppercase text-muted-foreground">Proveedor</span>
+                                                    <span className="font-bold text-foreground">{item.payload.proveedor}</span>
                                                 </div>
-                                            )}
-                                        />
-                                    );
-                                }
-                                return null;
-                            }}
+                                                <div className="flex flex-col">
+                                                    <span className="text-[0.70rem] uppercase text-muted-foreground">Total Compras</span>
+                                                    <span className="font-bold text-primary">{currencyFormatter.format(value as number)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                />
+                            }
                         />
                         <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
             ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
                     <p>No hay datos disponibles para el período seleccionado.</p>

@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/command";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
 
 
 // --- Types ---
@@ -61,6 +61,12 @@ const currencyFormatter = new Intl.NumberFormat('es-PY', {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 });
+
+const chartConfig = {
+  total: {
+    label: "Total",
+  },
+} satisfies ChartConfig;
 
 
 // --- Main Component ---
@@ -239,7 +245,7 @@ export default function AnalisisPresupuestosPage() {
             </CardHeader>
             <CardContent className="h-[300px]">
                  {reportData.distribucionEstados.some(d => d.value > 0) ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ChartContainer config={chartConfig} className="w-full h-full">
                         <PieChart>
                             <Pie
                                 data={reportData.distribucionEstados}
@@ -260,7 +266,7 @@ export default function AnalisisPresupuestosPage() {
                             />
                              <Legend />
                         </PieChart>
-                    </ResponsiveContainer>
+                    </ChartContainer>
                 ) : (
                     <div className="h-full flex items-center justify-center text-muted-foreground">
                         <p>No hay datos para mostrar.</p>
@@ -274,7 +280,7 @@ export default function AnalisisPresupuestosPage() {
              </CardHeader>
              <CardContent className="h-[300px]">
                   {reportData.topMasCostosos.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ChartContainer config={chartConfig} className="w-full h-full">
                         <BarChart data={reportData.topMasCostosos} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                             <XAxis type="number" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => currencyFormatter.format(value as number)}/>
                             <YAxis type="category" dataKey="cliente" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} width={100} />
@@ -284,7 +290,7 @@ export default function AnalisisPresupuestosPage() {
                             />
                             <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                         </BarChart>
-                    </ResponsiveContainer>
+                    </ChartContainer>
                  ) : (
                     <div className="h-full flex items-center justify-center text-muted-foreground">
                         <p>No hay datos para mostrar.</p>
