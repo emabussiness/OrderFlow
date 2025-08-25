@@ -133,37 +133,38 @@ export default function ReclamosServicioPage() {
             // 2. Create a new reception record for the claim
             const nuevaRecepcionRef = doc(collection(db, "recepciones"));
             
-            // 3. Create new equipment_en_servicio record for the claim
+            // 3. Create new equipment_en_servicio record for the claim, ensuring it starts fresh
             const nuevoEquipoRef = doc(collection(db, "equipos_en_servicio"));
             batch.set(nuevoEquipoRef, {
-                // Copy only essential, non-status fields from the original equipment
+                // ---- Essential Equipment Data ----
                 tipo_equipo_id: equipoOriginal.tipo_equipo_id,
                 tipo_equipo_nombre: equipoOriginal.tipo_equipo_nombre,
                 marca_id: equipoOriginal.marca_id,
                 marca_nombre: equipoOriginal.marca_nombre,
                 modelo: equipoOriginal.modelo,
                 numero_serie: equipoOriginal.numero_serie || null,
+                accesorios: accesoriosReclamo,
                 
-                // Add new claim information
+                // ---- New Reception & Claim Data ----
                 recepcion_id: nuevaRecepcionRef.id,
                 cliente_id: selectedGarantia.cliente_id,
                 cliente_nombre: selectedGarantia.cliente_nombre,
                 problema_manifestado: problemaReclamo,
-                accesorios: accesoriosReclamo,
                 origen_garantia_id: selectedGarantia.id, // Link to the warranty
                 
-                // Set initial status for the new service cycle
+                // ---- Initial Status for the new service cycle ----
                 estado: "Recibido",
                 fecha_recepcion: new Date().toISOString().split('T')[0],
                 fecha_creacion: serverTimestamp(),
                 usuario_id: "user-demo",
                 
-                // Ensure diagnostic fields are null/undefined
+                // ---- Ensure diagnostic/repair fields are null/undefined ----
                 diagnostico_tecnico: null,
                 trabajos_a_realizar: null,
                 tecnico_id: null,
                 tecnico_nombre: null,
-                fecha_diagnostico: null
+                fecha_diagnostico: null,
+                pago_id: null
             });
             
             // 4. Set the reception data, now that we have the new equipment ID
@@ -299,3 +300,5 @@ export default function ReclamosServicioPage() {
         </div>
     );
 }
+
+    
