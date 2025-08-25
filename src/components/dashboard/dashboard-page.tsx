@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft, Banknote, HardHat, ListChecks, Hammer, Users, List, Tag, ArrowLeftRight } from "lucide-react";
+import { Home, ShoppingCart, Settings, User, ChevronDown, Building, Truck, ShoppingBasket, FileText, ClipboardList, Package, Boxes, Warehouse, Wrench, Receipt, DollarSign, BarChart3, FileDiff, Landmark, BookCopy, HandCoins, ArrowRightLeft, Banknote, HardHat, ListChecks, Hammer, Users, List, Tag, ArrowLeftRight, Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Link from "next/link";
@@ -252,7 +252,8 @@ export function DashboardPage({ children }: { children: React.ReactNode }) {
                          <SidebarMenu>
                             <SidebarMenuItem><Link href="/servicios/informes/historial-diagnosticos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/informes/historial-diagnosticos')}>Historial de Diagnósticos</SidebarMenuButton></Link></SidebarMenuItem>
                             <SidebarMenuItem><Link href="/servicios/informes/estadisticas-recepcion"><SidebarMenuButton isActive={pathname.startsWith('/servicios/informes/estadisticas-recepcion')}>Estadísticas de Recepción</SidebarMenuButton></Link></SidebarMenuItem>
-                             <SidebarMenuItem><Link href="/servicios/informes/analisis-presupuestos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/informes/analisis-presupuestos')}>Análisis de Presupuestos</SidebarMenuButton></Link></SidebarMenuItem>
+                            <SidebarMenuItem><Link href="/servicios/informes/analisis-presupuestos"><SidebarMenuButton isActive={pathname.startsWith('/servicios/informes/analisis-presupuestos')}>Análisis de Presupuestos</SidebarMenuButton></Link></SidebarMenuItem>
+                            <SidebarMenuItem><Link href="/servicios/informes/analisis-rendimiento"><SidebarMenuButton isActive={pathname.startsWith('/servicios/informes/analisis-rendimiento')}><Clock/>Análisis de Rendimiento</SidebarMenuButton></Link></SidebarMenuItem>
                         </SidebarMenu>
                       </CollapsibleContent>
                     </Collapsible>
