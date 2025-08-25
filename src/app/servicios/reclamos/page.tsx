@@ -95,7 +95,7 @@ export default function ReclamosServicioPage() {
             const equipoData = equipoSnap.data();
             setEquipoOriginal({
                 id: equipoSnap.id, 
-                cliente_id: garantia.cliente_id,
+                cliente_id: equipoData.cliente_id,
                 tipo_equipo_id: equipoData.tipo_equipo_id,
                 tipo_equipo_nombre: equipoData.tipo_equipo_nombre,
                 marca_id: equipoData.marca_id,
@@ -143,11 +143,11 @@ export default function ReclamosServicioPage() {
                 marca_nombre: equipoOriginal.marca_nombre,
                 modelo: equipoOriginal.modelo,
                 numero_serie: equipoOriginal.numero_serie || null,
-                accesorios: accesoriosReclamo,
+                accesorios: accesoriosReclamo || null,
                 
                 // ---- New Reception & Claim Data ----
                 recepcion_id: nuevaRecepcionRef.id,
-                cliente_id: selectedGarantia.cliente_id,
+                cliente_id: equipoOriginal.cliente_id,
                 cliente_nombre: selectedGarantia.cliente_nombre,
                 problema_manifestado: problemaReclamo,
                 origen_garantia_id: selectedGarantia.id, // Link to the warranty
@@ -169,7 +169,7 @@ export default function ReclamosServicioPage() {
             
             // 4. Set the reception data, now that we have the new equipment ID
             batch.set(nuevaRecepcionRef, {
-                cliente_id: selectedGarantia.cliente_id,
+                cliente_id: equipoOriginal.cliente_id,
                 cliente_nombre: selectedGarantia.cliente_nombre,
                 fecha_recepcion: new Date().toISOString().split('T')[0],
                 usuario_id: 'user-demo',
@@ -300,5 +300,3 @@ export default function ReclamosServicioPage() {
         </div>
     );
 }
-
-    
