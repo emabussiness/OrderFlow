@@ -221,6 +221,7 @@ export default function PresupuestoServicioPage() {
       tipo: type,
       cantidad: 1,
       precio_unitario: 0,
+      cubierto_por_garantia: false,
     };
     
     setItemsPresupuesto(prev => [...prev, newItem]);
@@ -242,36 +243,33 @@ export default function PresupuestoServicioPage() {
         if (selectedItem) {
             currentItem.id = selectedItem.id;
             currentItem.nombre = selectedItem.nombre;
-            
-            const itemGarantia = selectedEquipo?.items_cubiertos_garantia?.find(i => i.id === selectedItem.id);
-            if (itemGarantia && itemGarantia.cantidad >= currentItem.cantidad) {
-                currentItem.precio_unitario = 0;
-                currentItem.cubierto_por_garantia = true;
-            } else {
-                 currentItem.precio_unitario = (selectedItem as any).precio_referencia || (selectedItem as any).precio || 0;
-                 currentItem.cubierto_por_garantia = false;
-            }
+            currentItem.precio_unitario = (selectedItem as any).precio_referencia || (selectedItem as any).precio || 0;
+            currentItem.cantidad = 1;
         }
     } else if (field === 'cantidad') {
-        const nuevaCantidad = Number(value) < 0 ? 0 : Number(value);
-        currentItem.cantidad = nuevaCantidad;
-
-        const itemGarantia = selectedEquipo?.items_cubiertos_garantia?.find(i => i.id === currentItem.id);
-        if (itemGarantia && nuevaCantidad <= itemGarantia.cantidad) {
-            currentItem.precio_unitario = 0;
-            currentItem.cubierto_por_garantia = true;
-        } else if (currentItem.id) { // Repopulate price if not under warranty
-            const list = currentItem.tipo === 'Repuesto' ? productos : servicios;
-            const originalItem = list.find(p => p.id === currentItem.id);
-            currentItem.precio_unitario = (originalItem as any)?.precio_referencia || (originalItem as any)?.precio || 0;
-            currentItem.cubierto_por_garantia = false;
-        }
+      currentItem.cantidad = Number(value) < 0 ? 0 : Number(value);
     } else if (field === 'precio_unitario') {
         (currentItem as any)[field] = Number(value) < 0 ? 0 : Number(value);
     }
     
     setItemsPresupuesto(newItems);
   };
+  
+    const garantiaCoverageMap = useMemo(() => {
+        const map = new Map<string, { nombre: string; cantidad: number }>();
+        if (!selectedEquipo?.items_cubiertos_garantia) return map;
+
+        selectedEquipo.items_cubiertos_garantia.forEach(item => {
+            const existing = map.get(item.id);
+            if (existing) {
+                map.set(item.id, { ...existing, cantidad: existing.cantidad + item.cantidad });
+            } else {
+                map.set(item.id, { nombre: item.nombre, cantidad: item.cantidad });
+            }
+        });
+        return map;
+    }, [selectedEquipo]);
+
 
   const handleRemoveItem = (index: number) => {
       setItemsPresupuesto(prev => prev.filter((_, i) => i !== index));
@@ -279,29 +277,14 @@ export default function PresupuestoServicioPage() {
 
   const totalPresupuesto = useMemo(() => {
       let total = 0;
-      const itemsCubiertos = new Map(selectedEquipo?.items_cubiertos_garantia?.map(i => [i.id, i.cantidad]));
-
-      const itemsAgrupados = new Map<string, ItemPresupuesto>();
       itemsPresupuesto.forEach(item => {
-          if (itemsAgrupados.has(item.id)) {
-              itemsAgrupados.get(item.id)!.cantidad += item.cantidad;
-          } else {
-              itemsAgrupados.set(item.id, { ...item });
-          }
+          if (!item.id) return;
+          const cantidadCubierta = garantiaCoverageMap.get(item.id)?.cantidad || 0;
+          const cantidadACobrar = Math.max(0, item.cantidad - cantidadCubierta);
+          total += cantidadACobrar * item.precio_unitario;
       });
-      
-      itemsAgrupados.forEach(item => {
-          const cantidadCubierta = itemsCubiertos.get(item.id) || 0;
-          if (cantidadCubierta > 0) {
-              const cantidadACobrar = Math.max(0, item.cantidad - cantidadCubierta);
-              total += cantidadACobrar * item.precio_unitario;
-          } else {
-              total += item.cantidad * item.precio_unitario;
-          }
-      });
-
       return total;
-  }, [itemsPresupuesto, selectedEquipo]);
+  }, [itemsPresupuesto, garantiaCoverageMap]);
   
   const handleSavePresupuesto = async () => {
     if (!selectedEquipo || itemsPresupuesto.length === 0 || itemsPresupuesto.some(i => !i.id)) {
@@ -441,7 +424,7 @@ export default function PresupuestoServicioPage() {
                            <TableCell>
                                 <Popover>
                                 <PopoverTrigger asChild>
-                                    <Badge variant="outline" className="cursor-pointer">Ver Diagnóstico</Badge>
+                                    <Button variant="outline" size="sm" className="cursor-pointer">Ver Diagnóstico</Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-96">
                                     <div className="grid gap-4">
@@ -495,7 +478,7 @@ export default function PresupuestoServicioPage() {
                                                         <TableHeader><TableRow><TableHead>Ítem</TableHead><TableHead>Cant.</TableHead><TableHead className="text-right">Precio</TableHead></TableRow></TableHeader>
                                                         <TableBody>
                                                             {presupuestoExistente.items.map((item, index) => (
-                                                                <TableRow key={index}>
+                                                                <TableRow key={`${item.id}-${index}`}>
                                                                     <TableCell>{item.nombre}</TableCell>
                                                                     <TableCell>{item.cantidad}</TableCell>
                                                                     <TableCell className="text-right">{currencyFormatter.format(item.precio_unitario)}</TableCell>
@@ -588,17 +571,21 @@ export default function PresupuestoServicioPage() {
                           <CardHeader className="pb-2"><CardTitle className="text-base">Trabajos Sugeridos</CardTitle></CardHeader>
                           <CardContent><p className="text-sm text-muted-foreground">{selectedEquipo?.trabajos_a_realizar}</p></CardContent>
                       </Card>
-                      {selectedEquipo?.items_cubiertos_garantia && selectedEquipo.items_cubiertos_garantia.length > 0 && (
+                      {selectedEquipo?.origen_garantia_id && (
                         <Card className="border-primary">
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="text-primary"/>Ítems Cubiertos por Garantía Original</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <ul className="list-disc list-inside text-sm text-muted-foreground">
-                                    {selectedEquipo.items_cubiertos_garantia.map((item, index) => (
-                                        <li key={`${item.id}-${index}`}>{item.nombre} (x{item.cantidad})</li>
-                                    ))}
-                                </ul>
+                                {garantiaCoverageMap.size > 0 ? (
+                                    <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                        {Array.from(garantiaCoverageMap.entries()).map(([id, {nombre, cantidad}], index) => (
+                                            <li key={`${id}-${index}`}>{nombre} (x{cantidad})</li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">No se especificaron ítems en la garantía original.</p>
+                                )}
                             </CardContent>
                         </Card>
                       )}
@@ -615,7 +602,13 @@ export default function PresupuestoServicioPage() {
                           <CardContent>
                             <ScrollArea className="h-64 pr-4">
                               <div className="space-y-4">
-                                {itemsPresupuesto.map((item, index) => (
+                                {itemsPresupuesto.map((item, index) => {
+                                   const cantidadCubierta = garantiaCoverageMap.get(item.id)?.cantidad || 0;
+                                   const cantidadACobrar = Math.max(0, item.cantidad - cantidadCubierta);
+                                   const isParcialmenteCubierto = cantidadCubierta > 0 && cantidadACobrar > 0;
+                                   const isTotalmenteCubierto = cantidadCubierta > 0 && cantidadACobrar === 0;
+
+                                   return (
                                     <div key={index} className="p-3 border rounded-md relative space-y-3">
                                         <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => handleRemoveItem(index)}>
                                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -641,16 +634,18 @@ export default function PresupuestoServicioPage() {
                                             </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor={`price-${index}`} className="text-xs">P. Unitario</Label>
-                                                <Input id={`price-${index}`} type="number" value={item.precio_unitario} disabled={item.cubierto_por_garantia} onChange={e => handleItemChange(index, 'precio_unitario', e.target.value)} />
+                                                <Input id={`price-${index}`} type="number" value={item.precio_unitario} onChange={e => handleItemChange(index, 'precio_unitario', e.target.value)} />
                                             </div>
                                         </div>
                                          <Separator />
                                          <div className="text-right font-medium flex justify-between items-center">
-                                            {item.cubierto_por_garantia && <Badge variant="default" className="text-xs"><ShieldCheck className="h-3 w-3 mr-1"/>Cubierto por Garantía</Badge>}
-                                            <span>Subtotal: {currencyFormatter.format(item.cantidad * item.precio_unitario)}</span>
+                                            {isTotalmenteCubierto && <Badge variant="default" className="text-xs"><ShieldCheck className="h-3 w-3 mr-1"/>Cubierto por Garantía</Badge>}
+                                            {isParcialmenteCubierto && <Badge variant="secondary" className="text-xs"><ShieldCheck className="h-3 w-3 mr-1"/>{`Cubierto: ${cantidadCubierta}, a Cobrar: ${cantidadACobrar}`}</Badge>}
+                                            <span>Subtotal: {currencyFormatter.format(cantidadACobrar * item.precio_unitario)}</span>
                                          </div>
                                     </div>
-                                ))}
+                                    )
+                                 })}
                                 {itemsPresupuesto.length === 0 && (
                                   <p className="text-sm text-center text-muted-foreground py-4">Añada ítems al presupuesto.</p>
                                 )}
@@ -666,7 +661,7 @@ export default function PresupuestoServicioPage() {
               </div>
               <DialogFooter className="border-t pt-4 flex-shrink-0">
                   <div className="w-full flex justify-between items-center">
-                      <p className="text-xl font-bold">Total: {currencyFormatter.format(totalPresupuesto)}</p>
+                      <p className="text-xl font-bold">Total a Cobrar: {currencyFormatter.format(totalPresupuesto)}</p>
                       <div>
                           <Button variant="outline" className="mr-2" onClick={() => setOpenPresupuesto(false)}>Cancelar</Button>
                           <Button onClick={handleSavePresupuesto}>Guardar Presupuesto</Button>
