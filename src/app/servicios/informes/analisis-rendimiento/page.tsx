@@ -18,6 +18,7 @@ import type { DateRange } from "react-day-picker";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/command";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { where } from "firebase/firestore";
 
 // --- Types ---
 type Equipo = {
@@ -104,7 +105,7 @@ export default function AnalisisRendimientoPage() {
          if(!equipo) continue;
          
          ciclosVida.push({
-             equipo_id: equipo.id,
+             equipo_id: presupuesto.equipo_id,
              recepcion: new Date(equipo.fecha_recepcion + 'T00:00:00'),
              diagnostico: equipo.fecha_diagnostico ? new Date(equipo.fecha_diagnostico + 'T00:00:00') : undefined,
              presupuesto: presupuesto.fecha_presupuesto ? new Date(presupuesto.fecha_presupuesto + 'T00:00:00') : undefined,
@@ -283,8 +284,8 @@ export default function AnalisisRendimientoPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {reportData.detalleCiclos.map((d) => (
-                            <TableRow key={`${d.equipo_id}-${d.reparacion?.toISOString()}`}>
+                        {reportData.detalleCiclos.map((d, index) => (
+                            <TableRow key={`${d.equipo_id}-${d.reparacion?.toISOString()}-${index}`}>
                                 <TableCell>{d.tipo_equipo}</TableCell>
                                 <TableCell>{d.tecnico_nombre}</TableCell>
                                 <TableCell className="text-right">{d.dias_diagnostico}</TableCell>
