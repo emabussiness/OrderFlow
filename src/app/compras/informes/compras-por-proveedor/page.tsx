@@ -15,6 +15,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
+import { ChartTooltipContent } from "@/components/ui/chart";
 
 
 type Compra = {
@@ -113,32 +114,6 @@ export default function ComprasPorProveedorPage() {
 
   }, [compras, date]);
   
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="rounded-lg border bg-background p-2 shadow-sm">
-          <div className="grid grid-cols-1 gap-2">
-            <div className="flex flex-col">
-              <span className="text-[0.70rem] uppercase text-muted-foreground">
-                Proveedor
-              </span>
-              <span className="font-bold text-foreground">{label}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[0.70rem] uppercase text-muted-foreground">
-                Total Compras
-              </span>
-              <span className="font-bold text-primary">
-                 {currencyFormatter.format(payload[0].value)}
-              </span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
   if (loading) return <p>Generando informes...</p>;
 
   return (
@@ -216,7 +191,32 @@ export default function ComprasPorProveedorPage() {
                             domain={[0, 'dataMax + 1000']}
                             width={80}
                         />
-                         <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--secondary))" }} />
+                        <Tooltip
+                            cursor={{ fill: "hsl(var(--secondary))" }}
+                            content={({ active, payload, label }) => {
+                                if (active && payload && payload.length) {
+                                    return (
+                                        <ChartTooltipContent
+                                            formatter={(value, name, item, index) => (
+                                                <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                                    <div className="grid grid-cols-1 gap-2">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[0.70rem] uppercase text-muted-foreground">Proveedor</span>
+                                                            <span className="font-bold text-foreground">{label}</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[0.70rem] uppercase text-muted-foreground">Total Compras</span>
+                                                            <span className="font-bold text-primary">{currencyFormatter.format(value as number)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        />
+                                    );
+                                }
+                                return null;
+                            }}
+                        />
                         <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     </BarChart>
                 </ResponsiveContainer>

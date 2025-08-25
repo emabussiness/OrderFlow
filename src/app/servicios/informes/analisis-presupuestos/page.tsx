@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/command";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ChartTooltipContent } from "@/components/ui/chart";
 
 
 // --- Types ---
@@ -51,7 +52,7 @@ type ReportData = {
 const COLORS = {
     'Aprobado': 'hsl(var(--primary))',
     'Rechazado': 'hsl(var(--destructive))',
-    'Pendiente de Aprobación': 'hsl(var(--chart-3))', // Naranja/Ámbar para "en espera"
+    'Pendiente de Aprobación': 'hsl(var(--chart-3))',
 };
 
 const currencyFormatter = new Intl.NumberFormat('es-PY', {
@@ -254,7 +255,9 @@ export default function AnalisisPresupuestosPage() {
                                     <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS]} />
                                 ))}
                             </Pie>
-                            <Tooltip formatter={(value, name) => [`${value} Presupuestos`, name]}/>
+                            <Tooltip
+                                content={<ChartTooltipContent formatter={(value, name) => `${value} Presupuestos`} />}
+                            />
                              <Legend />
                         </PieChart>
                     </ResponsiveContainer>
@@ -276,12 +279,8 @@ export default function AnalisisPresupuestosPage() {
                             <XAxis type="number" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => currencyFormatter.format(value as number)}/>
                             <YAxis type="category" dataKey="cliente" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} width={100} />
                             <Tooltip
-                                contentStyle={{
-                                    backgroundColor: 'hsl(var(--background))',
-                                    borderColor: 'hsl(var(--border))'
-                                }}
+                                content={<ChartTooltipContent formatter={(value) => currencyFormatter.format(value as number)} />}
                                 cursor={{ fill: "hsl(var(--secondary))" }}
-                                formatter={(value) => [currencyFormatter.format(value as number), "Total"]}
                             />
                             <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                         </BarChart>

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/command";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { where } from "firebase/firestore";
+import { ChartTooltipContent } from "@/components/ui/chart";
 
 // --- Types ---
 type Equipo = {
@@ -243,7 +244,7 @@ export default function AnalisisRendimientoPage() {
                          <BarChart data={reportData.reparacionesPorTecnico} layout="vertical" margin={{left: 100}}>
                             <XAxis type="number" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                             <YAxis type="category" dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} width={100} />
-                            <Tooltip cursor={{ fill: 'hsl(var(--secondary))' }}/>
+                            <Tooltip content={<ChartTooltipContent />} cursor={{ fill: 'hsl(var(--secondary))' }}/>
                             <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
@@ -260,7 +261,7 @@ export default function AnalisisRendimientoPage() {
                          <BarChart data={reportData.tiempoPorTipoEquipo}>
                             <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false}/>
                             <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}d`}/>
-                            <Tooltip formatter={(val) => [`${(val as number).toFixed(1)} días`, "Tiempo Prom."]} cursor={{ fill: 'hsl(var(--secondary))' }}/>
+                            <Tooltip content={<ChartTooltipContent formatter={(val) => `${(val as number).toFixed(1)} días`} />} cursor={{ fill: 'hsl(var(--secondary))' }}/>
                             <Bar dataKey="tiempo" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
@@ -285,7 +286,7 @@ export default function AnalisisRendimientoPage() {
                     </TableHeader>
                     <TableBody>
                         {reportData.detalleCiclos.map((d, index) => (
-                            <TableRow key={`${d.equipo_id}-${d.reparacion?.toISOString()}-${index}`}>
+                            <TableRow key={`${d.equipo_id}-${d.tecnico_nombre}-${d.reparacion?.toISOString()}-${index}`}>
                                 <TableCell>{d.tipo_equipo}</TableCell>
                                 <TableCell>{d.tecnico_nombre}</TableCell>
                                 <TableCell className="text-right">{d.dias_diagnostico}</TableCell>

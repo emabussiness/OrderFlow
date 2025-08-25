@@ -16,6 +16,7 @@ import { addDays, format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { ChartTooltipContent } from "@/components/ui/chart";
 
 
 // Types
@@ -55,27 +56,6 @@ const formatYAxis = (tick: number) => {
     if (tick >= 1_000_000) return `${(tick / 1_000_000).toFixed(1)}M`;
     if (tick >= 1_000) return `${(tick / 1_000).toFixed(0)}K`;
     return currencyFormatter.format(tick);
-};
-
-// Custom Tooltip Component
-const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="rounded-lg border bg-background p-2 shadow-sm">
-          <div className="grid grid-cols-1 gap-2">
-            <div className="flex flex-col">
-              <span className="text-[0.70rem] uppercase text-muted-foreground">Categoría</span>
-              <span className="font-bold text-foreground">{label}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[0.70rem] uppercase text-muted-foreground">Total Comprado</span>
-              <span className="font-bold text-primary">{currencyFormatter.format(payload[0].value)}</span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return null;
 };
 
 export default function ComprasPorCategoriaPage() {
@@ -225,7 +205,32 @@ export default function ComprasPorCategoriaPage() {
                     <BarChart data={reportData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                         <XAxis dataKey="categoria" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} interval={0} angle={-45} textAnchor="end" height={100} />
                         <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={formatYAxis} domain={[0, 'dataMax + 1000']} width={80}/>
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--secondary))" }} />
+                        <Tooltip
+                            cursor={{ fill: "hsl(var(--secondary))" }}
+                            content={({ active, payload, label }) => {
+                                if (active && payload && payload.length) {
+                                    return (
+                                        <ChartTooltipContent
+                                            formatter={(value, name, item, index) => (
+                                                <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                                    <div className="grid grid-cols-1 gap-2">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[0.70rem] uppercase text-muted-foreground">Categoría</span>
+                                                            <span className="font-bold text-foreground">{label}</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[0.70rem] uppercase text-muted-foreground">Total Comprado</span>
+                                                            <span className="font-bold text-primary">{currencyFormatter.format(value as number)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        />
+                                    );
+                                }
+                                return null;
+                            }}
+                        />
                         <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     </BarChart>
                 </ResponsiveContainer>
