@@ -13,10 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Combobox } from "@/components/ui/command";
-import { PlusCircle, Trash2, ArrowLeft } from "lucide-react";
+import { PlusCircle, Trash2, ArrowLeft, FileWarning, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from 'next/navigation'
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 // --- Types ---
 type PresupuestoServicio = {
@@ -34,7 +35,13 @@ type Equipo = {
     tipo_equipo_nombre: string;
     marca_nombre: string;
     modelo: string;
+    origen_garantia_id?: string;
 };
+
+type GarantiaOriginal = {
+    id: string;
+    items_cubiertos?: ItemPresupuesto[];
+}
 
 type ItemPresupuesto = {
   id: string; // Puede ser producto_id o servicio_id
@@ -79,6 +86,7 @@ export default function TrabajosRealizadosPage() {
   const [loading, setLoading] = useState(true);
   const [presupuesto, setPresupuesto] = useState<PresupuestoServicio | null>(null);
   const [equipo, setEquipo] = useState<Equipo | null>(null);
+  const [garantiaOriginal, setGarantiaOriginal] = useState<GarantiaOriginal | null>(null);
   
   // Referenciales
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
@@ -104,6 +112,7 @@ export default function TrabajosRealizadosPage() {
 
         if (!presupuestoSnap.exists()) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se encontró la orden de trabajo.' });
+            router.push('/servicios/orden-trabajo');
             return;
         }
         const presupuestoData = { id: presupuestoSnap.id, ...presupuestoSnap.data() } as PresupuestoServicio;
@@ -112,7 +121,16 @@ export default function TrabajosRealizadosPage() {
         const equipoRef = doc(db, "equipos_en_servicio", presupuestoData.equipo_id);
         const equipoSnap = await getDoc(equipoRef);
         if (equipoSnap.exists()) {
-            setEquipo({ id: equipoSnap.id, ...equipoSnap.data() } as Equipo);
+            const equipoData = { id: equipoSnap.id, ...equipoSnap.data() } as Equipo
+            setEquipo(equipoData);
+
+            if(equipoData.origen_garantia_id) {
+                const garantiaRef = doc(db, 'garantias_servicio', equipoData.origen_garantia_id);
+                const garantiaSnap = await getDoc(garantiaRef);
+                if (garantiaSnap.exists()) {
+                    setGarantiaOriginal({ id: garantiaSnap.id, ...garantiaSnap.data()} as GarantiaOriginal);
+                }
+            }
         }
         
         const initialChecked: Record<string, boolean> = {};
@@ -141,7 +159,7 @@ export default function TrabajosRealizadosPage() {
     } finally {
       setLoading(false);
     }
-  }, [otId, toast]);
+  }, [otId, toast, router]);
 
   useEffect(() => {
     fetchData();
@@ -202,24 +220,31 @@ export default function TrabajosRealizadosPage() {
       }
       setItemsAdicionales(newItems);
   };
+
+    const garantiaCoverageMap = useMemo(() => {
+        const map = new Map<string, number>();
+        if (!garantiaOriginal?.items_cubiertos) return map;
+
+        for (const item of garantiaOriginal.items_cubiertos) {
+            map.set(item.id, (map.get(item.id) || 0) + item.cantidad);
+        }
+        return map;
+    }, [garantiaOriginal]);
   
   const costoTotalTrabajo = useMemo(() => {
     let costoTotal = 0;
 
-    presupuesto?.items.forEach(item => {
-        if (itemsUtilizados[item.id]) {
-            costoTotal += item.cantidad * item.precio_unitario;
-        }
-    });
+    const itemsPresupuestoUtilizados = presupuesto?.items.filter(item => itemsUtilizados[item.id]) || [];
+    const todosLosItems = [...itemsPresupuestoUtilizados, ...itemsAdicionales.filter(i => i.id && !i.id.startsWith('adicional-'))];
 
-    itemsAdicionales.forEach(item => {
-        if (item.id && item.cantidad > 0) {
-            costoTotal += item.cantidad * item.precio_unitario;
-        }
+    todosLosItems.forEach(item => {
+        const cantidadCubierta = garantiaCoverageMap.get(item.id) || 0;
+        const cantidadACobrar = Math.max(0, item.cantidad - cantidadCubierta);
+        costoTotal += cantidadACobrar * item.precio_unitario;
     });
 
     return costoTotal;
-  }, [itemsUtilizados, itemsAdicionales, presupuesto]);
+  }, [itemsUtilizados, itemsAdicionales, presupuesto, garantiaCoverageMap]);
 
 
   const handleSubmitTrabajo = async () => {
@@ -248,7 +273,7 @@ export default function TrabajosRealizadosPage() {
             observaciones_tecnicas: observacionesTecnicas,
             items_utilizados: itemsPresupuestoUtilizados,
             items_adicionales: itemsAdicionales.filter(item => item.id && item.cantidad > 0),
-            items_cubiertos_garantia: itemsCubiertosPorGarantia, // Your great idea!
+            items_cubiertos_garantia: itemsCubiertosPorGarantia, 
             costo_total_trabajo: costoTotalTrabajo,
             usuario_id: "user-demo",
             fecha_creacion: serverTimestamp(),
@@ -291,7 +316,10 @@ export default function TrabajosRealizadosPage() {
                 <Link href="/servicios/orden-trabajo"><ArrowLeft/></Link>
             </Button>
             <div>
-                <h1 className="text-2xl font-bold">Registrar Trabajo Realizado (OT: {otId.substring(0, 7)})</h1>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                    Registrar Trabajo Realizado (OT: {otId.substring(0, 7)})
+                    {equipo?.origen_garantia_id && <Badge variant="destructive"><FileWarning className="mr-2 h-4 w-4"/>Reclamo de Garantía</Badge>}
+                </h1>
                 <p className="text-muted-foreground">
                     {equipo?.tipo_equipo_nombre} {equipo?.marca_nombre} {equipo?.modelo} para {presupuesto.cliente_nombre}
                 </p>
@@ -331,7 +359,7 @@ export default function TrabajosRealizadosPage() {
                  <Card>
                     <CardHeader><CardTitle>Costo Total del Trabajo</CardTitle></CardHeader>
                      <CardContent>
-                        <p className="text-sm text-muted-foreground">Este es el valor total de los ítems y mano de obra utilizados.</p>
+                        <p className="text-sm text-muted-foreground">Este es el valor total de los ítems y mano de obra utilizados que no están cubiertos por la garantía.</p>
                     </CardContent>
                     <CardFooter className="font-bold text-xl text-primary">
                         {currencyFormatter.format(costoTotalTrabajo)}
